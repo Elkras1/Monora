@@ -12,6 +12,7 @@ import { MeProfileModal } from './MeProfileModal';
 import { ShiftPanel } from './ShiftPanel';
 import { LocationPanel } from './LocationPanel';
 import { TimeEntryPanel } from './TimeEntryPanel';
+import { LiveStatusPanel } from './LiveStatusPanel';
 
 export function GlobalOverlays() {
   const { state } = useApp();
@@ -32,6 +33,7 @@ export function GlobalOverlays() {
       {state.panelShiftId ? <ShiftPanel /> : null}
       {state.panelLocationId ? <LocationPanel /> : null}
       {state.panelTimeEntryId ? <TimeEntryPanel /> : null}
+      {state.panelLiveStatusId ? <LiveStatusPanel /> : null}
     </>
   );
 }

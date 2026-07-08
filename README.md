@@ -1,4 +1,4 @@
-# Montora – Zeiterfassung & Facility Workforce
+# Monora – Zeiterfassung & Facility Workforce
 
 React + TypeScript + Vite Prototyp für Reinigungsfirmen: Dienstplan, Mitarbeiterverwaltung,
 Zeiterfassung mit echtem GPS-Geofencing, Abwesenheiten, Standorte/Kunden, Berichte und

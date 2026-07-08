@@ -18,7 +18,7 @@ export function Sidebar() {
           <Icon name="droplet" />
         </div>
         <div>
-          <div className="brand-name">Montora</div>
+          <div className="brand-name">Monora</div>
           <div className="brand-sub">Facility Workforce</div>
         </div>
       </div>

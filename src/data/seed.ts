@@ -12,6 +12,9 @@ import { uid } from '../utils/format';
 import { addDays, isoDate, mondayOf } from '../utils/date';
 import { DEFAULT_PERMISSIONS, DEFAULT_PROFILE_EDITABLE } from './permissions';
 
+/** Shared demo login password for all seeded employees (mock auth only, no real backend). */
+const DEMO_PASSWORD = 'demo1234';
+
 /** Rough coordinate offset (for demo seed data only) so mock GPS points aren't exactly on top of the location. */
 function offsetCoord(lat: number, lng: number, meters: number): { lat: number; lng: number } {
   const dLat = meters / 111320;
@@ -51,6 +54,7 @@ function makeEmployee(
     )}`,
     status: 'aktiv',
     pin,
+    password: DEMO_PASSWORD,
     startDate: '2023-03-01',
     customerIds,
   };

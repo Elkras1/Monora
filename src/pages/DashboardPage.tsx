@@ -34,6 +34,12 @@ export function DashboardPage() {
     .sort((a, b) => a.start.localeCompare(b.start))
     .slice(0, 5);
 
+  const onPauseCount = activeNow.filter((t) => t.pauseStart).length;
+  const openTodayCount = state.timeEntries.filter((t) => isoDate(new Date(t.clockIn)) === todayIso && t.status === 'offen').length;
+  const todaysEntries = [...state.timeEntries]
+    .filter((t) => isoDate(new Date(t.clockIn)) === todayIso)
+    .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
+
   return (
     <>
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
@@ -130,18 +136,30 @@ export function DashboardPage() {
         </div>
         <div className="card">
           <div className="card-head">
-            <h3>Jetzt im Einsatz</h3>
+            <h3>Live-Status</h3>
+          </div>
+          <div className="stamp-meta" style={{ marginTop: 0, marginBottom: 14 }}>
+            <div>
+              Eingestempelt
+              <b>{activeNow.length}</b>
+            </div>
+            <div>
+              In Pause
+              <b>{onPauseCount}</b>
+            </div>
+            <div>
+              Offene Einträge heute
+              <b>{openTodayCount}</b>
+            </div>
           </div>
           {activeNow.length ? (
             activeNow.map((t) => {
               const e = getEmp(state, t.employeeId);
               const c = getCust(state, t.customerId);
               if (!e) return null;
+              const onPause = !!t.pauseStart;
               return (
-                <div
-                  key={t.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)' }}
-                >
+                <div key={t.id} className="me-shift-row" onClick={() => actions.openLiveStatusPanel(t.id)}>
                   <div className="person" style={{ flex: 1 }}>
                     <div className="avatar" style={{ background: colorFor(e.id) }}>
                       {initials(e.name)}
@@ -151,12 +169,20 @@ export function DashboardPage() {
                       <div className="meta">
                         {c ? c.name : '–'} · seit {fmtTime(new Date(t.clockIn))}
                       </div>
+                      <div className="meta">{c ? c.address : '–'}</div>
                     </div>
                   </div>
-                  <span className={`badge ${t.geofenceOk ? 'badge-mint' : 'badge-amber'}`}>
-                    <span className="badge-dot" />
-                    {t.geofenceOk ? 'Vor Ort' : 'Abweichung'}
-                  </span>
+                  {onPause ? (
+                    <span className="badge badge-amber">
+                      <span className="badge-dot" />
+                      Pause seit {fmtTime(new Date(t.pauseStart as string))}
+                    </span>
+                  ) : (
+                    <span className="badge badge-mint">
+                      <span className="badge-dot" />
+                      Arbeitet
+                    </span>
+                  )}
                 </div>
               );
             })
@@ -164,6 +190,66 @@ export function DashboardPage() {
             <Empty icon="bolt" text="Aktuell ist niemand eingestempelt." />
           )}
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-head">
+          <h3>Heutige Zeiterfassungen</h3>
+          <button className="muted-link" onClick={() => actions.setView('clock')}>
+            Alle Zeiterfassungen →
+          </button>
+        </div>
+        {todaysEntries.length ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mitarbeiter</th>
+                  <th>Objekt</th>
+                  <th>Startzeit</th>
+                  <th>Endzeit</th>
+                  <th>Pause</th>
+                  <th>Gesamtzeit</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todaysEntries.map((t) => {
+                  const e = getEmp(state, t.employeeId);
+                  const c = getCust(state, t.customerId);
+                  if (!e) return null;
+                  const inD = new Date(t.clockIn);
+                  const outD = t.clockOut ? new Date(t.clockOut) : null;
+                  const dur = outD ? (outD.getTime() - inD.getTime()) / 60000 - (t.pauseMinutes || 0) : null;
+                  return (
+                    <tr key={t.id} onClick={() => actions.openTimeEntryPanel(t.id)} style={{ cursor: 'pointer' }}>
+                      <td>
+                        <div className="person">
+                          <div className="avatar" style={{ background: colorFor(e.id) }}>
+                            {initials(e.name)}
+                          </div>
+                          <span>{e.name}</span>
+                        </div>
+                      </td>
+                      <td>{c ? c.name : '–'}</td>
+                      <td className="mono">{fmtTime(inD)}</td>
+                      <td className="mono">
+                        {outD ? fmtTime(outD) : <span style={{ color: 'var(--accent-dark)', fontWeight: 700 }}>läuft…</span>}
+                      </td>
+                      <td className="mono">{t.pauseMinutes || 0} min</td>
+                      <td className="mono">{dur !== null ? `${Math.round(dur)} min` : '–'}</td>
+                      <td>
+                        <StatusBadge status={t.status} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <Empty icon="clock" text="Heute noch keine Zeiterfassungen." />
+        )}
       </div>
 
       <div className="grid cols-2">

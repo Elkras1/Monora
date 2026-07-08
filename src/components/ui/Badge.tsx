@@ -14,12 +14,38 @@ const STATUS_MAP: Record<string, [BadgeVariant, string]> = {
   abgelehnt: ['red', 'Abgelehnt'],
 };
 
+// Ferien/Urlaub = Rot, Krankheit/Unfall = Gelb, Sonstiges (inkl. Unbezahlt) = Grau
 const ABS_TYPE_MAP: Record<string, BadgeVariant> = {
-  Urlaub: 'green',
-  Krankheit: 'red',
-  Unbezahlt: 'amber',
+  Urlaub: 'red',
+  Krankheit: 'amber',
+  Unfall: 'amber',
+  Unbezahlt: 'grey',
   Sonstiges: 'grey',
 };
+
+const ABS_TYPE_LABELS: Record<string, string> = {
+  Urlaub: 'Ferien',
+  Krankheit: 'Krankheit',
+  Unfall: 'Unfall',
+  Unbezahlt: 'Unbezahlt',
+  Sonstiges: 'Sonstiges',
+};
+
+export function absenceTypeVariant(type: string): BadgeVariant {
+  return ABS_TYPE_MAP[type] || 'grey';
+}
+
+export function absenceTypeLabel(type: string): string {
+  return ABS_TYPE_LABELS[type] || type;
+}
+
+/** Raw CSS color (not a badge) for the absence calendar's day markers/bars. */
+export function absenceTypeColor(type: string): string {
+  const variant = absenceTypeVariant(type);
+  if (variant === 'red') return 'var(--red)';
+  if (variant === 'amber') return 'var(--amber)';
+  return 'var(--ink-faint)';
+}
 
 const ISSUE_MAP: Record<string, [BadgeVariant, string]> = {
   offen: ['red', 'Offen'],
@@ -42,10 +68,7 @@ export function StatusBadge({ status }: { status: string }) {
 }
 
 export function AbsenceTypeBadge({ type }: { type: string }) {
-  const variant = ABS_TYPE_MAP[type] || 'grey';
-  return (
-    <span className={`badge badge-${variant}`}>{type}</span>
-  );
+  return <span className={`badge badge-${absenceTypeVariant(type)}`}>{absenceTypeLabel(type)}</span>;
 }
 
 export function IssueBadge({ status }: { status: string }) {

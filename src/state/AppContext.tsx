@@ -59,6 +59,7 @@ export interface UIState {
   panelShiftId: string | null;
   panelLocationId: string | null;
   panelTimeEntryId: string | null;
+  panelLiveStatusId: string | null;
 }
 
 export interface AppState extends AppData, UIState {}
@@ -67,6 +68,9 @@ export interface AppState extends AppData, UIState {}
 function migrateData(data: AppData): AppData {
   data.customers.forEach((c) => {
     if (c.geofenceEnabled === undefined) c.geofenceEnabled = true;
+  });
+  data.employees.forEach((e) => {
+    if (e.password === undefined) e.password = 'demo1234';
   });
   data.timeEntries.forEach((t) => {
     const anyT = t as any;
@@ -114,6 +118,7 @@ function loadInitialState(): AppState {
     panelShiftId: null,
     panelLocationId: null,
     panelTimeEntryId: null,
+    panelLiveStatusId: null,
   };
 }
 
@@ -130,8 +135,7 @@ interface AppContextValue {
   toast: (message: string) => void;
   actions: {
     // auth / nav
-    attemptLogin: (employeeId: string, pin: string) => void;
-    quickDemoLogin: (employeeId: string) => void;
+    attemptLogin: (name: string, password: string) => void;
     logout: () => void;
     setView: (view: ViewId) => void;
     toggleSidebar: () => void;
@@ -151,8 +155,13 @@ interface AppContextValue {
     closeLocationPanel: () => void;
     openTimeEntryPanel: (id: string) => void;
     closeTimeEntryPanel: () => void;
+    openLiveStatusPanel: (id: string) => void;
+    closeLiveStatusPanel: () => void;
     // employees
-    saveEmployee: (data: Omit<Employee, 'id' | 'customerIds'> & { customerIds: string[] }, id?: string | null) => void;
+    saveEmployee: (
+      data: Omit<Employee, 'id' | 'customerIds' | 'password'> & { customerIds: string[]; password?: string },
+      id?: string | null
+    ) => void;
     deleteEmployee: (id: string) => void;
     toggleEmployeeStatus: (id: string) => void;
     // shifts
@@ -204,14 +213,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(loadInitialState);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // `actions` below is memoized once (see the useMemo deps at its end), so any action that
-  // needs the *current* state outside of a setState updater must read it from this ref
-  // instead of closing over the `state` variable directly (which would stay stuck at its
-  // value from the first render).
-  const stateRef = useRef(state);
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
 
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -250,14 +251,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const actions = useMemo<AppContextValue['actions']>(
     () => ({
-      attemptLogin: (employeeId, pin) => {
+      attemptLogin: (name, password) => {
         setState((s) => {
-          const emp = s.employees.find((e) => e.id === employeeId);
-          if (!emp || emp.status !== 'aktiv') {
-            return { ...s, loginError: 'Bitte ein gültiges Konto auswählen.' };
-          }
-          if (!pin || pin !== emp.pin) {
-            return { ...s, loginError: 'PIN ist nicht korrekt. Bitte erneut versuchen.' };
+          const query = name.trim().toLowerCase();
+          const emp = query ? s.employees.find((e) => e.status === 'aktiv' && e.name.trim().toLowerCase() === query) : undefined;
+          if (!emp || !password || password !== emp.password) {
+            return { ...s, loginError: 'Name oder Passwort ist nicht korrekt.' };
           }
           return {
             ...s,
@@ -271,31 +270,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             panelShiftId: null,
             panelLocationId: null,
             panelTimeEntryId: null,
+            panelLiveStatusId: null,
           };
         });
-      },
-      quickDemoLogin: (employeeId) => {
-        setState((s) => {
-          const emp = s.employees.find((e) => e.id === employeeId);
-          if (!emp) return s;
-          return {
-            ...s,
-            currentUserId: emp.id,
-            loggedIn: true,
-            view: emp.systemRole === 'mitarbeiter' ? 'me-start' : 'dashboard',
-            sidebarOpen: false,
-            userMenuOpen: false,
-            loginError: '',
-            modal: null,
-            panelShiftId: null,
-            panelLocationId: null,
-            panelTimeEntryId: null,
-          };
-        });
-        setTimeout(() => {
-          const emp = stateRef.current.employees.find((e) => e.id === employeeId);
-          if (emp) toast(`Angemeldet als ${emp.name}`);
-        }, 0);
       },
       logout: () => {
         setState((s) => ({
@@ -306,6 +283,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           panelShiftId: null,
           panelLocationId: null,
           panelTimeEntryId: null,
+          panelLiveStatusId: null,
         }));
       },
       setView: (view) => setState((s) => ({ ...s, view, sidebarOpen: false })),
@@ -330,6 +308,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       closeLocationPanel: () => setState((s) => ({ ...s, panelLocationId: null })),
       openTimeEntryPanel: (id) => setState((s) => ({ ...s, panelTimeEntryId: id })),
       closeTimeEntryPanel: () => setState((s) => ({ ...s, panelTimeEntryId: null })),
+      openLiveStatusPanel: (id) => setState((s) => ({ ...s, panelLiveStatusId: id })),
+      closeLiveStatusPanel: () => setState((s) => ({ ...s, panelLiveStatusId: null })),
 
       saveEmployee: (data, id) => {
         setState((s) => {
@@ -339,7 +319,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               employees: s.employees.map((e) => (e.id === id ? { ...e, ...data } : e)),
             };
           }
-          const emp: Employee = { id: uid(), ...data };
+          const emp: Employee = { id: uid(), password: 'demo1234', ...data };
           return {
             ...s,
             employees: [...s.employees, emp],

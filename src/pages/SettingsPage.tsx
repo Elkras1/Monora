@@ -107,7 +107,7 @@ export function SettingsPage() {
           </button>
         </div>
         <div className="divider" />
-        <div className="hint">Version 1.0 · Montora Web-App · Für Reinigungsunternehmen entwickelt</div>
+        <div className="hint">Version 1.0 · Monora Web-App · Für Reinigungsunternehmen entwickelt</div>
         <div className="divider" />
         <div className="card-head" style={{ marginBottom: 8 }}>
           <h3 style={{ fontSize: 13 }}>Rollen & Berechtigungen</h3>

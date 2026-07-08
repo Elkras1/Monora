@@ -35,10 +35,11 @@ export function MeAbsenceModal() {
       <div className="field">
         <label>Art</label>
         <select value={type} onChange={(e) => setType(e.target.value as AbsenceType)}>
-          <option>Urlaub</option>
-          <option>Krankheit</option>
-          <option>Unbezahlt</option>
-          <option>Sonstiges</option>
+          <option value="Urlaub">Ferien</option>
+          <option value="Krankheit">Krankheit</option>
+          <option value="Unfall">Unfall</option>
+          <option value="Unbezahlt">Unbezahlt</option>
+          <option value="Sonstiges">Sonstiges</option>
         </select>
       </div>
       <div className="field-row">

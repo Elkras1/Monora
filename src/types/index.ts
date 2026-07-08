@@ -11,6 +11,7 @@ export interface Employee {
   phone: string;
   status: EmployeeStatus;
   pin: string;
+  password: string; // login password (separate from the operational "pin" used for Zeiterfassung)
   startDate: string; // ISO date
   customerIds: string[];
 }
@@ -73,7 +74,7 @@ export interface Shift {
   notes: string;
 }
 
-export type AbsenceType = 'Urlaub' | 'Krankheit' | 'Unbezahlt' | 'Sonstiges';
+export type AbsenceType = 'Urlaub' | 'Krankheit' | 'Unfall' | 'Unbezahlt' | 'Sonstiges';
 export type AbsenceStatus = 'beantragt' | 'genehmigt' | 'abgelehnt';
 
 export interface Absence {
@@ -201,6 +202,7 @@ export interface FilterState {
   schedEmp?: string;
   empSearch?: string;
   absStatus?: string;
+  absView?: 'month' | 'year' | 'list';
   reportPeriod?: 'week' | 'month';
   permRole?: 'manager' | 'mitarbeiter';
   meSchedTab?: 'day' | 'week' | 'open';
