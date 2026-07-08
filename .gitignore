@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
+# Env files (never commit real secrets/API keys)
+.env
+.env.local
+.env.*.local
+*.local
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Vercel
+.vercel
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+
+# Local-only Claude Code settings
+.claude/settings.local.json

@@ -1,0 +1,2794 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>ReinTrack – Zeiterfassung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F4F7F6;
+  --surface:#FFFFFF;
+  --surface-alt:#EAF1EE;
+  --ink:#0E241F;
+  --ink-soft:#516663;
+  --ink-faint:#8A9A97;
+  --primary:#0E6E5B;
+  --primary-dark:#0A5347;
+  --primary-tint:#E3F3EE;
+  --accent:#2FD98F;
+  --accent-dark:#159C68;
+  --amber:#DB9B0C;
+  --amber-tint:#FBF0D9;
+  --red:#D8464B;
+  --red-tint:#FBE6E7;
+  --line:#DCE6E3;
+  --shadow: 0 1px 2px rgba(14,36,31,.04), 0 8px 24px -12px rgba(14,36,31,.12);
+  --radius:14px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  font-size:14px;
+}
+h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif;margin:0;letter-spacing:-.01em;color:var(--ink);}
+.mono{font-family:'IBM Plex Mono',monospace;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;font-size:14px;}
+a{color:inherit;}
+::selection{background:var(--accent);color:#04231a;}
+
+/* ---------- App shell ---------- */
+#app{display:flex;min-height:100vh;}
+
+/* Sidebar */
+.sidebar{
+  width:238px;flex:none;background:var(--ink);
+  background:linear-gradient(180deg,#0E241F 0%, #0A1D18 100%);
+  color:#DCEAE5;display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;
+}
+.brand{display:flex;align-items:center;gap:10px;padding:20px 18px 16px;}
+.brand-mark{width:34px;height:34px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex:none;}
+.brand-mark svg{width:19px;height:19px;}
+.brand-name{font-family:'Space Grotesk';font-weight:700;font-size:16.5px;color:#fff;line-height:1.1;}
+.brand-sub{font-size:10.5px;color:#8FB3AA;letter-spacing:.06em;text-transform:uppercase;}
+.nav{flex:1;padding:6px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
+.nav-item{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
+  color:#B9D3CC;font-size:13.6px;font-weight:500;background:transparent;border:none;text-align:left;width:100%;
+  transition:background .12s, color .12s;
+}
+.nav-item svg{width:17px;height:17px;flex:none;opacity:.85;}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff;}
+.nav-item.active{background:var(--accent);color:#04231a;font-weight:600;}
+.nav-item.active svg{opacity:1;}
+.nav-foot{padding:14px 18px 18px;border-top:1px solid rgba(255,255,255,.08);}
+.nav-foot .clock{font-family:'IBM Plex Mono';font-size:20px;font-weight:600;color:#fff;}
+.nav-foot .date{font-size:11px;color:#8FB3AA;margin-top:2px;}
+
+/* Main */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 28px;border-bottom:1px solid var(--line);background:var(--surface);
+  position:sticky;top:0;z-index:20;
+}
+.topbar h1{font-size:19px;}
+.topbar .sub{color:var(--ink-soft);font-size:12.5px;margin-top:2px;}
+.geo-pill{
+  display:flex;align-items:center;gap:7px;background:var(--primary-tint);color:var(--primary-dark);
+  padding:7px 12px;border-radius:999px;font-size:12.5px;font-weight:600;
+}
+.geo-dot{width:7px;height:7px;border-radius:50%;background:var(--accent-dark);position:relative;flex:none;}
+.geo-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1.5px solid var(--accent-dark);animation:ping 1.8s ease-out infinite;}
+@keyframes ping{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2.1);opacity:0}}
+.content{flex:1;padding:26px 28px 60px;max-width:1320px;width:100%;}
+
+/* user chip / role switcher */
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--surface-alt);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 5px;}
+.user-chip-txt{text-align:left;line-height:1.2;}
+.user-chip-txt .n{font-size:12.5px;font-weight:700;color:var(--ink);}
+.user-chip-txt .r{font-size:10.5px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.02em;}
+.user-menu{position:absolute;top:calc(100% + 8px);right:0;width:270px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.14);z-index:120;padding:12px;}
+.user-menu-head{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:700;padding:2px 4px 8px;}
+.user-menu-current{display:flex;align-items:center;gap:10px;padding:2px 4px;}
+.user-menu-demo-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;padding:2px 4px 6px;}
+.user-menu-demo-label svg{width:12px;height:12px;color:var(--amber);}
+.user-menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px;border-radius:9px;border:none;background:transparent;text-align:left;}
+.user-menu-item:hover{background:var(--surface-alt);}
+.user-menu-item.active{background:var(--primary-tint);}
+
+/* login screen */
+.login-screen{min-height:100vh;width:100%;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px;}
+.login-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:32px 28px;}
+.login-brand{display:flex;align-items:center;gap:10px;}
+.login-error{color:var(--red);font-size:12.5px;font-weight:600;min-height:16px;margin:-4px 0 10px;}
+.login-demo-divider{display:flex;align-items:center;gap:10px;margin:22px 0 12px;color:var(--ink-faint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+.login-demo-divider::before,.login-demo-divider::after{content:'';flex:1;height:1px;background:var(--line);}
+.login-demo-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left;}
+.login-demo-item:hover{border-color:var(--primary);background:var(--surface-alt);}
+
+/* mobile tab bar (Mitarbeiter-Ansicht) */
+.mobile-tabbar{display:none;}
+@media (max-width:880px){
+  .mobile-tabbar{
+    display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--surface);
+    border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.06);z-index:60;padding:4px 2px calc(4px + env(safe-area-inset-bottom));
+  }
+  .mtab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px;border:none;background:none;color:var(--ink-faint);font-size:10px;font-weight:700;}
+  .mtab svg{width:19px;height:19px;}
+  .mtab.active{color:var(--primary);}
+  .content{padding-bottom:82px;}
+}
+
+/* Cards / grid */
+.grid{display:grid;gap:16px;}
+.cols-4{grid-template-columns:repeat(4,1fr);}
+.cols-3{grid-template-columns:repeat(3,1fr);}
+.cols-2{grid-template-columns:2fr 1fr;}
+@media (max-width:1000px){.cols-4{grid-template-columns:repeat(2,1fr);}.cols-2,.cols-3{grid-template-columns:1fr;}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px;box-shadow:var(--shadow);}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.card-head h3{font-size:14.5px;}
+.card-head .muted-link{font-size:12px;color:var(--primary);font-weight:600;background:none;border:none;}
+
+.kpi .label{font-size:12px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+.kpi .value{font-family:'Space Grotesk';font-size:30px;font-weight:700;margin-top:6px;}
+.kpi .delta{font-size:12px;margin-top:4px;color:var(--ink-faint);}
+.kpi .icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+.kpi .icon svg{width:17px;height:17px;}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:9px;border:1px solid transparent;font-size:13.3px;font-weight:600;transition:transform .06s, background .12s;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{background:var(--primary-dark);}
+.btn-accent{background:var(--accent);color:#04231a;}
+.btn-accent:hover{background:var(--accent-dark);color:#fff;}
+.btn-ghost{background:var(--surface-alt);color:var(--ink);}
+.btn-ghost:hover{background:var(--line);}
+.btn-outline{background:transparent;border-color:var(--line);color:var(--ink);}
+.btn-outline:hover{border-color:var(--primary);color:var(--primary);}
+.btn-danger{background:var(--red-tint);color:var(--red);}
+.btn-danger:hover{background:var(--red);color:#fff;}
+.btn-sm{padding:6px 11px;font-size:12.2px;border-radius:8px;}
+.btn svg{width:14px;height:14px;}
+.icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;}
+.icon-btn:hover{border-color:var(--primary);color:var(--primary);}
+.icon-btn svg{width:15px;height:15px;}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3.5px 9px;border-radius:999px;font-size:11.3px;font-weight:700;letter-spacing:.01em;}
+.badge-green{background:var(--primary-tint);color:var(--primary-dark);}
+.badge-mint{background:#E3FBEF;color:var(--accent-dark);}
+.badge-amber{background:var(--amber-tint);color:#93670A;}
+.badge-red{background:var(--red-tint);color:var(--red);}
+.badge-blue{background:#E3EDF7;color:#2A6FA8;}
+.badge-grey{background:var(--surface-alt);color:var(--ink-soft);}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+/* table */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13.2px;}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:700;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--surface-alt);}
+.avatar{width:29px;height:29px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;font-family:'Space Grotesk';flex:none;}
+.person{display:flex;align-items:center;gap:9px;}
+.person .name{font-weight:600;}
+.person .meta{color:var(--ink-faint);font-size:11.5px;}
+
+/* forms */
+.field{margin-bottom:13px;}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:5px;}
+.field input,.field select,.field textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.checks{display:flex;flex-wrap:wrap;gap:8px;}
+.chip-check{display:flex;align-items:center;gap:6px;background:var(--surface-alt);padding:6px 10px;border-radius:8px;font-size:12.5px;border:1px solid transparent;}
+.chip-check.on{background:var(--primary-tint);border-color:var(--primary);color:var(--primary-dark);font-weight:600;}
+.hint{font-size:11.5px;color:var(--ink-faint);margin-top:4px;}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(10,25,20,.45);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+.modal{background:var(--surface);border-radius:16px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+.modal-wide{max-width:640px;}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line);}
+.modal-head h3{font-size:16px;}
+.modal-body{padding:20px;}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:16px 20px;border-top:1px solid var(--line);}
+.close-x{width:28px;height:28px;border-radius:8px;border:none;background:var(--surface-alt);display:flex;align-items:center;justify-content:center;}
+.close-x svg{width:14px;height:14px;}
+
+/* empty state */
+.empty{text-align:center;padding:36px 20px;color:var(--ink-faint);}
+.empty svg{width:34px;height:34px;margin-bottom:10px;opacity:.5;}
+.empty p{font-size:13px;}
+
+/* tabs / pills row */
+.tabs{display:flex;gap:6px;background:var(--surface-alt);padding:4px;border-radius:10px;width:fit-content;}
+.tab{padding:7px 13px;border:none;background:transparent;border-radius:8px;font-size:12.6px;font-weight:600;color:var(--ink-soft);}
+.tab.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);}
+
+.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:7px 11px;min-width:220px;}
+.search svg{width:14px;height:14px;color:var(--ink-faint);flex:none;}
+.search input{border:none;outline:none;flex:1;background:transparent;}
+
+/* ---- Signature widget: geofence clock ---- */
+.stamp-widget{display:flex;align-items:center;gap:26px;flex-wrap:wrap;}
+.dial-wrap{position:relative;width:150px;height:150px;flex:none;}
+.dial-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--line);}
+.dial-pulse{position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:dialpulse 2.4s ease-out infinite;}
+.dial-pulse.d2{animation-delay:.8s;}
+.dial-pulse.d3{animation-delay:1.6s;}
+@keyframes dialpulse{0%{transform:scale(.72);opacity:.55;}100%{transform:scale(1.28);opacity:0;}}
+.dial-core{position:absolute;inset:14px;border-radius:50%;background:var(--ink);background:linear-gradient(160deg,#0E241F,#0A3229);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;}
+.dial-core.off{background:linear-gradient(160deg,#4B615C,#37473F);}
+.dial-core .time{font-family:'IBM Plex Mono';font-size:20px;font-weight:600;}
+.dial-core .lbl{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-top:3px;font-weight:700;}
+.dial-core.off .lbl{color:#B9C7C2;}
+.stamp-info{flex:1;min-width:220px;}
+.stamp-info .who{font-size:13px;color:var(--ink-soft);margin-bottom:2px;}
+.stamp-info h2{font-size:20px;margin-bottom:8px;}
+.stamp-meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;}
+.stamp-meta div{font-size:12px;color:var(--ink-faint);}
+.stamp-meta b{display:block;color:var(--ink);font-size:14px;font-family:'Space Grotesk';}
+
+/* calendar */
+.week-nav{display:flex;align-items:center;gap:10px;}
+.sched-week-input{padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink-soft);font-size:12.5px;}
+.toolbar select{padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-size:12.5px;color:var(--ink);}
+
+/* desktop week board: 7 day columns */
+.sched-desktop{display:block;}
+.sched-mobile{display:none;}
+.cal-grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;align-items:start;}
+.cal-col{background:var(--surface);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;min-height:200px;}
+.cal-col.is-today{border-color:var(--accent-dark);box-shadow:0 0 0 1px var(--accent-dark);}
+.cal-col-head{background:var(--surface-alt);padding:9px 10px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
+.cal-col-head .d{font-family:'Space Grotesk';font-size:14px;color:var(--ink);margin-left:2px;}
+.cal-col.is-today .cal-col-head{color:var(--accent-dark);}
+.today-dot{width:6px;height:6px;border-radius:50%;background:var(--accent-dark);margin-left:auto;}
+.cal-col-body{padding:9px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:80px;}
+.cal-empty-hint{color:var(--ink-faint);font-size:11.5px;text-align:center;padding:14px 4px;border:1px dashed var(--line);border-radius:9px;}
+.cal-add-day{border:none;border-top:1px solid var(--line);background:var(--surface);color:var(--ink-faint);font-size:12px;font-weight:600;padding:9px;display:flex;align-items:center;justify-content:center;gap:5px;}
+.cal-add-day:hover{background:var(--surface-alt);color:var(--primary);}
+.cal-add-day svg{width:12px;height:12px;}
+
+/* shift card */
+.shift-card{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ink-faint);border-radius:9px;padding:8px 9px;cursor:pointer;transition:transform .08s, box-shadow .12s;}
+.shift-card:hover{transform:translateY(-1px);box-shadow:var(--shadow);}
+.shift-card-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px;}
+.shift-time{font-size:12px;font-weight:700;}
+.shift-card-who{display:flex;align-items:center;gap:7px;font-size:12.3px;font-weight:600;margin-bottom:4px;}
+.shift-card-meta{font-size:11px;color:var(--ink-faint);display:flex;gap:4px;flex-wrap:wrap;}
+.open-flag{color:#93670A;font-weight:700;font-size:11.6px;display:inline-flex;align-items:center;gap:5px;}
+.shift-card.is-open{background:var(--amber-tint);border-left-color:var(--amber);}
+.shift-card.is-conflict{background:var(--red-tint);border-left-color:var(--red);}
+.shift-card.is-conflict .shift-time{color:var(--red);}
+
+/* shift detail drawer */
+.drawer-overlay{position:fixed;inset:0;background:rgba(10,25,20,.4);backdrop-filter:blur(1px);z-index:110;display:flex;justify-content:flex-end;}
+.drawer{width:100%;max-width:420px;height:100vh;background:var(--surface);box-shadow:-16px 0 40px rgba(0,0,0,.18);display:flex;flex-direction:column;animation:drawerin .18s ease-out;}
+@keyframes drawerin{from{transform:translateX(24px);opacity:.4;}to{transform:translateX(0);opacity:1;}}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line);}
+.drawer-body{padding:20px;overflow-y:auto;flex:1;}
+.drawer-foot{display:flex;gap:8px;padding:16px 20px;border-top:1px solid var(--line);flex-wrap:wrap;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;}
+.detail-grid .dl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);margin-bottom:4px;}
+.detail-grid .dv{font-size:13.5px;font-weight:600;color:var(--ink);}
+
+/* mobile schedule */
+.day-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;}
+.day-tab{flex:none;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 13px;font-size:12px;font-weight:700;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;gap:2px;}
+.day-tab span{font-size:11px;font-weight:500;color:var(--ink-faint);}
+.day-tab.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+.day-tab.active span{color:rgba(255,255,255,.75);}
+.mob-day-list{display:flex;flex-direction:column;gap:9px;}
+.fab{position:fixed;bottom:22px;right:18px;width:52px;height:52px;border-radius:50%;background:var(--accent);color:#04231a;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(14,110,91,.35);z-index:40;}
+.fab svg{width:22px;height:22px;}
+
+@media (max-width:880px){
+  .sched-desktop{display:none;}
+  .sched-mobile{display:block;}
+}
+
+/* customer cards */
+.cust-card{border:1px solid var(--line);border-radius:12px;padding:15px;background:var(--surface);}
+.cust-card .top{display:flex;justify-content:space-between;align-items:flex-start;}
+.cust-card h4{font-size:14.5px;}
+.cust-card .addr{font-size:12.3px;color:var(--ink-soft);margin-top:3px;}
+.radius-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--primary-dark);background:var(--primary-tint);padding:3px 8px;border-radius:999px;margin-top:9px;font-weight:700;}
+.cust-card{cursor:pointer;transition:transform .08s, box-shadow .12s;}
+.cust-card:hover{transform:translateY(-1px);box-shadow:var(--shadow);}
+.addr-suggest{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:30;margin-top:4px;overflow:hidden;max-height:220px;overflow-y:auto;}
+.addr-suggest-item{display:flex;align-items:center;gap:8px;padding:9px 11px;font-size:12.6px;cursor:pointer;border-bottom:1px solid var(--line);}
+.addr-suggest-item:last-child{border-bottom:none;}
+.addr-suggest-item:hover{background:var(--surface-alt);}
+.addr-suggest-item svg{width:14px;height:14px;color:var(--ink-faint);flex:none;}
+
+/* misc */
+.divider{height:1px;background:var(--line);margin:16px 0;}
+.link-btn{background:none;border:none;color:var(--primary);font-weight:600;font-size:12.8px;}
+.slider{width:100%;}
+.sim-box{background:var(--amber-tint);border:1px solid #F0DBA0;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#7A5B08;}
+.ok-box{background:#E3FBEF;border:1px solid #B7EFD3;border-radius:10px;padding:12px 14px;font-size:12.8px;color:var(--accent-dark);}
+.warn-box{background:var(--red-tint);border:1px solid #F3C4C6;border-radius:10px;padding:12px 14px;font-size:12.8px;color:var(--red);}
+.settings-section{margin-bottom:26px;}
+.settings-section h3{font-size:14px;margin-bottom:3px;}
+.settings-section .desc{font-size:12.3px;color:var(--ink-soft);margin-bottom:14px;}
+
+/* permission toggles */
+.perm-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:12.8px;cursor:pointer;}
+.perm-row:last-child{border-bottom:none;}
+.toggle{width:38px;height:22px;border-radius:999px;background:var(--surface-alt);border:1px solid var(--line);position:relative;flex:none;transition:background .15s;}
+.toggle.on{background:var(--accent);border-color:var(--accent-dark);}
+.toggle-knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s;}
+.toggle.on .toggle-knob{left:18px;}
+
+/* Mitarbeiter-Ansicht */
+.me-greet{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.me-greet h2{font-size:21px;margin-top:2px;}
+.me-shift-row{display:flex;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;background:var(--surface);}
+.me-shift-row:last-child{margin-bottom:0;}
+.me-shift-row:hover{box-shadow:var(--shadow);}
+
+.toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:var(--shadow);z-index:200;display:flex;align-items:center;gap:8px;}
+.toast svg{width:15px;height:15px;color:var(--accent);}
+
+.mobile-toggle{display:none;}
+@media (max-width:880px){
+  .sidebar{position:fixed;left:-260px;z-index:90;transition:left .2s;box-shadow:0 0 40px rgba(0,0,0,.3);}
+  .sidebar.open{left:0;}
+  .mobile-toggle{display:flex;}
+  .content{padding:18px 14px 60px;}
+  .topbar{padding:12px 14px;}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ============ ICONS ============ */
+const ICONS = {
+  dashboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  schedule:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>',
+  employees:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17.5" cy="8.5" r="2.6"/><path d="M15 14.3c2.8.3 5 2.4 5 5.7"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3.5 2"/></svg>',
+  absence:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7l-8.5 8.5L7 11"/><path d="M3 3h18v18H3z" opacity="0"/><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>',
+  location:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.7 7-12a7 7 0 10-14 0c0 5.3 7 12 7 12z"/><circle cx="12" cy="9" r="2.6"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.8 7.8 0 000-3l2-1.5-2-3.4-2.4.8a7.8 7.8 0 00-2.6-1.5L14 2h-4l-.4 2.4a7.8 7.8 0 00-2.6 1.5l-2.4-.8-2 3.4L4.6 10a7.8 7.8 0 000 3l-2 1.6 2 3.4 2.4-.8c.75.66 1.63 1.16 2.6 1.5L10 22h4l.4-2.4a7.8 7.8 0 002.6-1.5l2.4.8 2-3.4-2-1.6z"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7.5"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>',
+  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.7 7-12a7 7 0 10-14 0c0 5.3 7 12 7 12z"/><circle cx="12" cy="9" r="2.6"/></svg>',
+  chevL:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
+  chevR:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+  users2:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6"/></svg>',
+  briefcase:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="2.5" y1="12.5" x2="21.5" y2="12.5"/></svg>',
+  hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12M6 22h12M8 2c0 4.5 8 5.5 8 10s-8 5.5-8 10M16 2c0 4.5-8 5.5-8 10s8 5.5 8 10"/></svg>',
+  menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>',
+  bolt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 11 14 10 22 21 10 13 10 13 2"/></svg>',
+  droplet:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.5s6.5 7.6 6.5 12.1a6.5 6.5 0 11-13 0C5.5 10.1 12 2.5 12 2.5z"/></svg>',
+};
+const ic=(name,cls)=>`<span class="${cls||''}" style="display:inline-flex">${ICONS[name]||''}</span>`;
+
+/* ============ STATE ============ */
+const uid = ()=> (crypto.randomUUID? crypto.randomUUID(): 'id-'+Date.now()+'-'+Math.random().toString(16).slice(2));
+const AVA_COLORS = ['#0E6E5B','#DB9B0C','#2A6FA8','#B85C9E','#C24A3B','#4C8C4A','#7A5FBA'];
+const colorFor = (id)=> AVA_COLORS[Math.abs([...id].reduce((a,c)=>a+c.charCodeAt(0),0)) % AVA_COLORS.length];
+const initials = (name)=> name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('');
+
+function timeOverlap(a,b){ return a.start < b.end && b.start < a.end; }
+function computeConflictIds(){
+  const map={};
+  state.shifts.forEach(s=>{ if(!s.employeeId) return; const key=s.employeeId+'|'+s.date; (map[key]=map[key]||[]).push(s); });
+  const ids=new Set();
+  Object.values(map).forEach(arr=>{
+    for(let i=0;i<arr.length;i++){
+      for(let j=i+1;j<arr.length;j++){
+        if(timeOverlap(arr[i],arr[j])){ ids.add(arr[i].id); ids.add(arr[j].id); }
+      }
+    }
+  });
+  return ids;
+}
+function shiftDisplayStatus(shift, conflictIds){
+  return conflictIds.has(shift.id) ? 'konflikt' : shift.status;
+}
+
+function pad(n){return n.toString().padStart(2,'0');}
+function fmtTime(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
+function fmtDate(d){return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();}
+function isoDate(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function mondayOf(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);x.setHours(0,0,0,0);return x;}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+const WEEKDAYS=['Mo','Di','Mi','Do','Fr','Sa','So'];
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371000,toRad=x=>x*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+/* ---- Adresssuche (lokale Demo-Datenbank, kein externer API-Key nötig) ---- */
+const ADDRESS_DB = [
+  {label:'Seepromenade 4, 6003 Luzern', lat:47.0502, lng:8.3093},
+  {label:'Höheweg 22, 3800 Interlaken', lat:46.6863, lng:7.8632},
+  {label:'Bergstation, 7504 Pontresina', lat:46.4364, lng:9.9506},
+  {label:'Sihlquai 131, 8005 Zürich', lat:47.3878, lng:8.5307},
+  {label:'Bahnhofstrasse 45, 8001 Zürich', lat:47.3745, lng:8.5397},
+  {label:'Hardturmstrasse 133, 8005 Zürich', lat:47.3894, lng:8.5187},
+  {label:'Limmatquai 1, 8001 Zürich', lat:47.3717, lng:8.5440},
+  {label:'Europaallee 21, 8004 Zürich', lat:47.3782, lng:8.5352},
+  {label:'Marktgasse 10, 8001 Zürich', lat:47.3760, lng:8.5427},
+  {label:'Bremgartenstrasse 117, 3012 Bern', lat:46.9584, lng:7.4275},
+  {label:'Marktgasse 30, 3011 Bern', lat:46.9484, lng:7.4478},
+  {label:'Bundesplatz 3, 3011 Bern', lat:46.9466, lng:7.4441},
+  {label:'Rheingasse 12, 4058 Basel', lat:47.5626, lng:7.6003},
+  {label:'Freie Strasse 45, 4001 Basel', lat:47.5551, lng:7.5883},
+  {label:'Steinenvorstadt 33, 4051 Basel', lat:47.5525, lng:7.5878},
+  {label:'Rue du Rhône 20, 1204 Genève', lat:46.2044, lng:6.1499},
+  {label:'Place du Molard 8, 1204 Genève', lat:46.2039, lng:6.1466},
+  {label:'Rue de Bourg 12, 1003 Lausanne', lat:46.5210, lng:6.6328},
+  {label:'Place Saint-François 10, 1003 Lausanne', lat:46.5194, lng:6.6335},
+  {label:'Via Nassa 5, 6900 Lugano', lat:46.0037, lng:8.9511},
+  {label:'Piazza della Riforma 1, 6900 Lugano', lat:46.0057, lng:8.9508},
+  {label:'Bahnhofplatz 3, 9000 St. Gallen', lat:47.4239, lng:9.3697},
+  {label:'Marktplatz 10, 8400 Winterthur', lat:47.5001, lng:8.7241},
+  {label:'Industriestrasse 8, 8304 Wallisellen', lat:47.4211, lng:8.5975},
+  {label:'Poststrasse 6, 6300 Zug', lat:47.1725, lng:8.5171},
+  {label:'Grand-Rue 15, 1820 Montreux', lat:46.4312, lng:6.9106},
+  {label:'Rue du Bourg 5, 1630 Bulle', lat:46.6180, lng:7.0580},
+  {label:'Kramgasse 20, 3011 Bern', lat:46.9479, lng:7.4514},
+  {label:'Löwenstrasse 51, 8001 Zürich', lat:47.3776, lng:8.5372},
+  {label:'Seefeldstrasse 8, 8008 Zürich', lat:47.3628, lng:8.5498},
+  {label:'Gotthardstrasse 3, 6460 Altdorf', lat:46.8807, lng:8.6438},
+  {label:'Bahnhofstrasse 12, 6300 Zug', lat:47.1712, lng:8.5155},
+  {label:'Rathausgasse 14, 3011 Bern', lat:46.9490, lng:7.4487},
+];
+function searchAddresses(query){
+  const q=query.trim().toLowerCase();
+  if(q.length<2) return [];
+  return ADDRESS_DB.filter(a=>a.label.toLowerCase().includes(q)).slice(0,6);
+}
+
+/* ============ ROLLEN & BERECHTIGUNGEN ============ */
+const PERMISSION_GROUPS = [
+  {id:'dienstplan', label:'Dienstplan', perms:[
+    {id:'schedule_view', label:'Dienstplan anzeigen'},
+    {id:'schedule_view_all', label:'Alle Schichten anzeigen'},
+    {id:'schedule_view_own', label:'Nur eigene Schichten anzeigen'},
+    {id:'schedule_create', label:'Schichten erstellen'},
+    {id:'schedule_edit', label:'Schichten bearbeiten'},
+    {id:'schedule_delete', label:'Schichten löschen'},
+    {id:'schedule_open_view', label:'Offene Schichten anzeigen'},
+    {id:'schedule_open_claim', label:'Offene Schichten übernehmen'},
+  ]},
+  {id:'mitarbeiter', label:'Mitarbeiter', perms:[
+    {id:'emp_view', label:'Mitarbeiter anzeigen'},
+    {id:'emp_view_details', label:'Mitarbeiterdetails anzeigen'},
+    {id:'emp_create', label:'Mitarbeiter erstellen'},
+    {id:'emp_edit', label:'Mitarbeiter bearbeiten'},
+    {id:'emp_deactivate', label:'Mitarbeiter deaktivieren'},
+  ]},
+  {id:'zeit', label:'Zeiterfassung', perms:[
+    {id:'time_view_own', label:'Eigene Arbeitszeiten anzeigen'},
+    {id:'time_view_all', label:'Alle Arbeitszeiten anzeigen'},
+    {id:'time_edit', label:'Arbeitszeiten bearbeiten'},
+    {id:'time_correct', label:'Arbeitszeiten korrigieren'},
+    {id:'time_confirm', label:'Zeiteinträge bestätigen'},
+    {id:'time_manual_create', label:'Manuelle Zeiteinträge erstellen'},
+    {id:'time_clock', label:'Zeiterfassung starten und stoppen'},
+    {id:'time_correction_request', label:'Korrekturanfrage stellen (Mitarbeiter)'},
+  ]},
+  {id:'abwesenheiten', label:'Abwesenheiten', perms:[
+    {id:'absence_view_own', label:'Eigene Abwesenheiten anzeigen'},
+    {id:'absence_request', label:'Abwesenheiten beantragen'},
+    {id:'absence_view_all', label:'Alle Abwesenheiten anzeigen'},
+    {id:'absence_approve', label:'Abwesenheiten genehmigen'},
+    {id:'absence_reject', label:'Abwesenheiten ablehnen'},
+  ]},
+  {id:'standorte', label:'Standorte', perms:[
+    {id:'locations_view', label:'Standorte anzeigen'},
+    {id:'locations_manage', label:'Standorte verwalten'},
+  ]},
+  {id:'berichte', label:'Berichte', perms:[
+    {id:'reports_view', label:'Berichte anzeigen'},
+    {id:'reports_time_view', label:'Arbeitszeitberichte anzeigen'},
+    {id:'reports_export', label:'Berichte exportieren'},
+  ]},
+];
+const DEFAULT_PERMISSIONS = {
+  manager: {
+    schedule_view:true, schedule_view_all:true, schedule_view_own:false, schedule_create:true, schedule_edit:true,
+    schedule_delete:true, schedule_open_view:true, schedule_open_claim:false,
+    emp_view:true, emp_view_details:true, emp_create:false, emp_edit:false, emp_deactivate:false,
+    time_view_own:true, time_view_all:true, time_edit:true, time_correct:true, time_confirm:true, time_manual_create:true, time_clock:true, time_correction_request:false,
+    absence_view_own:true, absence_request:true, absence_view_all:true, absence_approve:true, absence_reject:true,
+    locations_view:true, locations_manage:false,
+    reports_view:false, reports_time_view:false, reports_export:false,
+  },
+  mitarbeiter: {
+    schedule_view:true, schedule_view_all:false, schedule_view_own:true, schedule_create:false, schedule_edit:false,
+    schedule_delete:false, schedule_open_view:false, schedule_open_claim:false,
+    emp_view:false, emp_view_details:false, emp_create:false, emp_edit:false, emp_deactivate:false,
+    time_view_own:true, time_view_all:false, time_edit:false, time_correct:false, time_confirm:false, time_manual_create:false, time_clock:true, time_correction_request:false,
+    absence_view_own:true, absence_request:true, absence_view_all:false, absence_approve:false, absence_reject:false,
+    locations_view:false, locations_manage:false,
+    reports_view:false, reports_time_view:false, reports_export:false,
+  }
+};
+const DEFAULT_PROFILE_EDITABLE = {phone:true, email:false};
+
+function currentUser(){ return getEmp(state.currentUserId) || state.employees.find(e=>e.systemRole==='admin'); }
+function currentRole(){ const u=currentUser(); return u? u.systemRole: 'admin'; }
+function isAdmin(){ return currentRole()==='admin'; }
+function hasPerm(permId){
+  const role=currentRole();
+  if(role==='admin') return true;
+  return !!(state.permissions[role] && state.permissions[role][permId]);
+}
+function roleLabel(r){ return {admin:'Administrator', manager:'Manager', mitarbeiter:'Mitarbeiter'}[r] || r; }
+
+/* ---- Login / Logout (Prototyp-Simulation, echte Auth folgt später) ---- */
+function attemptLogin(){
+  const empId = document.getElementById('login-user').value;
+  const pin = document.getElementById('login-pin').value.trim();
+  const errBox = document.getElementById('login-error');
+  const emp = getEmp(empId);
+  if(!emp || emp.status!=='aktiv'){ if(errBox) errBox.textContent='Bitte ein gültiges Konto auswählen.'; return; }
+  if(!pin || pin !== emp.pin){ if(errBox) errBox.textContent='PIN ist nicht korrekt. Bitte erneut versuchen.'; return; }
+  completeLogin(emp.id);
+}
+function quickDemoLogin(id){
+  completeLogin(id);
+}
+function completeLogin(empId){
+  const emp=getEmp(empId);
+  if(!emp) return;
+  state.currentUserId = emp.id;
+  state.loggedIn = true;
+  // Rolle wird automatisch aus dem Benutzerkonto übernommen – nicht wählbar.
+  state.view = emp.systemRole==='mitarbeiter' ? 'me-start' : 'dashboard';
+  state.sidebarOpen=false;
+  state.userMenuOpen=false;
+  state.loginError='';
+  state.modal=null; state.editing=null;
+  state.panelShiftId=null; state.panelLocationId=null; state.panelTimeEntryId=null;
+  scheduleSave();
+  render();
+  toast('Angemeldet als '+emp.name);
+}
+function logout(){
+  state.loggedIn=false;
+  state.userMenuOpen=false;
+  state.modal=null; state.editing=null;
+  state.panelShiftId=null; state.panelLocationId=null; state.panelTimeEntryId=null;
+  scheduleSave();
+  render();
+}
+
+let state = null;
+let saveTimer=null;
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async ()=>{
+    try{
+      const persistable = {employees:state.employees,customers:state.customers,shifts:state.shifts,absences:state.absences,timeEntries:state.timeEntries,timeCorrections:state.timeCorrections,settings:state.settings,permissions:state.permissions,currentUserId:state.currentUserId,loggedIn:state.loggedIn};
+      await window.storage.set('reintrack-data', JSON.stringify(persistable), false);
+    }catch(e){ console.error('Speichern fehlgeschlagen', e); }
+  },350);
+}
+
+function seedData(){
+  const emp = (name,role,customers,pin,systemRole)=>({id:uid(),name,role,systemRole:systemRole||'mitarbeiter',email:name.toLowerCase().replace(/ /g,'.').replace(/[äöü]/g,c=>({ä:'ae',ö:'oe',ü:'ue'}[c])).replace(/ß/g,'ss')+'@alpen-gastro.demo',phone:'+41 79 '+Math.floor(100+Math.random()*899)+' '+Math.floor(10+Math.random()*89)+' '+Math.floor(10+Math.random()*89),status:'aktiv',pin,startDate:'2023-03-01',customerIds:customers});
+  const DEFAULT_TASKS = ['Böden reinigen / wischen','Staub wischen','Sanitäranlagen reinigen','Mülleimer leeren','Fenster & Glasflächen (Sichtbereich)','Küche / Teeküche reinigen'];
+  const cust = (o)=>({id:uid(),name:o.name,address:o.address,lat:o.lat,lng:o.lng,radius:o.radius,contact:o.contact,phone:o.phone,active:true,notes:'',
+    type:o.type||'Büro', area:o.area||120, interval:o.interval||'2x wöchentlich',
+    keyNumber:o.keyNumber||'', accessCode:o.accessCode||'', accessFrom:o.accessFrom||'', accessTo:o.accessTo||'', accessNotes:o.accessNotes||'',
+    contractStart:o.contractStart||'2024-01-01', monthlyHours:o.monthlyHours||20, hourlyRate:o.hourlyRate||38,
+    tasks:(o.tasks||DEFAULT_TASKS).map(t=>({id:uid(),label:t,done:false})),
+    issues:o.issues||[]
+  });
+
+  const c1=cust({name:'Restaurant Seeblick',address:'Seepromenade 4, 6003 Luzern',lat:47.0502,lng:8.3093,radius:80,contact:'M. Brunner',phone:'+41 41 210 44 55',
+    type:'Gastronomie',area:340,interval:'täglich',keyNumber:'K-101',accessCode:'4471#',accessFrom:'05:30',accessTo:'09:30',accessNotes:'Zugang über Lieferanteneingang rückseitig, Alarmanlage vor Betreten deaktivieren.',
+    contractStart:'2022-04-01',monthlyHours:65,hourlyRate:42,
+    tasks:['Küche & Gastraum reinigen','Böden wischen & polieren','Sanitäranlagen (Gäste-WC) reinigen','Fenster & Glasflächen','Terrasse kehren','Mülleimer leeren & Container reinigen'],
+    issues:[{id:uid(),date:isoDate(addDays(new Date(),-6)),text:'Bodenbelag im Eingangsbereich stark verschmutzt, Nachreinigung nötig.',status:'erledigt',severity:'mittel'}]
+  });
+  const c2=cust({name:'Alpen Stube',address:'Höheweg 22, 3800 Interlaken',lat:46.6863,lng:7.8632,radius:70,contact:'S. Kaufmann',phone:'+41 33 822 11 09',
+    type:'Gastronomie',area:210,interval:'täglich',keyNumber:'K-204',accessCode:'8802*',accessFrom:'06:00',accessTo:'10:00',accessNotes:'Schlüssel bei Nachtportier hinterlegt.',
+    contractStart:'2023-01-15',monthlyHours:48,hourlyRate:40,
+    issues:[{id:uid(),date:isoDate(addDays(new Date(),-1)),text:'Seifenspender im Personal-WC defekt.',status:'offen',severity:'niedrig'}]
+  });
+  const c3=cust({name:'Bergrestaurant Diavolezza',address:'Bergstation, 7504 Pontresina',lat:46.4364,lng:9.9506,radius:150,contact:'L. Testa',phone:'+41 81 842 63 33',
+    type:'Gastronomie',area:280,interval:'wöchentlich',keyNumber:'K-330',accessCode:'',accessFrom:'07:30',accessTo:'16:00',accessNotes:'Zugang nur mit Bergbahn, letzte Fahrt beachten.',
+    contractStart:'2023-06-01',monthlyHours:24,hourlyRate:45
+  });
+  const c4=cust({name:'Event & Catering Zentrale',address:'Sihlquai 131, 8005 Zürich',lat:47.3878,lng:8.5307,radius:100,contact:'N. Frei',phone:'+41 44 271 88 20',
+    type:'Lager / Küche',area:450,interval:'nach Vereinbarung',keyNumber:'K-450',accessCode:'2290',accessFrom:'',accessTo:'',accessNotes:'Zutritt nur nach Voranmeldung über Empfang.',
+    contractStart:'2024-02-01',monthlyHours:16,hourlyRate:39,
+    issues:[{id:uid(),date:isoDate(addDays(new Date(),-3)),text:'Grundreinigung Lagerraum nach Anlass ausstehend.',status:'in Bearbeitung',severity:'hoch'}]
+  });
+  const customers=[c1,c2,c3,c4];
+
+  const e1=emp('Sandro Wyss','Küchenchef',[c1.id,c4.id],'4471');
+  const e2=emp('Lea Hofmann','Chef de Rang',[c1.id],'1298');
+  const e3=emp('Marco Bianchi','Barkeeper',[c2.id],'5560');
+  const e4=emp('Priska Widmer','Servicefachkraft',[c2.id,c3.id],'3345');
+  const e5=emp('Jonas Schneider','Koch',[c2.id,c1.id],'8802');
+  const e6=emp('Nina Steiner','Empfangsmitarbeiterin',[c1.id],'6671');
+  const e7=emp('Aleksandar Popović','Koch',[c3.id],'2290');
+  const e8=emp('Tanja Egger','Housekeeping',[c1.id,c2.id],'7743');
+  const e9=emp('David Meier','Barkeeper',[c4.id,c1.id],'9012');
+  const eAdmin=emp('Laura Keller','Administrator',[],'0001','admin');
+  const eManager=emp('Marco Baumann','Manager Service',[c1.id,c2.id],'0002','manager');
+  const eStaff=emp('Luca Meier','Service Mitarbeiter',[c1.id],'0003','mitarbeiter');
+  const employees=[e1,e2,e3,e4,e5,e6,e7,e8,e9,eAdmin,eManager,eStaff];
+
+  const today = mondayOf(new Date());
+  const shifts=[];
+  const dow = (new Date().getDay()+6)%7; // heutiger Wochentag, 0=Mo
+  function addShift(e,c,dOff,st,en,pause,status,notes){
+    shifts.push({id:uid(),employeeId:e?e.id:null,customerId:c.id,date:isoDate(addDays(today,dOff)),start:st,end:en,pause:pause||0,status:status||'geplant',notes:notes||''});
+  }
+  // Montag
+  addShift(e1,c1,0,'06:30','14:30',30,'bestätigt','Wochenstart, Mise en Place komplett');
+  addShift(e2,c1,0,'10:30','18:00',30,'bestätigt','');
+  addShift(e6,c1,0,'08:00','16:00',30,'geplant','');
+  addShift(e3,c2,0,'16:00','23:30',30,'geplant','');
+  addShift(e8,c1,0,'06:00','09:00',0,'bestätigt','');
+  // Dienstag
+  addShift(e1,c1,1,'06:30','14:30',30,'bestätigt','');
+  addShift(e5,c2,1,'11:00','19:00',30,'geplant','');
+  addShift(e4,c2,1,'11:00','19:00',30,'geplant','');
+  addShift(null,c3,1,'08:00','16:00',30,'offen','Vertretung für Krankheitsausfall gesucht');
+  addShift(e9,c4,1,'17:00','23:00',30,'geplant','Firmenanlass, 80 Personen');
+  // Mittwoch
+  addShift(e1,c1,2,'06:30','14:30',30,'bestätigt','');
+  addShift(e7,c3,2,'08:00','16:00',30,'bestätigt','');
+  addShift(e2,c1,2,'17:00','23:00',30,'geplant','');
+  addShift(e2,c1,2,'10:00','15:00',0,'geplant','Doppelbelegung – bitte prüfen');
+  addShift(e6,c1,2,'08:00','16:00',30,'geplant','');
+  // Donnerstag
+  addShift(e5,c1,3,'06:30','14:30',30,'geplant','');
+  addShift(e4,c3,3,'08:00','16:00',30,'bestätigt','');
+  addShift(e3,c2,3,'16:00','23:30',30,'geplant','');
+  addShift(null,c1,3,'17:00','23:00',30,'offen','Zusatzschicht wegen Reservationen');
+  addShift(e8,c2,3,'14:00','17:00',0,'bestätigt','');
+  // Freitag
+  addShift(e1,c4,4,'09:00','22:00',60,'bestätigt','Catering Hochzeit Zürich');
+  addShift(e9,c4,4,'16:00','23:59',30,'bestätigt','');
+  addShift(e2,c1,4,'17:00','23:30',30,'geplant','');
+  addShift(e5,c2,4,'17:00','23:00',30,'geplant','');
+  addShift(e7,c3,4,'08:00','16:00',30,'bestätigt','');
+  addShift(null,c2,4,'17:00','23:30',30,'offen','');
+  // Samstag
+  addShift(e1,c1,5,'10:00','15:00',30,'geplant','');
+  addShift(e2,c1,5,'10:00','15:00',30,'geplant','');
+  addShift(e3,c2,5,'16:00','23:59',30,'bestätigt','');
+  addShift(e4,c2,5,'16:00','23:00',30,'bestätigt','');
+  addShift(e7,c3,5,'08:00','16:00',30,'geplant','Wochenende Hochbetrieb');
+  addShift(e9,c1,5,'17:00','23:30',30,'geplant','');
+  // Sonntag
+  addShift(e5,c1,6,'09:00','15:00',30,'geplant','');
+  addShift(e6,c1,6,'09:00','14:00',15,'geplant','');
+  addShift(e8,c1,6,'06:00','09:00',0,'bestätigt','');
+  addShift(null,c4,6,'11:00','16:00',30,'offen','Brunch-Event, Barkeeper gesucht');
+  // Luca Meier (Demo-Mitarbeiter) - Schichten über die Woche verteilt, inkl. heute
+  addShift(eStaff,c1,0,'10:30','18:00',30,'bestätigt','');
+  addShift(eStaff,c1,dow,'10:00','18:00',30,'geplant','Mittags- und Abendservice');
+  addShift(eStaff,c1,(dow+1)%7,'10:30','18:30',30,'geplant','');
+  addShift(eStaff,c2,(dow+3)%7,'16:00','23:00',30,'geplant','Vertretung Alpen Stube');
+
+  const absences=[
+    {id:uid(),employeeId:e3.id,type:'Urlaub',start:isoDate(addDays(today,9)),end:isoDate(addDays(today,13)),status:'genehmigt',note:''},
+    {id:uid(),employeeId:e7.id,type:'Krankheit',start:isoDate(addDays(today,-2)),end:isoDate(addDays(today,-1)),status:'genehmigt',note:'Attest vorliegend'},
+    {id:uid(),employeeId:e4.id,type:'Urlaub',start:isoDate(addDays(today,20)),end:isoDate(addDays(today,27)),status:'beantragt',note:'Sommerferien'},
+    {id:uid(),employeeId:e6.id,type:'Sonstiges',start:isoDate(addDays(today,4)),end:isoDate(addDays(today,4)),status:'beantragt',note:'Arzttermin'},
+    {id:uid(),employeeId:eStaff.id,type:'Urlaub',start:isoDate(addDays(today,16)),end:isoDate(addDays(today,18)),status:'beantragt',note:'Kurztrip'},
+    {id:uid(),employeeId:eStaff.id,type:'Unbezahlt',start:isoDate(addDays(today,-10)),end:isoDate(addDays(today,-10)),status:'genehmigt',note:''},
+  ];
+
+  const timeEntries=[];
+  function mkEntry(e,c,dayOffset,startH,startM,durMin,geofenceOk,dist,pauseMinutes,status,changeLog){
+    const day=addDays(today,dayOffset);
+    const inD=new Date(day); inD.setHours(startH,startM,0,0);
+    const outD=new Date(inD.getTime()+durMin*60000);
+    const createdAt=outD.toISOString();
+    timeEntries.push({id:uid(),employeeId:e.id,customerId:c.id,clockIn:inD.toISOString(),clockOut:outD.toISOString(),geofenceOk,distance:dist,
+      pauseMinutes:pauseMinutes||0,pauseStart:null,status:status||'offen',notes:'',
+      createdAt, updatedAt: (changeLog&&changeLog.length)? changeLog[changeLog.length-1].ts : createdAt,
+      changeLog: changeLog||[]});
+  }
+  mkEntry(e1,c1,-1,6,32,478,true,15,30,'bestätigt');
+  mkEntry(e2,c1,-1,10,28,452,true,22,30,'offen');
+  mkEntry(e7,c3,-1,8,3,478,true,18,30,'bestätigt');
+  mkEntry(e5,c2,-2,11,2,478,true,30,30,'offen');
+  mkEntry(e4,c2,-2,11,4,470,false,260,30,'korrigiert',[
+    {ts:isoDate(addDays(today,-2))+'T18:10:00', text:'Startzeit wurde von 11:15 auf 11:04 geändert.', by:'Marco Baumann'},
+    {ts:isoDate(addDays(today,-2))+'T18:11:00', text:'Notiz ergänzt: "Verspätung wegen ÖV-Ausfall, mit Mitarbeiterin abgeklärt."', by:'Marco Baumann'},
+  ]);
+  mkEntry(e1,c4,-2,9,5,478,true,40,60,'bestätigt');
+  mkEntry(eStaff,c1,-1,10,32,450,true,12,30,'offen');
+  mkEntry(eStaff,c1,-3,10,28,470,true,18,30,'bestätigt');
+  // offener Eintrag heute (aktuell eingestempelt)
+  const inNow=new Date(); inNow.setHours(Math.max(0,inNow.getHours()-1),10,0,0);
+  timeEntries.push({id:uid(),employeeId:e2.id,customerId:c1.id,clockIn:inNow.toISOString(),clockOut:null,geofenceOk:true,distance:14,
+    pauseMinutes:0,pauseStart:null,status:'offen',notes:'',createdAt:inNow.toISOString(),updatedAt:inNow.toISOString(),changeLog:[]});
+
+  const timeCorrections=[];
+
+  const settings={
+    companyName:'Alpen Gastro AG',
+    weeklyHours:42,
+    defaultRadius:100,
+    rounding:5,
+    notifyLate:true,
+    notifyGeofence:true,
+    address:'Seepromenade 4, 6003 Luzern',
+    profileEditableFields: {...DEFAULT_PROFILE_EDITABLE}
+  };
+  const permissions = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
+  return {employees,customers,shifts,absences,timeEntries,timeCorrections,settings,permissions};
+}
+
+async function loadState(){
+  let data=null;
+  try{
+    const res = await window.storage.get('reintrack-data', false);
+    if(res && res.value) data = JSON.parse(res.value);
+  }catch(e){ data=null; }
+  if(!data){ data = seedData(); }
+  data = migrateData(data);
+  state = Object.assign({
+    view:'dashboard', weekOffset:0, currentEmployeeId: data.employees[0]?.id||null,
+    modal:null, editing:null, geoSim:{active:false,distance:20,customerId:null}, filter:{}, sidebarOpen:false,
+    panelShiftId:null, panelLocationId:null, panelTimeEntryId:null, mobileDay:isoDate(new Date()), addrQuery:'', addrResults:[],
+    currentUserId: data.currentUserId || (data.employees.find(e=>e.systemRole==='admin')||data.employees[0])?.id,
+    loggedIn:false, loginError:''
+  }, data);
+  render();
+  scheduleSave();
+}
+function migrateData(data){
+  if(!data.permissions) data.permissions = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
+  if(!data.timeCorrections) data.timeCorrections = [];
+  if(!data.settings.profileEditableFields) data.settings.profileEditableFields = {...DEFAULT_PROFILE_EDITABLE};
+  let hasAdmin=false, hasManager=false;
+  data.employees.forEach(e=>{
+    if(!e.systemRole) e.systemRole='mitarbeiter';
+    if(e.systemRole==='admin') hasAdmin=true;
+    if(e.systemRole==='manager') hasManager=true;
+    delete e.teamId; // Teams-Feature wurde entfernt
+  });
+  if(!hasAdmin){
+    let laura=data.employees.find(e=>e.name==='Laura Keller');
+    if(laura) laura.systemRole='admin';
+    else data.employees.push({id:uid(),name:'Laura Keller',role:'Administrator',systemRole:'admin',email:'laura.keller@alpen-gastro.demo',phone:'+41 79 000 00 01',status:'aktiv',pin:'0001',startDate:'2023-03-01',customerIds:[]});
+  }
+  if(!hasManager){
+    let marco=data.employees.find(e=>e.name==='Marco Baumann');
+    if(marco) marco.systemRole='manager';
+    else data.employees.push({id:uid(),name:'Marco Baumann',role:'Manager Service',systemRole:'manager',email:'marco.baumann@alpen-gastro.demo',phone:'+41 79 000 00 02',status:'aktiv',pin:'0002',startDate:'2023-03-01',customerIds:data.customers.slice(0,2).map(c=>c.id)});
+  }
+  data.shifts.forEach(s=>{ delete s.teamId; });
+  data.timeEntries.forEach(t=>{
+    if(t.pauseMinutes===undefined) t.pauseMinutes=0;
+    if(t.pauseStart===undefined) t.pauseStart=null;
+    if(!t.status) t.status='offen';
+    if(!t.createdAt) t.createdAt=t.clockIn;
+    if(!t.updatedAt) t.updatedAt=t.clockOut||t.createdAt;
+    if(t.notes===undefined) t.notes='';
+    if(!t.changeLog) t.changeLog=[];
+  });
+  data.absences.forEach(a=>{ if(a.type==='Ferien') a.type='Urlaub'; });
+  data.customers.forEach(c=>{ if(!c.tasks) c.tasks=[]; if(!c.issues) c.issues=[]; });
+  ['manager','mitarbeiter'].forEach(r=>{
+    if(data.permissions[r]){ delete data.permissions[r].teams_view; delete data.permissions[r].teams_manage; }
+  });
+  delete data.teams;
+  return data;
+}
+
+/* ============ HELPERS ============ */
+function getEmp(id){return state.employees.find(e=>e.id===id);}
+function getCust(id){return state.customers.find(c=>c.id===id);}
+function openEntryFor(empId){return state.timeEntries.find(t=>t.employeeId===empId && !t.clockOut);}
+function weekRange(offset){const base=mondayOf(new Date());return addDays(base,offset*7);}
+function toast(msg){
+  const t=document.createElement('div');
+  t.className='toast';
+  t.innerHTML = ic('check')+'<span>'+msg+'</span>';
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2600);
+}
+/* ============ NAVIGATION (rollenabhängig) ============ */
+function navConfigFor(role){
+  if(role==='admin'){
+    return [
+      {view:'dashboard',icon:'dashboard',label:'Dashboard'},
+      {view:'schedule',icon:'schedule',label:'Dienstplan'},
+      {view:'employees',icon:'employees',label:'Mitarbeiter'},
+      {view:'clock',icon:'clock',label:'Zeiterfassung'},
+      {view:'absence',icon:'absence',label:'Abwesenheiten'},
+      {view:'location',icon:'location',label:'Standorte & Kunden'},
+      {view:'reports',icon:'briefcase',label:'Berichte'},
+      {view:'settings',icon:'settings',label:'Einstellungen'},
+      {view:'permissions',icon:'bolt',label:'Rollen & Berechtigungen'},
+    ];
+  }
+  if(role==='manager'){
+    const items=[{view:'dashboard',icon:'dashboard',label:'Dashboard'}];
+    if(hasPerm('schedule_view')) items.push({view:'schedule',icon:'schedule',label:'Dienstplan'});
+    if(hasPerm('emp_view')) items.push({view:'employees',icon:'employees',label:'Mitarbeiterübersicht'});
+    if(hasPerm('time_view_own')||hasPerm('time_view_all')) items.push({view:'clock',icon:'clock',label:'Zeiterfassung'});
+    if(hasPerm('absence_view_own')||hasPerm('absence_view_all')) items.push({view:'absence',icon:'absence',label:'Abwesenheiten'});
+    if(hasPerm('locations_view')) items.push({view:'location',icon:'location',label:'Standorte & Kunden'});
+    if(hasPerm('reports_view')) items.push({view:'reports',icon:'briefcase',label:'Berichte'});
+    return items;
+  }
+  // mitarbeiter
+  return [
+    {view:'me-start',icon:'dashboard',label:'Start'},
+    {view:'me-schedule',icon:'schedule',label:'Mein Dienstplan'},
+    {view:'me-time',icon:'clock',label:'Zeiterfassung'},
+    {view:'me-absence',icon:'absence',label:'Abwesenheiten'},
+    {view:'me-profile',icon:'users2',label:'Profil'},
+  ];
+}
+const VIEW_META = {
+  dashboard:['Dashboard','Überblick über Personal, Einsätze und offene Aufgaben'],
+  schedule:['Dienstplan','Schichten planen und Mitarbeitenden zuweisen'],
+  employees:['Mitarbeiter','Personal verwalten und Standorten zuordnen'],
+  clock:['Zeiterfassung','Ein- und ausstempeln mit Standortabgleich'],
+  absence:['Abwesenheiten','Urlaub, Krankheit und Anträge verwalten'],
+  location:['Standorte & Kunden','Kunden, Objekte und Geofence-Radien pflegen'],
+  reports:['Berichte','Arbeitszeiten auswerten und exportieren'],
+  settings:['Einstellungen','Unternehmensangaben und Regeln festlegen'],
+  permissions:['Rollen & Berechtigungen','Festlegen, was Manager und Mitarbeitende dürfen'],
+  'me-start':['Start','Dein persönlicher Überblick für heute'],
+  'me-schedule':['Mein Dienstplan','Deine Schichten auf einen Blick'],
+  'me-time':['Zeiterfassung','Starte, pausiere und beende deine Arbeitszeit'],
+  'me-absence':['Abwesenheiten','Deine Anträge und ihr Status'],
+  'me-profile':['Profil','Deine persönlichen Angaben'],
+};
+function viewTitle(){ return (VIEW_META[state.view]||['',''])[0]; }
+function viewSub(){ return (VIEW_META[state.view]||['',''])[1]; }
+
+function closeModal(){ state.modal=null; state.editing=null; render(); }
+function setView(v){ state.view=v; state.sidebarOpen=false; render(); }
+
+/* ============ RENDER ROOT ============ */
+function render(){
+  const app=document.getElementById('app');
+  if(!state.loggedIn){
+    app.innerHTML = renderLogin();
+    return;
+  }
+  const role = currentRole();
+  const nav = navConfigFor(role);
+  if(!nav.find(n=>n.view===state.view)) state.view = nav[0].view;
+  const isStaff = role==='mitarbeiter';
+  const u = currentUser();
+  app.innerHTML = `
+    <div class="sidebar ${state.sidebarOpen?'open':''}" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">${ICONS.droplet}</div>
+        <div>
+          <div class="brand-name">ReinTrack</div>
+          <div class="brand-sub">Facility Workforce</div>
+        </div>
+      </div>
+      <nav class="nav">
+        ${nav.map(n=>navItem(n.icon,n.label,n.view)).join('')}
+      </nav>
+      <div class="nav-foot">
+        <div class="clock mono" id="sidebarClock">--:--:--</div>
+        <div class="date" id="sidebarDate"></div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="icon-btn mobile-toggle" onclick="state.sidebarOpen=!state.sidebarOpen;render();">${ICONS.menu}</button>
+          <div>
+            <h1>${viewTitle()}</h1>
+            <div class="sub">${viewSub()}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;position:relative;">
+          ${!isStaff? `<div class="geo-pill"><span class="geo-dot"></span> Geofencing aktiv</div>`:''}
+          <button class="user-chip" onclick="event.stopPropagation();state.userMenuOpen=!state.userMenuOpen;render();">
+            <div class="avatar" style="background:${colorFor(u.id)};width:30px;height:30px;font-size:12px;">${initials(u.name)}</div>
+            <div class="user-chip-txt"><div class="n">${u.name.split(' ')[0]}</div><div class="r">${roleLabel(role)}</div></div>
+          </button>
+          ${state.userMenuOpen? renderUserMenu(): ''}
+        </div>
+      </div>
+      <div class="content" id="content"></div>
+    </div>
+    ${state.modal?renderModal():''}
+    ${isStaff? renderMobileTabBar(nav): ''}
+  `;
+  document.getElementById('content').innerHTML = renderView();
+  tickClock();
+}
+function renderUserMenu(){
+  return `<div class="user-menu" onclick="event.stopPropagation();">
+    <div class="user-menu-head">Angemeldet als</div>
+    <div class="user-menu-current">
+      <div class="avatar" style="background:${colorFor(currentUser().id)};width:32px;height:32px;">${initials(currentUser().name)}</div>
+      <div><div style="font-weight:700;font-size:13px;">${currentUser().name}</div><div class="hint">${currentUser().role} · automatisch erkannt: ${roleLabel(currentRole())}</div></div>
+    </div>
+    <div class="hint" style="padding:10px 4px 4px;">Deine Rolle wird automatisch anhand deines Kontos erkannt und kann hier nicht verändert werden.</div>
+    <div class="divider" style="margin:10px 0 8px;"></div>
+    <button class="user-menu-item" onclick="logout()">
+      <span style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:var(--red-tint);color:var(--red);">${ic('close')}</span>
+      <div style="font-weight:600;font-size:12.8px;color:var(--red);">Abmelden</div>
+    </button>
+  </div>`;
+}
+function renderLogin(){
+  const active = state.employees.filter(e=>e.status==='aktiv').sort((a,b)=>a.name.localeCompare(b.name));
+  const demoUsers = state.employees.filter(e=>['Laura Keller','Marco Baumann','Luca Meier'].includes(e.name));
+  const order={admin:0,manager:1,mitarbeiter:2};
+  demoUsers.sort((a,b)=>order[a.systemRole]-order[b.systemRole]);
+  return `<div class="login-screen">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-mark">${ICONS.droplet}</div>
+        <div>
+          <div class="brand-name" style="color:var(--ink);">ReinTrack</div>
+          <div class="brand-sub" style="color:var(--ink-faint);">Facility Workforce</div>
+        </div>
+      </div>
+      <h2 style="margin-top:18px;">Anmelden</h2>
+      <div class="hint" style="margin-bottom:18px;">Melde dich mit deinem Mitarbeiterkonto an. Deine Rolle (Admin, Manager oder Mitarbeiter) wird danach automatisch erkannt.</div>
+      <div class="field">
+        <label>Mitarbeiter</label>
+        <select id="login-user">
+          ${active.map(e=>`<option value="${e.id}" ${e.id===state.currentUserId?'selected':''}>${e.name} — ${e.role}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>PIN</label>
+        <input id="login-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" onkeydown="if(event.key==='Enter'){attemptLogin();}">
+      </div>
+      <div id="login-error" class="login-error"></div>
+      <button class="btn btn-accent" style="width:100%;justify-content:center;padding:11px;font-size:14px;" onclick="attemptLogin()">${ic('check')} Anmelden</button>
+
+      <div class="login-demo-divider"><span>Demo-Zugänge für diesen Prototyp</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${demoUsers.map(e=>`<button class="login-demo-item" onclick="quickDemoLogin('${e.id}')">
+          <div class="avatar" style="background:${colorFor(e.id)};width:32px;height:32px;font-size:12.5px;">${initials(e.name)}</div>
+          <div style="text-align:left;flex:1;"><div style="font-weight:700;font-size:13px;">${e.name}</div><div class="hint">${e.role}</div></div>
+          <span class="hint">Anmelden →</span>
+        </button>`).join('')}
+      </div>
+      <div class="hint" style="margin-top:14px;text-align:center;">Prototyp-Zugänge zu Demozwecken – die Rolle wird auch hier automatisch aus dem Konto übernommen, nicht manuell gewählt.</div>
+    </div>
+  </div>`;
+}
+function renderMobileTabBar(nav){
+  return `<div class="mobile-tabbar">
+    ${nav.map(n=>`<button class="mtab ${state.view===n.view?'active':''}" onclick="setView('${n.view}')">${ic(n.icon)}<span>${n.label.split(' ')[0]}</span></button>`).join('')}
+  </div>`;
+}
+function navItem(icon,label,view){
+  return `<button class="nav-item ${state.view===view?'active':''}" onclick="setView('${view}')">${ic(icon)}<span>${label}</span></button>`;
+}
+function tickClock(){
+  const upd=()=>{
+    const now=new Date();
+    const c=document.getElementById('sidebarClock'); if(c) c.textContent=pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+    const d=document.getElementById('sidebarDate'); if(d) d.textContent=now.toLocaleDateString('de-CH',{weekday:'long',day:'2-digit',month:'long'});
+    const dw=document.getElementById('dialTime'); if(dw) dw.textContent=pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+    const mw=document.getElementById('meDialTime'); if(mw) mw.textContent=pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+  };
+  upd();
+  if(window.__clockInterval) clearInterval(window.__clockInterval);
+  window.__clockInterval=setInterval(upd,1000);
+}
+document.addEventListener('click', ()=>{ if(state && state.userMenuOpen){ state.userMenuOpen=false; render(); } });
+
+function renderView(){
+  const role=currentRole();
+  if(state.view==='dashboard') return viewDashboard();
+  if(state.view==='schedule' && hasPerm('schedule_view')) return viewSchedule();
+  if(state.view==='employees' && hasPerm('emp_view')) return viewEmployees();
+  if(state.view==='clock') return viewClock();
+  if(state.view==='absence') return viewAbsence();
+  if(state.view==='location' && hasPerm('locations_view')) return viewLocations();
+  if(state.view==='reports' && hasPerm('reports_view')) return viewReports();
+  if(state.view==='settings' && isAdmin()) return viewSettings();
+  if(state.view==='permissions' && isAdmin()) return viewPermissions();
+  if(state.view==='me-start') return meStart();
+  if(state.view==='me-schedule') return meSchedule();
+  if(state.view==='me-time') return meTime();
+  if(state.view==='me-absence') return meAbsence();
+  if(state.view==='me-profile') return meProfile();
+  return `<div class="empty">${ic('settings')}<p>Kein Zugriff auf diesen Bereich.</p></div>`;
+}
+
+/* ============ DASHBOARD ============ */
+function viewDashboard(){
+  const activeNow = state.timeEntries.filter(t=>!t.clockOut);
+  const activeEmp = state.employees.filter(e=>e.status==='aktiv').length;
+  const openAbsences = state.absences.filter(a=>a.status==='beantragt').length;
+  const weekStart = mondayOf(new Date());
+  const weekEnd = addDays(weekStart,7);
+  const hoursWeek = state.timeEntries.filter(t=>t.clockOut && new Date(t.clockIn)>=weekStart && new Date(t.clockIn)<weekEnd)
+    .reduce((sum,t)=>sum+(new Date(t.clockOut)-new Date(t.clockIn))/3600000,0);
+
+  const todayIso = isoDate(new Date());
+  const todaysShifts = state.shifts.filter(s=>s.date===todayIso).sort((a,b)=>a.start.localeCompare(b.start));
+  const teCounts = {offen:0, bestätigt:0, korrigiert:0};
+  state.timeEntries.forEach(t=>{ if(teCounts[t.status]!==undefined) teCounts[t.status]++; });
+
+  return `
+  <div class="grid cols-4" style="margin-bottom:16px;">
+    ${kpiCard('users2','Aktive Mitarbeiter',activeEmp,'var(--primary-tint)','var(--primary-dark)', state.employees.length+' insgesamt')}
+    ${kpiCard('bolt','Aktuell im Einsatz',activeNow.length,'#E3FBEF','var(--accent-dark)', activeNow.length? 'Live eingestempelt':'Niemand aktiv')}
+    ${kpiCard('hourglass','Stunden diese Woche',hoursWeek.toFixed(1)+' h','var(--amber-tint)','#93670A', 'Soll: '+state.settings.weeklyHours+' h/Woche')}
+    ${kpiCard('absence','Offene Anträge',openAbsences,'var(--red-tint)','var(--red)', openAbsences? 'Prüfung erforderlich':'Alles bearbeitet')}
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-head"><h3>Zeiterfassung im Überblick</h3><button class="muted-link" onclick="setView('clock')">Zeiterfassung verwalten →</button></div>
+    <div class="grid cols-3">
+      ${clickableStatusKpi('offen',teCounts.offen,'var(--amber-tint)','#93670A','zur Prüfung')}
+      ${clickableStatusKpi('bestätigt',teCounts.bestätigt,'var(--primary-tint)','var(--primary-dark)','abgeschlossen')}
+      ${clickableStatusKpi('korrigiert',teCounts.korrigiert,'#E3EDF7','#2A6FA8','nachträglich angepasst')}
+    </div>
+  </div>
+
+  <div class="grid cols-2" style="margin-bottom:16px;align-items:start;">
+    <div class="card">
+      <div class="card-head"><h3>Ein-/Ausstempeln</h3><button class="muted-link" onclick="setView('clock')">Zur Zeiterfassung →</button></div>
+      ${stampWidget(true)}
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Jetzt im Einsatz</h3></div>
+      ${activeNow.length? activeNow.map(t=>{
+        const e=getEmp(t.employeeId), c=getCust(t.customerId);
+        return `<div style="display:flex;align-items:center;justify-content:between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);">
+          <div class="person" style="flex:1;">
+            <div class="avatar" style="background:${colorFor(e.id)}">${initials(e.name)}</div>
+            <div><div class="name">${e.name}</div><div class="meta">${c?c.name:'—'} · seit ${fmtTime(new Date(t.clockIn))}</div></div>
+          </div>
+          <span class="badge ${t.geofenceOk?'badge-mint':'badge-amber'}"><span class="badge-dot"></span>${t.geofenceOk?'Vor Ort':'Abweichung'}</span>
+        </div>`;
+      }).join('') : `<div class="empty">${ic('bolt')}<p>Aktuell ist niemand eingestempelt.</p></div>`}
+    </div>
+  </div>
+
+  <div class="grid cols-2">
+    <div class="card">
+      <div class="card-head"><h3>Heutige Schichten</h3><button class="muted-link" onclick="setView('schedule')">Dienstplan →</button></div>
+      ${todaysShifts.length? `<div class="table-wrap"><table><thead><tr><th>Zeit</th><th>Mitarbeiter</th><th>Standort</th><th>Status</th></tr></thead><tbody>
+        ${(()=>{const conflictIds=computeConflictIds(); return todaysShifts.map(s=>{const e=getEmp(s.employeeId),c=getCust(s.customerId); return `<tr onclick="openShiftPanel('${s.id}')" style="cursor:pointer;">
+          <td class="mono">${s.start}–${s.end}</td>
+          <td>${e? `<div class="person"><div class="avatar" style="background:${colorFor(e.id)}">${initials(e.name)}</div><span>${e.name}</span></div>` : '<span class="hint" style="font-style:italic;">Offen – kein Mitarbeiter</span>'}</td>
+          <td>${c?c.name:'—'}</td>
+          <td>${statusBadge(shiftDisplayStatus(s,conflictIds))}</td>
+        </tr>`;}).join('');})()}
+      </tbody></table></div>` : `<div class="empty">${ic('schedule')}<p>Keine Schichten für heute geplant.</p></div>`}
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Anstehende Abwesenheiten</h3><button class="muted-link" onclick="setView('absence')">Alle ansehen →</button></div>
+      ${renderUpcomingAbsences()}
+    </div>
+  </div>
+  `;
+}
+function kpiCard(icon,label,value,bg,fg,delta){
+  return `<div class="card kpi">
+    <div class="icon" style="background:${bg};color:${fg}">${ic(icon)}</div>
+    <div class="label">${label}</div>
+    <div class="value">${value}</div>
+    <div class="delta">${delta}</div>
+  </div>`;
+}
+function clickableStatusKpi(status,value,bg,fg,delta){
+  return `<div class="card kpi" style="cursor:pointer;" onclick="state.filter.teStatus='${status}';setView('clock');">
+    <div class="icon" style="background:${bg};color:${fg}">${ic(status==='offen'?'clock':(status==='bestätigt'?'check':'edit'))}</div>
+    <div class="label">${statusLabel(status)}</div>
+    <div class="value">${value}</div>
+    <div class="delta">${delta} · Details →</div>
+  </div>`;
+}
+function renderUpcomingAbsences(){
+  const list=state.absences.filter(a=>a.status!=='abgelehnt' && addDays(new Date(a.end),1)>=new Date()).sort((a,b)=>a.start.localeCompare(b.start)).slice(0,5);
+  if(!list.length) return `<div class="empty">${ic('absence')}<p>Keine anstehenden Abwesenheiten.</p></div>`;
+  return list.map(a=>{const e=getEmp(a.employeeId); return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);">
+    <div class="avatar" style="background:${colorFor(e.id)}">${initials(e.name)}</div>
+    <div style="flex:1;"><div class="name" style="font-weight:600;">${e.name}</div><div class="meta" style="color:var(--ink-faint);font-size:11.5px;">${a.type} · ${fmtDate(new Date(a.start))} – ${fmtDate(new Date(a.end))}</div></div>
+    ${statusBadge(a.status)}
+  </div>`;}).join('');
+}
+function statusBadge(status){
+  const map={geplant:['badge-green','Geplant'],erledigt:['badge-mint','Erledigt'],offen:['badge-amber','Offen'],
+    bestätigt:['badge-mint','Bestätigt'],konflikt:['badge-red','Konflikt'],korrigiert:['badge-blue','Korrigiert'],
+    genehmigt:['badge-mint','Genehmigt'],beantragt:['badge-amber','Ausstehend'],abgelehnt:['badge-red','Abgelehnt']};
+  const [cls,label]=map[status]||['badge-grey',status];
+  return `<span class="badge ${cls}"><span class="badge-dot"></span>${label}</span>`;
+}
+
+/* ============ STAMP WIDGET (signature element) ============ */
+function stampWidget(compact){
+  const emp = getEmp(state.currentEmployeeId);
+  const open = emp? openEntryFor(emp.id): null;
+  const isOn = !!open;
+  return `
+  <div class="stamp-widget">
+    <div class="dial-wrap">
+      ${isOn?`<div class="dial-pulse"></div><div class="dial-pulse d2"></div><div class="dial-pulse d3"></div>`:''}
+      <div class="dial-ring"></div>
+      <div class="dial-core ${isOn?'':'off'}">
+        <div class="time mono" id="dialTime">--:--:--</div>
+        <div class="lbl">${isOn?'Eingestempelt':'Bereit'}</div>
+      </div>
+    </div>
+    <div class="stamp-info">
+      <div class="who">Angemeldet als</div>
+      <h2>${emp?emp.name:'Kein Mitarbeiter'}</h2>
+      ${!compact? `<div class="field" style="max-width:260px;"><select onchange="state.currentEmployeeId=this.value;render();">
+        ${state.employees.map(e=>`<option value="${e.id}" ${e.id===state.currentEmployeeId?'selected':''}>${e.name}</option>`).join('')}
+      </select></div>`:''}
+      <div class="stamp-meta">
+        <div>Status<b>${isOn?'Im Einsatz':'Nicht eingestempelt'}</b></div>
+        ${isOn?`<div>Seit<b>${fmtTime(new Date(open.clockIn))}</b></div><div>Standort<b>${getCust(open.customerId)?.name||'—'}</b></div>`:''}
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;">
+        ${isOn? `<button class="btn btn-danger" onclick="handleClockOut()">${ic('close')} Ausstempeln</button>`
+               : `<button class="btn btn-accent" onclick="openClockInFlow()">${ic('pin')} Einstempeln</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============ ZEITERFASSUNG VIEW (Admin/Manager) ============ */
+function filteredTimeEntries(){
+  const f=state.filter;
+  const canAll = hasPerm('time_view_all');
+  let entries=[...state.timeEntries];
+  if(!canAll) entries = entries.filter(t=>t.employeeId===state.currentUserId);
+  if(f.teEmp && f.teEmp!=='alle') entries = entries.filter(t=>t.employeeId===f.teEmp);
+  if(f.teCust && f.teCust!=='alle') entries = entries.filter(t=>t.customerId===f.teCust);
+  if(f.teStatus && f.teStatus!=='alle') entries = entries.filter(t=>t.status===f.teStatus);
+  if(f.tePeriod && f.tePeriod!=='alle'){
+    const now=new Date();
+    let start;
+    if(f.tePeriod==='heute') start=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    else if(f.tePeriod==='woche') start=mondayOf(now);
+    else if(f.tePeriod==='monat') start=new Date(now.getFullYear(),now.getMonth(),1);
+    entries = entries.filter(t=>new Date(t.clockIn)>=start);
+  }
+  return entries.sort((a,b)=>new Date(b.clockIn)-new Date(a.clockIn));
+}
+function viewClock(){
+  const canAll = hasPerm('time_view_all');
+  const canManual = hasPerm('time_manual_create');
+  const canEditAny = hasPerm('time_edit')||hasPerm('time_correct')||hasPerm('time_confirm');
+  const f=state.filter;
+  const entries = filteredTimeEntries();
+  const counts = {offen:0, bestätigt:0, korrigiert:0};
+  (canAll? state.timeEntries: state.timeEntries.filter(t=>t.employeeId===state.currentUserId)).forEach(t=>{ if(counts[t.status]!==undefined) counts[t.status]++; });
+  return `
+  <div class="card" style="margin-bottom:18px;">
+    ${canManual? stampWidget(false) : `<div class="empty">${ic('clock')}<p>Du hast keine Berechtigung, Zeiten für andere manuell zu erfassen.<br>Frag deinen Administrator nach der Berechtigung „Manuelle Zeiteinträge erstellen“.</p></div>`}
+  </div>
+  ${canEditAny? `<div class="card-head" style="margin-bottom:2px;"><h3 style="font-size:16px;">Zeiterfassung verwalten</h3></div>
+  <div class="grid cols-4" style="margin-bottom:16px;">
+    ${kpiCard('clock','Offen',counts.offen,'var(--amber-tint)','#93670A','zur Prüfung')}
+    ${kpiCard('check','Bestätigt',counts.bestätigt,'var(--primary-tint)','var(--primary-dark)','abgeschlossen')}
+    ${kpiCard('edit','Korrigiert',counts.korrigiert,'#E3EDF7','#2A6FA8','nachträglich angepasst')}
+    ${kpiCard('hourglass','Gesamt',state.timeEntries.length,'var(--surface-alt)','var(--ink-soft)','alle Einträge')}
+  </div>`:''}
+  <div class="toolbar">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${canAll?`<select onchange="state.filter.teEmp=this.value;render();">
+        <option value="alle">Alle Mitarbeiter</option>
+        ${state.employees.map(e=>`<option value="${e.id}" ${f.teEmp===e.id?'selected':''}>${e.name}</option>`).join('')}
+      </select>`:''}
+      <select onchange="state.filter.tePeriod=this.value;render();">
+        <option value="alle" ${(!f.tePeriod||f.tePeriod==='alle')?'selected':''}>Gesamter Zeitraum</option>
+        <option value="heute" ${f.tePeriod==='heute'?'selected':''}>Heute</option>
+        <option value="woche" ${f.tePeriod==='woche'?'selected':''}>Diese Woche</option>
+        <option value="monat" ${f.tePeriod==='monat'?'selected':''}>Dieser Monat</option>
+      </select>
+      <select onchange="state.filter.teCust=this.value;render();">
+        <option value="alle">Alle Reinigungsobjekte</option>
+        ${state.customers.map(c=>`<option value="${c.id}" ${f.teCust===c.id?'selected':''}>${c.name}</option>`).join('')}
+      </select>
+      <select onchange="state.filter.teStatus=this.value;render();">
+        <option value="alle">Alle Status</option>
+        <option value="offen" ${f.teStatus==='offen'?'selected':''}>Offen</option>
+        <option value="bestätigt" ${f.teStatus==='bestätigt'?'selected':''}>Bestätigt</option>
+        <option value="korrigiert" ${f.teStatus==='korrigiert'?'selected':''}>Korrigiert</option>
+      </select>
+    </div>
+  </div>
+  ${!canAll? `<div class="hint" style="margin-bottom:10px;">Du siehst nur deine eigenen Einträge (Berechtigung „Alle Arbeitszeiten anzeigen“ ist deaktiviert).</div>`:''}
+  <div class="card">
+    <div class="card-head"><h3>Zeiteinträge</h3><span class="hint">${entries.length} Einträge</span></div>
+    <div class="table-wrap"><table><thead><tr>
+      <th>Mitarbeiter</th><th>Reinigungsobjekt</th><th>Datum</th><th>Kommen</th><th>Gehen</th><th>Pause</th><th>Dauer</th><th>Status</th><th>Letzte Änderung</th><th></th>
+    </tr></thead><tbody>
+    ${entries.map(t=>{
+      const e=getEmp(t.employeeId), c=getCust(t.customerId);
+      const inD=new Date(t.clockIn), outD=t.clockOut?new Date(t.clockOut):null;
+      const dur = outD? ((outD-inD)/60000 - (t.pauseMinutes||0)): null;
+      return `<tr onclick="${canEditAny?`openTimeEntryDetail('${t.id}')`:''}" style="${canEditAny?'cursor:pointer;':''}">
+        <td><div class="person"><div class="avatar" style="background:${colorFor(e.id)}">${initials(e.name)}</div><span>${e.name}</span></div></td>
+        <td>${c?c.name:'—'}</td>
+        <td>${fmtDate(inD)}</td>
+        <td class="mono">${fmtTime(inD)}</td>
+        <td class="mono">${outD?fmtTime(outD):'<span style="color:var(--accent-dark);font-weight:700;">läuft…</span>'}</td>
+        <td class="mono">${t.pauseMinutes||0} min</td>
+        <td class="mono">${dur!==null? Math.round(dur)+' min':'—'}</td>
+        <td>${statusBadge(t.status)}</td>
+        <td class="hint">${fmtDate(new Date(t.updatedAt))} ${fmtTime(new Date(t.updatedAt))}</td>
+        <td onclick="event.stopPropagation();"><div style="display:flex;gap:6px;">
+          ${(hasPerm('time_confirm') && t.status!=='bestätigt' && outD)?`<button class="icon-btn" title="Bestätigen" onclick="quickSetStatus('${t.id}','bestätigt')">${ic('check')}</button>`:''}
+          ${canEditAny?`<button class="icon-btn" title="Bearbeiten" onclick="openTimeEntryDetail('${t.id}')">${ic('edit')}</button>`:''}
+        </div></td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="10"><div class="empty">${ic('clock')}<p>Keine Einträge für diese Filter gefunden.</p></div></td></tr>`}
+    </tbody></table></div>
+  </div>
+  ${(isAdmin() && state.timeCorrections.length)? renderCorrectionRequests() : ''}
+  ${state.panelTimeEntryId? renderTimeEntryPanel(): ''}`;
+}
+function renderCorrectionRequests(){
+  const open=state.timeCorrections.filter(c=>c.status==='offen');
+  if(!open.length) return '';
+  return `<div class="card" style="margin-top:16px;">
+    <div class="card-head"><h3>Korrekturanfragen</h3><span class="hint">${open.length} offen</span></div>
+    ${open.map(c=>{const e=getEmp(c.employeeId);return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);">
+      <div><div style="font-weight:600;font-size:12.8px;">${e?e.name:'—'}</div><div class="hint">${c.note}</div></div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-outline btn-sm" onclick="openTimeEntryDetail('${c.entryId}')">${ic('edit')} Eintrag öffnen</button>
+        <button class="btn btn-outline btn-sm" onclick="resolveCorrection('${c.id}','erledigt')">${ic('check')} Erledigt</button>
+      </div>
+    </div>`;}).join('')}
+  </div>`;
+}
+function resolveCorrection(id,status){
+  const c=state.timeCorrections.find(x=>x.id===id);
+  if(c){ c.status=status; scheduleSave(); render(); toast('Korrekturanfrage aktualisiert.'); }
+}
+function quickSetStatus(entryId,newStatus){
+  const t=state.timeEntries.find(x=>x.id===entryId);
+  if(!t || !hasPerm('time_confirm')) return;
+  logTimeEntryChange(t, `Status wurde von "${statusLabel(t.status)}" auf "${statusLabel(newStatus)}" gesetzt.`);
+  t.status=newStatus;
+  t.updatedAt=new Date().toISOString();
+  scheduleSave();
+  render();
+  toast('Status aktualisiert.');
+}
+function statusLabel(s){ return {offen:'Offen',bestätigt:'Bestätigt',korrigiert:'Korrigiert'}[s]||s; }
+function logTimeEntryChange(t, text){
+  t.changeLog = t.changeLog||[];
+  t.changeLog.push({ts:new Date().toISOString(), text, by: currentUser()?.name||'System'});
+}
+
+/* ---- Zeiteintrag-Detail (Admin/Manager: bearbeiten, bestätigen, korrigieren) ---- */
+function openTimeEntryDetail(id){
+  if(!(hasPerm('time_edit')||hasPerm('time_correct')||hasPerm('time_confirm'))) return;
+  state.panelTimeEntryId=id;
+  render();
+}
+function closeTimeEntryDetail(){
+  state.panelTimeEntryId=null;
+  render();
+}
+function renderTimeEntryPanelBody(){
+  const el=document.getElementById('tePanelBody');
+  if(el) el.innerHTML = timeEntryPanelBodyHtml(state.timeEntries.find(t=>t.id===state.panelTimeEntryId));
+}
+function timeEntryPanelBodyHtml(t){
+  if(!t) return '';
+  const e=getEmp(t.employeeId), c=getCust(t.customerId);
+  const inD=new Date(t.clockIn), outD=t.clockOut?new Date(t.clockOut):null;
+  const canEdit = hasPerm('time_edit')||hasPerm('time_correct');
+  const log=[...(t.changeLog||[])].reverse();
+  return `
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <div class="avatar" style="background:${colorFor(e.id)};width:40px;height:40px;font-size:14px;">${initials(e.name)}</div>
+    <div><div style="font-weight:700;font-size:15px;">${e.name}</div><div class="hint">${e.role} · ${c?c.name:'—'}</div></div>
+  </div>
+  <div class="detail-grid" style="margin-bottom:16px;">
+    <div><span class="dl">Datum</span><span class="dv">${fmtDate(inD)}</span></div>
+    <div><span class="dl">Status</span><span class="dv">${statusBadge(t.status)}</span></div>
+    <div><span class="dl">Erstellt am</span><span class="dv">${fmtDate(new Date(t.createdAt))} ${fmtTime(new Date(t.createdAt))}</span></div>
+    <div><span class="dl">Letzte Änderung</span><span class="dv">${fmtDate(new Date(t.updatedAt))} ${fmtTime(new Date(t.updatedAt))}</span></div>
+  </div>
+  ${canEdit? `
+    <div class="field-row">
+      <div class="field"><label>Startzeit</label><input id="te-start" type="time" value="${pad(inD.getHours())}:${pad(inD.getMinutes())}"></div>
+      <div class="field"><label>Endzeit</label><input id="te-end" type="time" value="${outD?pad(outD.getHours())+':'+pad(outD.getMinutes()):''}"></div>
+    </div>
+    <div class="field" style="max-width:220px;"><label>Pause (Minuten)</label><input id="te-pause" type="number" min="0" value="${t.pauseMinutes||0}"></div>
+    <div class="field"><label>Notiz</label><textarea id="te-notes" rows="2" placeholder="Notiz ergänzen…">${t.notes||''}</textarea></div>
+    <div class="field"><label>Status</label><select id="te-status">
+      <option value="offen" ${t.status==='offen'?'selected':''}>Offen</option>
+      <option value="bestätigt" ${t.status==='bestätigt'?'selected':''}>Bestätigt</option>
+      <option value="korrigiert" ${t.status==='korrigiert'?'selected':''}>Korrigiert</option>
+    </select></div>
+  ` : `<div class="hint" style="margin-bottom:14px;">Nur Ansicht – keine Bearbeitungsrechte für Zeiteinträge.</div>`}
+  <div class="settings-section" style="margin-top:6px;">
+    <h3 style="font-size:13px;">Änderungsprotokoll</h3>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;max-height:220px;overflow-y:auto;">
+      ${log.length? log.map(l=>`<div style="border-left:2px solid var(--line);padding-left:10px;">
+        <div style="font-size:12.5px;">${l.text}</div>
+        <div class="hint">${fmtDate(new Date(l.ts))} ${fmtTime(new Date(l.ts))} · ${l.by}</div>
+      </div>`).join('') : `<div class="hint">Noch keine Änderungen protokolliert.</div>`}
+    </div>
+  </div>`;
+}
+function renderTimeEntryPanel(){
+  const t=state.timeEntries.find(x=>x.id===state.panelTimeEntryId);
+  if(!t) return '';
+  const canEdit = hasPerm('time_edit')||hasPerm('time_correct');
+  return `<div class="drawer-overlay" onclick="if(event.target===this) closeTimeEntryDetail();">
+    <div class="drawer">
+      <div class="drawer-head"><h3>Zeiteintrag</h3><button class="close-x" onclick="closeTimeEntryDetail()">${ic('close')}</button></div>
+      <div class="drawer-body" id="tePanelBody">${timeEntryPanelBodyHtml(t)}</div>
+      <div class="drawer-foot">
+        ${canEdit?`<button class="btn btn-primary" onclick="saveTimeEntryDetail()">${ic('check')} Änderungen speichern</button>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+function saveTimeEntryDetail(){
+  const t=state.timeEntries.find(x=>x.id===state.panelTimeEntryId);
+  if(!t) return;
+  const startV=document.getElementById('te-start').value;
+  const endV=document.getElementById('te-end').value;
+  const pauseV=parseInt(document.getElementById('te-pause').value)||0;
+  const notesV=document.getElementById('te-notes').value;
+  const statusV=document.getElementById('te-status').value;
+  const day=isoDate(new Date(t.clockIn));
+  const oldStartLabel=fmtTime(new Date(t.clockIn));
+  const oldEndLabel=t.clockOut?fmtTime(new Date(t.clockOut)):'—';
+  const oldPause=t.pauseMinutes||0;
+  const oldStatus=t.status;
+  const oldNotes=t.notes||'';
+
+  if(startV){
+    const newClockIn=new Date(day+'T'+startV+':00').toISOString();
+    const newLabel=startV;
+    if(newLabel!==oldStartLabel) logTimeEntryChange(t, `Startzeit wurde von ${oldStartLabel} auf ${newLabel} geändert.`);
+    t.clockIn=newClockIn;
+  }
+  if(endV){
+    const newClockOut=new Date(day+'T'+endV+':00').toISOString();
+    if(endV!==oldEndLabel) logTimeEntryChange(t, `Endzeit wurde von ${oldEndLabel} auf ${endV} geändert.`);
+    t.clockOut=newClockOut;
+  }
+  if(pauseV!==oldPause) logTimeEntryChange(t, `Pause wurde von ${oldPause} Min. auf ${pauseV} Min. geändert.`);
+  t.pauseMinutes=pauseV;
+  if(notesV!==oldNotes) logTimeEntryChange(t, notesV? `Notiz ergänzt: "${notesV}"` : 'Notiz entfernt.');
+  t.notes=notesV;
+  if(statusV!==oldStatus) logTimeEntryChange(t, `Status wurde von "${statusLabel(oldStatus)}" auf "${statusLabel(statusV)}" gesetzt.`);
+  t.status=statusV;
+  t.updatedAt=new Date().toISOString();
+
+  scheduleSave();
+  renderTimeEntryPanelBody();
+  render();
+  toast('Zeiteintrag aktualisiert.');
+}
+
+function actingEmployeeId(){ return currentRole()==='mitarbeiter'? state.currentUserId : state.currentEmployeeId; }
+function openClockInFlow(){
+  const emp=getEmp(actingEmployeeId());
+  if(!emp){ toast('Bitte zuerst einen Mitarbeiter auswählen.'); return; }
+  const assigned = state.customers.filter(c=>emp.customerIds.includes(c.id) && c.active);
+  const pool = assigned.length? assigned : state.customers.filter(c=>c.active);
+  state.geoSim = {active:false, distance:20, customerId: pool[0]?.id||null, checked:false, result:null, pool};
+  state.modal='clockin';
+  render();
+  tryGeolocate();
+}
+function tryGeolocate(){
+  const box=document.getElementById('geoResultBox');
+  if(!navigator.geolocation){ state.geoSim.active=true; if(box) renderClockInModalBody(); return; }
+  if(box) box.innerHTML = `<div class="hint">Standort wird ermittelt…</div>`;
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      const {latitude,longitude}=pos.coords;
+      let best=null;
+      state.geoSim.pool.forEach(c=>{
+        const d=haversine(latitude,longitude,c.lat,c.lng);
+        if(!best||d<best.d) best={c,d};
+      });
+      state.geoSim.active=false;
+      state.geoSim.geo={lat:latitude,lng:longitude};
+      state.geoSim.customerId=best?best.c.id:state.geoSim.customerId;
+      state.geoSim.checked=true;
+      state.geoSim.result=best;
+      renderClockInModalBody();
+    },
+    err=>{ state.geoSim.active=true; state.geoSim.checked=false; renderClockInModalBody(); },
+    {timeout:5000}
+  );
+}
+function renderClockInModalBody(){
+  const el=document.getElementById('clockinModalBody');
+  if(el) el.innerHTML = clockInModalContent();
+}
+function clockInModalContent(){
+  const gs=state.geoSim;
+  const cust = getCust(gs.customerId);
+  let statusBox='';
+  if(!gs.active && gs.result){
+    const okDist = gs.result.d <= (cust?.radius||100);
+    statusBox = okDist
+      ? `<div class="ok-box">${ic('check')} GPS erkannt: Sie befinden sich ca. <b>${Math.round(gs.result.d)} m</b> von „${cust.name}“ entfernt – innerhalb des Radius (${cust.radius} m).</div>`
+      : `<div class="warn-box">${ic('close')} GPS erkannt: Sie sind ca. <b>${Math.round(gs.result.d)} m</b> von „${cust.name}“ entfernt – außerhalb des Radius (${cust.radius} m).</div>`;
+  } else if(gs.active){
+    const okDist = gs.distance <= (cust?.radius||100);
+    statusBox = `<div class="sim-box">${ic('bolt')} Kein GPS verfügbar – <b>Simulationsmodus</b>. Entfernung manuell einstellen, um Geofencing zu testen.
+      <div style="margin-top:10px;"><input type="range" class="slider" min="0" max="400" value="${gs.distance}" oninput="state.geoSim.distance=+this.value; renderClockInModalBody();"><div class="hint mono">${gs.distance} m vom Standort entfernt ${okDist?'(innerhalb Radius ✓)':'(außerhalb Radius ✗)'}</div></div>
+    </div>`;
+  }
+  return `
+    <div class="field">
+      <label>Standort / Kunde</label>
+      <select onchange="state.geoSim.customerId=this.value; renderClockInModalBody();">
+        ${gs.pool.map(c=>`<option value="${c.id}" ${c.id===gs.customerId?'selected':''}>${c.name}</option>`).join('')}
+      </select>
+    </div>
+    <div id="geoResultBox">${statusBox}</div>
+    <div class="hint" style="margin-top:10px;">Geofence-Radius für diesen Standort: <b>${cust?cust.radius:'–'} m</b></div>
+  `;
+}
+function confirmClockIn(){
+  const emp=getEmp(actingEmployeeId());
+  const gs=state.geoSim;
+  const cust=getCust(gs.customerId);
+  const dist = gs.active? gs.distance : (gs.result? gs.result.d : 0);
+  const ok = dist <= (cust?.radius||100);
+  const now=new Date().toISOString();
+  state.timeEntries.push({id:uid(),employeeId:emp.id,customerId:cust.id,clockIn:now,clockOut:null,geofenceOk:ok,distance:dist,
+    pauseMinutes:0,pauseStart:null,status:'offen',notes:'',createdAt:now,updatedAt:now,changeLog:[]});
+  scheduleSave();
+  closeModal();
+  toast(ok? 'Erfolgreich eingestempelt.' : 'Eingestempelt – außerhalb des Geofence-Radius vermerkt.');
+}
+function handleClockOut(){
+  const emp=getEmp(actingEmployeeId());
+  const open=openEntryFor(emp.id);
+  if(!open) return;
+  if(open.pauseStart){ endPause(); }
+  open.clockOut=new Date().toISOString();
+  // Nach dem Ausstempeln erhält der Eintrag automatisch den Status "Offen" (zur Prüfung durch Admin/Manager)
+  open.status='offen';
+  open.updatedAt=new Date().toISOString();
+  scheduleSave();
+  render();
+  toast('Erfolgreich ausgestempelt.');
+}
+
+/* ============ DIENSTPLAN ============ */
+function filteredShifts(){
+  const f=state.filter;
+  return state.shifts.filter(s=>
+    (!f.schedStandort || f.schedStandort==='alle' || s.customerId===f.schedStandort) &&
+    (!f.schedEmp || f.schedEmp==='alle' || s.employeeId===f.schedEmp)
+  );
+}
+function weekInputValue(offset){
+  const d=weekRange(offset);
+  // ISO week number
+  const t=new Date(d); t.setHours(0,0,0,0); t.setDate(t.getDate()+3-((t.getDay()+6)%7));
+  const week1=new Date(t.getFullYear(),0,4);
+  const weekNo=1+Math.round(((t-week1)/86400000-3+((week1.getDay()+6)%7))/7);
+  return t.getFullYear()+'-W'+pad(weekNo);
+}
+function onWeekPick(val){
+  if(!val) return;
+  const [y,w]=val.split('-W').map(Number);
+  const jan4=new Date(y,0,4);
+  const mon1=addDays(jan4,-((jan4.getDay()+6)%7));
+  const target=addDays(mon1,(w-1)*7);
+  const diffWeeks=Math.round((mondayOf(target)-mondayOf(new Date()))/(7*86400000));
+  state.weekOffset=diffWeeks;
+  render();
+}
+function scheduleFilterBar(){
+  const f=state.filter;
+  return `
+  <div class="toolbar">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <div class="week-nav">
+        <button class="icon-btn" onclick="state.weekOffset--;render();">${ic('chevL')}</button>
+        <div style="font-weight:700;font-family:'Space Grotesk';min-width:150px;text-align:center;font-size:13.5px;">${(()=>{const s=weekRange(state.weekOffset);return fmtDate(s)+' – '+fmtDate(addDays(s,6));})()}</div>
+        <button class="icon-btn" onclick="state.weekOffset++;render();">${ic('chevR')}</button>
+      </div>
+      <input type="week" class="sched-week-input" value="${weekInputValue(state.weekOffset)}" onchange="onWeekPick(this.value)">
+      ${state.weekOffset!==0?`<button class="btn btn-outline btn-sm" onclick="state.weekOffset=0;render();">Heute</button>`:''}
+      <select onchange="state.filter.schedStandort=this.value;render();">
+        <option value="alle">Alle Standorte</option>
+        ${state.customers.map(c=>`<option value="${c.id}" ${f.schedStandort===c.id?'selected':''}>${c.name}</option>`).join('')}
+      </select>
+      <select onchange="state.filter.schedEmp=this.value;render();">
+        <option value="alle">Alle Mitarbeiter</option>
+        ${state.employees.map(e=>`<option value="${e.id}" ${f.schedEmp===e.id?'selected':''}>${e.name}</option>`).join('')}
+      </select>
+    </div>
+    ${hasPerm('schedule_create')?`<button class="btn btn-primary" onclick="openShiftModal(null)">${ic('plus')} Neue Schicht</button>`:''}
+  </div>`;
+}
+function shiftCard(s, conflictIds){
+  const e=getEmp(s.employeeId), c=getCust(s.customerId);
+  const accent = c? colorFor(c.id) : '#8A9A97';
+  const dispStatus=shiftDisplayStatus(s,conflictIds);
+  const isConflict=dispStatus==='konflikt', isOpen=!e;
+  return `<div class="shift-card ${isConflict?'is-conflict':''} ${isOpen?'is-open':''}" style="border-left-color:${accent};" onclick="openShiftPanel('${s.id}')">
+    <div class="shift-card-top">
+      <span class="mono shift-time">${s.start}–${s.end}</span>
+      ${statusBadge(dispStatus)}
+    </div>
+    <div class="shift-card-who">
+      ${e? `<div class="avatar" style="background:${colorFor(e.id)};width:22px;height:22px;font-size:9.5px;">${initials(e.name)}</div><span>${e.name}</span>`
+          : `<span class="open-flag">${ic('bolt')} Offen – Mitarbeiter gesucht</span>`}
+    </div>
+    <div class="shift-card-meta">
+      <span>${c?c.name:'—'}</span>
+      ${s.pause? `<span>· ${s.pause} Min. Pause</span>`:''}
+    </div>
+  </div>`;
+}
+function viewSchedule(){
+  const start=weekRange(state.weekOffset);
+  const days=[...Array(7)].map((_,i)=>addDays(start,i));
+  const shifts=filteredShifts();
+  const conflictIds=computeConflictIds();
+  const todayIso=isoDate(new Date());
+
+  const desktop=`<div class="sched-desktop">
+    <div class="cal-grid7">
+      ${days.map(d=>{
+        const iso=isoDate(d);
+        const dayShifts=shifts.filter(s=>s.date===iso).sort((a,b)=>a.start.localeCompare(b.start));
+        const isToday=iso===todayIso;
+        return `<div class="cal-col ${isToday?'is-today':''}">
+          <div class="cal-col-head"><span>${WEEKDAYS[(d.getDay()+6)%7]}</span><span class="d">${d.getDate()}.${d.getMonth()+1}.</span>${isToday?'<span class="today-dot"></span>':''}</div>
+          <div class="cal-col-body">
+            ${dayShifts.length? dayShifts.map(s=>shiftCard(s,conflictIds)).join('') : `<div class="cal-empty-hint">Keine Schichten geplant</div>`}
+          </div>
+          <button class="cal-add-day" onclick="openShiftModal(null,null,'${iso}')" ${hasPerm('schedule_create')?'':'style="visibility:hidden;"'}>${ic('plus')} Schicht</button>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  const mobDay = days.find(d=>isoDate(d)===state.mobileDay) ? state.mobileDay : (days.some(d=>isoDate(d)===todayIso)? todayIso : isoDate(days[0]));
+  const orderedDays = [...days].sort((a,b)=> (isoDate(a)===todayIso?-1:0) - (isoDate(b)===todayIso?-1:0));
+  const mobile=`<div class="sched-mobile">
+    <div class="day-tabs">
+      ${orderedDays.map(d=>{const iso=isoDate(d);const isToday=iso===todayIso;return `<button class="day-tab ${iso===mobDay?'active':''}" onclick="state.mobileDay='${iso}';render();">${isToday?'Heute':WEEKDAYS[(d.getDay()+6)%7]}<span>${d.getDate()}.${d.getMonth()+1}.</span></button>`;}).join('')}
+    </div>
+    <div class="mob-day-list">
+      ${(()=>{const dayShifts=shifts.filter(s=>s.date===mobDay).sort((a,b)=>a.start.localeCompare(b.start));
+        return dayShifts.length? dayShifts.map(s=>shiftCard(s,conflictIds)).join('') : `<div class="cal-empty-hint" style="padding:26px 0;text-align:center;">Keine Schichten für diesen Tag geplant</div>`;})()}
+    </div>
+    ${hasPerm('schedule_create')?`<button class="fab" onclick="openShiftModal(null,null,'${mobDay}')">${ic('plus')}</button>`:''}
+  </div>`;
+
+  return scheduleFilterBar() + desktop + mobile + (state.panelShiftId? renderShiftPanel(): '');
+}
+
+function openShiftModal(shiftId, empId, dateIso){
+  if(shiftId){
+    state.editing = {...state.shifts.find(s=>s.id===shiftId)};
+  } else {
+    state.editing = {id:null,employeeId:empId||'',customerId:state.customers[0]?.id,date:dateIso||isoDate(new Date()),start:'09:00',end:'13:00',pause:30,status:'geplant',notes:''};
+  }
+  state.panelShiftId=null;
+  state.modal='shift';
+  render();
+}
+function saveShift(){
+  const f=id=>document.getElementById(id).value;
+  const empVal=f('sf-emp');
+  const data={
+    employeeId: empVal? empVal: null,
+    customerId:f('sf-cust'), date:f('sf-date'),
+    start:f('sf-start'), end:f('sf-end'), pause:parseInt(f('sf-pause'))||0,
+    status:f('sf-status'), notes:f('sf-notes')
+  };
+  if(!data.employeeId && data.status!=='offen') data.status='offen';
+  if(state.editing.id){
+    Object.assign(state.shifts.find(s=>s.id===state.editing.id), data);
+    toast('Schicht aktualisiert.');
+  }else{
+    state.shifts.push({id:uid(),...data});
+    toast('Schicht hinzugefügt.');
+  }
+  scheduleSave();
+  closeModal();
+}
+function deleteShift(id){
+  if(!confirm('Diese Schicht wirklich löschen?')) return;
+  state.shifts = state.shifts.filter(s=>s.id!==id);
+  scheduleSave();
+  closeModal();
+  state.panelShiftId=null;
+  render();
+  toast('Schicht gelöscht.');
+}
+function duplicateShift(id){
+  const s=state.shifts.find(x=>x.id===id);
+  if(!s) return;
+  const copy={...s,id:uid()};
+  state.shifts.push(copy);
+  scheduleSave();
+  state.panelShiftId=null;
+  render();
+  toast('Schicht dupliziert.');
+}
+function openShiftPanel(id){
+  state.panelShiftId=id;
+  render();
+}
+function closeShiftPanel(){
+  state.panelShiftId=null;
+  render();
+}
+function renderShiftPanel(){
+  const s=state.shifts.find(x=>x.id===state.panelShiftId);
+  if(!s) return '';
+  const e=getEmp(s.employeeId), c=getCust(s.customerId);
+  const conflictIds=computeConflictIds();
+  const dispStatus=shiftDisplayStatus(s,conflictIds);
+  return `<div class="drawer-overlay" onclick="if(event.target===this) closeShiftPanel();">
+    <div class="drawer">
+      <div class="drawer-head">
+        <h3>Schichtdetails</h3>
+        <button class="close-x" onclick="closeShiftPanel()">${ic('close')}</button>
+      </div>
+      <div class="drawer-body">
+        ${dispStatus==='konflikt'? `<div class="warn-box" style="margin-bottom:16px;">${ic('close')} Diese Schicht überschneidet sich mit einer anderen Schicht desselben Mitarbeiters.</div>`:''}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+          ${e? `<div class="avatar" style="background:${colorFor(e.id)};width:40px;height:40px;font-size:14px;">${initials(e.name)}</div>`:`<div class="avatar" style="background:var(--ink-faint);width:40px;height:40px;">?</div>`}
+          <div>
+            <div style="font-weight:700;font-size:15.5px;">${e? e.name : 'Offen – kein Mitarbeiter'}</div>
+            <div class="hint">${e? e.role : 'Diese Schicht muss noch besetzt werden'}</div>
+          </div>
+        </div>
+        <div class="detail-grid">
+          <div><span class="dl">Datum</span><span class="dv">${fmtDate(new Date(s.date))}</span></div>
+          <div><span class="dl">Status</span><span class="dv">${statusBadge(dispStatus)}</span></div>
+          <div><span class="dl">Startzeit</span><span class="dv mono">${s.start}</span></div>
+          <div><span class="dl">Endzeit</span><span class="dv mono">${s.end}</span></div>
+          <div><span class="dl">Pause</span><span class="dv">${s.pause||0} Min.</span></div>
+          <div><span class="dl">Standort</span><span class="dv">${c?c.name:'—'}</span></div>
+          <div style="grid-column:1/-1;"><span class="dl">Notiz</span><span class="dv">${s.notes||'—'}</span></div>
+        </div>
+      </div>
+      <div class="drawer-foot">
+        ${hasPerm('schedule_delete')?`<button class="btn btn-danger" onclick="deleteShift('${s.id}')">${ic('trash')} Löschen</button>`:''}
+        ${hasPerm('schedule_create')?`<button class="btn btn-outline" onclick="duplicateShift('${s.id}')">Duplizieren</button>`:''}
+        ${hasPerm('schedule_edit')?`<button class="btn btn-primary" onclick="openShiftModal('${s.id}')">${ic('edit')} Bearbeiten</button>`:''}
+        ${(!hasPerm('schedule_delete')&&!hasPerm('schedule_create')&&!hasPerm('schedule_edit'))?`<span class="hint">Nur Ansicht – keine Bearbeitungsrechte.</span>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============ MITARBEITER ============ */
+function viewEmployees(){
+  const q=(state.filter.empSearch||'').toLowerCase();
+  const list = state.employees.filter(e=>e.name.toLowerCase().includes(q)||e.role.toLowerCase().includes(q));
+  const canEdit=hasPerm('emp_edit'), canDeactivate=hasPerm('emp_deactivate'), canCreate=hasPerm('emp_create'), canDetails=hasPerm('emp_view_details');
+  return `
+  <div class="toolbar">
+    <div class="search">${ic('search')}<input placeholder="Mitarbeiter suchen…" value="${state.filter.empSearch||''}" oninput="state.filter.empSearch=this.value;render();"></div>
+    ${canCreate?`<button class="btn btn-primary" onclick="openEmployeeModal(null)">${ic('plus')} Mitarbeiter anlegen</button>`:''}
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table><thead><tr>
+      <th>Mitarbeiter</th><th>Rolle</th>${canDetails?'<th>Kontakt</th><th>Standorte</th><th>PIN</th>':''}<th>Status</th>${(canEdit||canDeactivate||isAdmin())?'<th></th>':''}
+    </tr></thead><tbody>
+    ${list.map(e=>`<tr>
+      <td><div class="person"><div class="avatar" style="background:${colorFor(e.id)}">${initials(e.name)}</div><div><div class="name">${e.name}</div><div class="meta">seit ${fmtDate(new Date(e.startDate))} ${roleChip(e.systemRole)}</div></div></div></td>
+      <td>${e.role}</td>
+      ${canDetails?`<td><div style="font-size:12.5px;">${e.email}</div><div class="meta">${e.phone}</div></td>
+      <td>${e.customerIds.length? e.customerIds.map(cid=>{const c=getCust(cid);return c?`<span class="badge badge-green" style="margin:1px;">${c.name}</span>`:'';}).join(''):'<span class="hint">keine</span>'}</td>
+      <td class="mono">${e.pin}</td>`:''}
+      <td>${e.status==='aktiv'?'<span class="badge badge-mint"><span class="badge-dot"></span>Aktiv</span>':'<span class="badge badge-grey"><span class="badge-dot"></span>Inaktiv</span>'}</td>
+      ${(canEdit||canDeactivate||isAdmin())?`<td><div style="display:flex;gap:6px;">
+        ${canEdit?`<button class="icon-btn" onclick="openEmployeeModal('${e.id}')">${ic('edit')}</button>`:''}
+        ${isAdmin()?`<button class="icon-btn" onclick="deleteEmployee('${e.id}')">${ic('trash')}</button>`:(canDeactivate?`<button class="icon-btn" onclick="toggleEmployeeStatus('${e.id}')" title="${e.status==='aktiv'?'Deaktivieren':'Aktivieren'}">${ic(e.status==='aktiv'?'close':'check')}</button>`:'')}
+      </div></td>`:''}
+    </tr>`).join('') || `<tr><td colspan="7"><div class="empty">${ic('employees')}<p>Keine Mitarbeiter gefunden.</p></div></td></tr>`}
+    </tbody></table></div>
+  </div>`;
+}
+function roleChip(r){
+  if(!r || r==='mitarbeiter') return '';
+  return ` · <span style="color:var(--primary-dark);font-weight:700;">${roleLabel(r)}</span>`;
+}
+function toggleEmployeeStatus(id){
+  const e=getEmp(id); if(!e) return;
+  e.status = e.status==='aktiv'?'inaktiv':'aktiv';
+  scheduleSave(); render();
+  toast(e.status==='aktiv'? 'Mitarbeiter aktiviert.':'Mitarbeiter deaktiviert.');
+}
+function openEmployeeModal(id){
+  state.editing = id? {...state.employees.find(e=>e.id===id), customerIds:[...state.employees.find(e=>e.id===id).customerIds]}
+    : {id:null,name:'',role:'Servicefachkraft',email:'',phone:'',status:'aktiv',pin:String(Math.floor(1000+Math.random()*8999)),startDate:isoDate(new Date()),customerIds:[]};
+  state.modal='employee';
+  render();
+}
+function toggleEditingCustomer(cid){
+  const arr=state.editing.customerIds;
+  const i=arr.indexOf(cid);
+  if(i>=0) arr.splice(i,1); else arr.push(cid);
+  render();
+}
+function saveEmployee(){
+  const f=id=>document.getElementById(id).value;
+  const data={name:f('ef-name'),role:f('ef-role'),email:f('ef-email'),phone:f('ef-phone'),status:f('ef-status'),pin:f('ef-pin'),startDate:f('ef-start'),customerIds:[...state.editing.customerIds]};
+  if(isAdmin() && document.getElementById('ef-systemrole')){
+    data.systemRole = f('ef-systemrole');
+  }
+  if(!data.name.trim()){ toast('Bitte einen Namen angeben.'); return; }
+  if(state.editing.id){
+    Object.assign(state.employees.find(e=>e.id===state.editing.id), data);
+    toast('Mitarbeiter aktualisiert.');
+  }else{
+    const emp={id:uid(),systemRole:'mitarbeiter',...data};
+    state.employees.push(emp);
+    if(!state.currentEmployeeId) state.currentEmployeeId=emp.id;
+    toast('Mitarbeiter angelegt und verknüpft.');
+  }
+  scheduleSave();
+  closeModal();
+}
+function deleteEmployee(id){
+  if(!confirm('Diesen Mitarbeiter wirklich löschen?')) return;
+  state.employees=state.employees.filter(e=>e.id!==id);
+  scheduleSave();
+  render();
+  toast('Mitarbeiter gelöscht.');
+}
+
+/* ============ ABWESENHEITEN ============ */
+function viewAbsence(){
+  const filter = state.filter.absStatus||'alle';
+  const canAll = hasPerm('absence_view_all');
+  let list = state.absences.filter(a=>filter==='alle'||a.status===filter);
+  if(!canAll) list = list.filter(a=>a.employeeId===state.currentUserId);
+  list = list.sort((a,b)=>b.start.localeCompare(a.start));
+  return `
+  <div class="toolbar">
+    <div class="tabs">
+      ${['alle','beantragt','genehmigt','abgelehnt'].map(s=>`<button class="tab ${filter===s?'active':''}" onclick="state.filter.absStatus='${s}';render();">${s==='alle'?'Alle':(s==='beantragt'?'Ausstehend':s[0].toUpperCase()+s.slice(1))}</button>`).join('')}
+    </div>
+    ${hasPerm('absence_request')?`<button class="btn btn-primary" onclick="openAbsenceModal()">${ic('plus')} Antrag erfassen</button>`:''}
+  </div>
+  ${!canAll?`<div class="hint" style="margin-bottom:10px;">Du siehst nur deine eigenen Anträge.</div>`:''}
+  <div class="card">
+    <div class="table-wrap"><table><thead><tr>
+      <th>Mitarbeiter</th><th>Art</th><th>Zeitraum</th><th>Tage</th><th>Notiz</th><th>Status</th><th></th>
+    </tr></thead><tbody>
+    ${list.map(a=>{
+      const e=getEmp(a.employeeId);
+      const days=Math.round((new Date(a.end)-new Date(a.start))/86400000)+1;
+      return `<tr>
+      <td><div class="person"><div class="avatar" style="background:${colorFor(e.id)}">${initials(e.name)}</div><span>${e.name}</span></div></td>
+      <td>${absTypeBadge(a.type)}</td>
+      <td class="mono">${fmtDate(new Date(a.start))} – ${fmtDate(new Date(a.end))}</td>
+      <td>${days}</td>
+      <td style="max-width:180px;color:var(--ink-soft);font-size:12.3px;">${a.note||'—'}</td>
+      <td>${statusBadge(a.status)}</td>
+      <td><div style="display:flex;gap:6px;">
+        ${a.status==='beantragt' && hasPerm('absence_approve')?`<button class="icon-btn" title="Genehmigen" onclick="setAbsStatus('${a.id}','genehmigt')">${ic('check')}</button>`:''}
+        ${a.status==='beantragt' && hasPerm('absence_reject')?`<button class="icon-btn" title="Ablehnen" onclick="setAbsStatus('${a.id}','abgelehnt')">${ic('close')}</button>`:''}
+        ${isAdmin()?`<button class="icon-btn" onclick="deleteAbsence('${a.id}')">${ic('trash')}</button>`:''}
+      </div></td>
+    </tr>`;}).join('') || `<tr><td colspan="7"><div class="empty">${ic('absence')}<p>Keine Einträge in dieser Ansicht.</p></div></td></tr>`}
+    </tbody></table></div>
+  </div>`;
+}
+function absTypeBadge(type){
+  const map={'Urlaub':'badge-green','Krankheit':'badge-red','Unbezahlt':'badge-amber','Sonstiges':'badge-grey'};
+  return `<span class="badge ${map[type]||'badge-grey'}">${type}</span>`;
+}
+function openAbsenceModal(){
+  state.editing={employeeId:state.employees[0]?.id,type:'Urlaub',start:isoDate(new Date()),end:isoDate(new Date()),note:''};
+  state.modal='absence';
+  render();
+}
+function saveAbsence(){
+  const f=id=>document.getElementById(id).value;
+  const data={employeeId:f('af-emp'),type:f('af-type'),start:f('af-start'),end:f('af-end'),note:f('af-note'),status:'beantragt'};
+  state.absences.push({id:uid(),...data});
+  scheduleSave();
+  closeModal();
+  toast('Antrag erfasst.');
+}
+function setAbsStatus(id,status){
+  const a=state.absences.find(x=>x.id===id); if(a) a.status=status;
+  scheduleSave(); render();
+  toast(status==='genehmigt'?'Antrag genehmigt.':'Antrag abgelehnt.');
+}
+function deleteAbsence(id){
+  state.absences=state.absences.filter(a=>a.id!==id);
+  scheduleSave(); render();
+}
+
+/* ============ STANDORTE / KUNDEN ============ */
+function viewLocations(){
+  const canManage = hasPerm('locations_manage');
+  return `
+  <div class="toolbar">
+    <div class="sub" style="color:var(--ink-soft);font-size:12.5px;">${state.customers.length} Standorte hinterlegt</div>
+    ${canManage?`<button class="btn btn-primary" onclick="openCustomerModal(null)">${ic('plus')} Standort / Kunde anlegen</button>`:''}
+  </div>
+  <div class="grid cols-3">
+    ${state.customers.map(c=>{
+      const empCount = state.employees.filter(e=>e.customerIds.includes(c.id)).length;
+      const openIssues = (c.issues||[]).filter(i=>i.status!=='erledigt').length;
+      return `<div class="cust-card" onclick="openLocationPanel('${c.id}')">
+        <div class="top">
+          <div>
+            <h4>${c.name}</h4>
+            <div class="addr">${c.address}</div>
+          </div>
+          ${canManage?`<div style="display:flex;gap:6px;" onclick="event.stopPropagation();">
+            <button class="icon-btn" onclick="openCustomerModal('${c.id}')">${ic('edit')}</button>
+            <button class="icon-btn" onclick="deleteCustomer('${c.id}')">${ic('trash')}</button>
+          </div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">
+          <span class="badge badge-grey">${c.type||'—'}</span>
+          <span class="badge badge-green">${c.interval||'—'}</span>
+          ${openIssues? `<span class="badge badge-red"><span class="badge-dot"></span>${openIssues} offene Mängel</span>`:''}
+        </div>
+        <div class="radius-tag">${ic('location')} Radius ${c.radius} m</div>
+        <div class="divider"></div>
+        <div style="font-size:12.3px;color:var(--ink-soft);">Ansprechperson: <b style="color:var(--ink)">${c.contact||'—'}</b></div>
+        <div style="font-size:12.3px;color:var(--ink-soft);">${c.phone||''}</div>
+        <div style="margin-top:9px;font-size:12px;color:var(--ink-faint);">${empCount} Mitarbeiter · ${c.area||'–'} m² · ${(c.tasks||[]).length} Leistungspunkte</div>
+      </div>`;
+    }).join('')}
+  </div>
+  ${state.panelLocationId? renderLocationPanel(): ''}`;
+}
+
+/* ---- Standort-Detailpanel: Leistungsverzeichnis & Mängel ---- */
+function openLocationPanel(id){ state.panelLocationId=id; render(); }
+function closeLocationPanel(){ state.panelLocationId=null; render(); }
+function renderLocationPanelBody(){
+  const el=document.getElementById('locPanelBody');
+  if(el) el.innerHTML = locationPanelBodyHtml(state.customers.find(c=>c.id===state.panelLocationId));
+}
+function toggleTask(cid,tid){
+  const c=state.customers.find(x=>x.id===cid); const t=c.tasks.find(x=>x.id===tid);
+  if(t){ t.done=!t.done; scheduleSave(); renderLocationPanelBody(); }
+}
+function removeTask(cid,tid){
+  const c=state.customers.find(x=>x.id===cid);
+  c.tasks=c.tasks.filter(x=>x.id!==tid);
+  scheduleSave(); renderLocationPanelBody();
+}
+function addTask(cid){
+  const input=document.getElementById('newTaskInput');
+  const label=input.value.trim();
+  if(!label) return;
+  const c=state.customers.find(x=>x.id===cid);
+  c.tasks.push({id:uid(),label,done:false});
+  scheduleSave();
+  renderLocationPanelBody();
+}
+function addIssue(cid){
+  const text=document.getElementById('newIssueInput').value.trim();
+  const severity=document.getElementById('newIssueSeverity').value;
+  if(!text) return;
+  const c=state.customers.find(x=>x.id===cid);
+  c.issues=c.issues||[];
+  c.issues.push({id:uid(),date:isoDate(new Date()),text,status:'offen',severity});
+  scheduleSave();
+  renderLocationPanelBody();
+  toast('Mängelmeldung erfasst.');
+}
+function setIssueStatus(cid,iid,status){
+  const c=state.customers.find(x=>x.id===cid);
+  const i=c.issues.find(x=>x.id===iid);
+  if(i){ i.status=status; scheduleSave(); renderLocationPanelBody(); }
+}
+function removeIssue(cid,iid){
+  const c=state.customers.find(x=>x.id===cid);
+  c.issues=c.issues.filter(x=>x.id!==iid);
+  scheduleSave(); renderLocationPanelBody();
+}
+function issueBadge(status){
+  const map={offen:['badge-red','Offen'],'in Bearbeitung':['badge-amber','In Bearbeitung'],erledigt:['badge-mint','Erledigt']};
+  const [cls,label]=map[status]||['badge-grey',status];
+  return `<span class="badge ${cls}"><span class="badge-dot"></span>${label}</span>`;
+}
+function severityDot(sev){
+  const map={niedrig:'var(--ink-faint)',mittel:'var(--amber)',hoch:'var(--red)'};
+  return `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${map[sev]||'var(--ink-faint)'};margin-right:5px;"></span>`;
+}
+function locationPanelBodyHtml(c){
+  if(!c) return '';
+  const empCount = state.employees.filter(e=>e.customerIds.includes(c.id));
+  const tasks=c.tasks||[], issues=(c.issues||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const doneCount=tasks.filter(t=>t.done).length;
+  return `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+      <span class="badge badge-grey">${c.type||'—'}</span>
+      <span class="badge badge-green">${c.interval||'—'}</span>
+      <span class="badge badge-mint">${c.area||'–'} m²</span>
+    </div>
+    ${c.lat&&c.lng? `<iframe loading="lazy" style="width:100%;height:150px;border:1px solid var(--line);border-radius:10px;margin-bottom:14px;" src="https://www.openstreetmap.org/export/embed.html?bbox=${c.lng-0.004}%2C${c.lat-0.0025}%2C${c.lng+0.004}%2C${c.lat+0.0025}&layer=mapnik&marker=${c.lat}%2C${c.lng}"></iframe>`:''}
+    <div class="detail-grid" style="margin-bottom:16px;">
+      <div style="grid-column:1/-1;"><span class="dl">Adresse</span><span class="dv">${c.address}</span></div>
+      <div><span class="dl">Geofence-Radius</span><span class="dv">${c.radius} m</span></div>
+      <div><span class="dl">Mitarbeiter zugeordnet</span><span class="dv">${empCount.length}</span></div>
+      <div><span class="dl">Ansprechperson</span><span class="dv">${c.contact||'—'}</span></div>
+      <div><span class="dl">Telefon</span><span class="dv">${c.phone||'—'}</span></div>
+      <div><span class="dl">Vertragsbeginn</span><span class="dv">${c.contractStart?fmtDate(new Date(c.contractStart)):'—'}</span></div>
+      <div><span class="dl">Stundenkontingent</span><span class="dv">${c.monthlyHours||0} h / Monat</span></div>
+      <div><span class="dl">Stundensatz</span><span class="dv">CHF ${(c.hourlyRate||0).toFixed(2)}</span></div>
+    </div>
+    <div class="settings-section" style="margin-bottom:16px;">
+      <h3 style="font-size:13px;">Zugang & Schlüssel</h3>
+      <div class="detail-grid" style="margin-top:8px;">
+        <div><span class="dl">Schlüsselnummer</span><span class="dv mono">${c.keyNumber||'—'}</span></div>
+        <div><span class="dl">Zugangscode</span><span class="dv mono">${c.accessCode||'—'}</span></div>
+        <div><span class="dl">Zugangszeitfenster</span><span class="dv">${c.accessFrom&&c.accessTo? c.accessFrom+' – '+c.accessTo+' Uhr':'—'}</span></div>
+        <div style="grid-column:1/-1;"><span class="dl">Hinweis</span><span class="dv" style="font-weight:500;">${c.accessNotes||'—'}</span></div>
+      </div>
+    </div>
+    <div class="settings-section" style="margin-bottom:16px;">
+      <div class="card-head" style="margin-bottom:8px;"><h3 style="font-size:13px;">Leistungsverzeichnis</h3><span class="hint">${doneCount}/${tasks.length} erledigt</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+        ${tasks.length? tasks.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--surface-alt);border-radius:8px;">
+          <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${c.id}','${t.id}')" style="accent-color:var(--primary);">
+          <span style="flex:1;font-size:12.8px;${t.done?'text-decoration:line-through;color:var(--ink-faint);':''}">${t.label}</span>
+          <button class="icon-btn" style="width:24px;height:24px;" onclick="removeTask('${c.id}','${t.id}')">${ic('close')}</button>
+        </div>`).join('') : `<div class="hint">Noch keine Aufgaben hinterlegt.</div>`}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <input id="newTaskInput" placeholder="Neue Aufgabe, z. B. Teppiche saugen" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;" onkeydown="if(event.key==='Enter'){addTask('${c.id}');}">
+        <button class="btn btn-outline btn-sm" onclick="addTask('${c.id}')">${ic('plus')} Hinzufügen</button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="card-head" style="margin-bottom:8px;"><h3 style="font-size:13px;">Mängel & Reklamationen</h3><span class="hint">${issues.filter(i=>i.status!=='erledigt').length} offen</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+        ${issues.length? issues.map(i=>`<div style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="font-size:12.6px;">${severityDot(i.severity)}${i.text}</div>
+            <button class="icon-btn" style="width:24px;height:24px;flex:none;" onclick="removeIssue('${c.id}','${i.id}')">${ic('close')}</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+            <span class="hint">${fmtDate(new Date(i.date))}</span>
+            <div style="display:flex;gap:5px;align-items:center;">
+              ${issueBadge(i.status)}
+              ${i.status!=='erledigt'? `<button class="link-btn" onclick="setIssueStatus('${c.id}','${i.id}','${i.status==='offen'?'in Bearbeitung':'erledigt'}')">${i.status==='offen'?'→ In Bearbeitung':'→ Erledigt'}</button>`:''}
+            </div>
+          </div>
+        </div>`).join('') : `<div class="hint">Keine Mängel erfasst.</div>`}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <input id="newIssueInput" placeholder="Neue Mängelmeldung…" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;">
+        <select id="newIssueSeverity" style="padding:8px 8px;border:1px solid var(--line);border-radius:8px;">
+          <option value="niedrig">Niedrig</option>
+          <option value="mittel" selected>Mittel</option>
+          <option value="hoch">Hoch</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="addIssue('${c.id}')">${ic('plus')}</button>
+      </div>
+    </div>
+  `;
+}
+function renderLocationPanel(){
+  const c=state.customers.find(x=>x.id===state.panelLocationId);
+  if(!c) return '';
+  return `<div class="drawer-overlay" onclick="if(event.target===this) closeLocationPanel();">
+    <div class="drawer">
+      <div class="drawer-head">
+        <h3>${c.name}</h3>
+        <button class="close-x" onclick="closeLocationPanel()">${ic('close')}</button>
+      </div>
+      <div class="drawer-body" id="locPanelBody">${locationPanelBodyHtml(c)}</div>
+      <div class="drawer-foot">
+        ${hasPerm('locations_manage')?`<button class="btn btn-danger" onclick="deleteCustomer('${c.id}')">${ic('trash')} Löschen</button><button class="btn btn-primary" onclick="openCustomerModal('${c.id}')">${ic('edit')} Bearbeiten</button>`:`<span class="hint">Nur Ansicht – keine Bearbeitungsrechte.</span>`}
+      </div>
+    </div>
+  </div>`;
+}
+function openCustomerModal(id){
+  state.editing = id? {...state.customers.find(c=>c.id===id)}
+    : {id:null,name:'',address:'',lat:47.3769,lng:8.5417,radius:state.settings.defaultRadius||100,contact:'',phone:'',active:true,notes:'',
+       type:'Büro',area:100,interval:'wöchentlich',keyNumber:'',accessCode:'',accessFrom:'',accessTo:'',accessNotes:'',
+       contractStart:isoDate(new Date()),monthlyHours:10,hourlyRate:38,
+       tasks:['Böden reinigen / wischen','Staub wischen','Sanitäranlagen reinigen','Mülleimer leeren'].map(t=>({id:uid(),label:t,done:false})),issues:[]};
+  state.addrQuery = state.editing.address || '';
+  state.addrResults = [];
+  state.modal='customer';
+  render();
+}
+function onAddressInput(val){
+  state.addrQuery = val;
+  state.editing.address = val;
+  state.addrResults = searchAddresses(val);
+  renderAddrSection();
+}
+function pickAddress(idx){
+  const r=state.addrResults[idx];
+  if(!r) return;
+  state.editing.address = r.label;
+  state.editing.lat = r.lat;
+  state.editing.lng = r.lng;
+  state.addrQuery = r.label;
+  state.addrResults = [];
+  renderAddrSection();
+}
+function onManualCoord(field,val){
+  state.editing[field] = parseFloat(val)||0;
+  renderAddrSection();
+}
+function renderAddrSection(){
+  const el=document.getElementById('addrSection');
+  if(el) el.innerHTML = addrSectionHtml();
+}
+function addrSectionHtml(){
+  const e=state.editing;
+  const hasCoords = e.lat && e.lng;
+  return `
+    <div class="field" style="position:relative;">
+      <label>Adresse suchen</label>
+      <input id="cf-address-search" autocomplete="off" placeholder="Strasse, PLZ oder Ort eingeben…" value="${state.addrQuery||''}" oninput="onAddressInput(this.value)">
+      ${state.addrResults.length? `<div class="addr-suggest">
+        ${state.addrResults.map((r,i)=>`<div class="addr-suggest-item" onclick="pickAddress(${i})">${ic('location')}<span>${r.label}</span></div>`).join('')}
+      </div>`:''}
+      <div class="hint">Adressauswahl basiert auf einer lokalen Demo-Datenbank (kein Google-API-Key im Prototyp hinterlegt) – Ergebnis füllt Adresse und Koordinaten automatisch aus.</div>
+    </div>
+    <input type="hidden" id="cf-address" value="${e.address||''}">
+    ${hasCoords? `<iframe loading="lazy" style="width:100%;height:150px;border:1px solid var(--line);border-radius:10px;margin:4px 0 12px;" src="https://www.openstreetmap.org/export/embed.html?bbox=${e.lng-0.004}%2C${e.lat-0.0025}%2C${e.lng+0.004}%2C${e.lat+0.0025}&layer=mapnik&marker=${e.lat}%2C${e.lng}"></iframe>`:''}
+    <div class="field-row">
+      <div class="field"><label>Breitengrad (Lat)</label><input id="cf-lat" type="number" step="0.0001" value="${e.lat}" onchange="onManualCoord('lat',this.value)"></div>
+      <div class="field"><label>Längengrad (Lng)</label><input id="cf-lng" type="number" step="0.0001" value="${e.lng}" onchange="onManualCoord('lng',this.value)"></div>
+    </div>
+  `;
+}
+function saveCustomer(){
+  const f=id=>document.getElementById(id).value;
+  const data={
+    name:f('cf-name'), address:state.editing.address||f('cf-address'),
+    lat:parseFloat(f('cf-lat'))||0, lng:parseFloat(f('cf-lng'))||0,
+    radius:parseInt(f('cf-radius'))||100, contact:f('cf-contact'), phone:f('cf-phone'), active:true,
+    type:f('cf-type'), area:parseInt(f('cf-area'))||0, interval:f('cf-interval'),
+    keyNumber:f('cf-key'), accessCode:f('cf-code'), accessFrom:f('cf-from'), accessTo:f('cf-to'), accessNotes:f('cf-accessnotes'),
+    contractStart:f('cf-contractstart'), monthlyHours:parseFloat(f('cf-hours'))||0, hourlyRate:parseFloat(f('cf-rate'))||0
+  };
+  if(!data.name.trim()){ toast('Bitte einen Namen angeben.'); return; }
+  if(!data.address.trim()){ toast('Bitte eine Adresse auswählen oder eingeben.'); return; }
+  if(state.editing.id){
+    Object.assign(state.customers.find(c=>c.id===state.editing.id), data);
+    toast('Standort aktualisiert.');
+  }else{
+    state.customers.push({id:uid(),...data, tasks:state.editing.tasks||[], issues:state.editing.issues||[]});
+    toast('Standort angelegt.');
+  }
+  scheduleSave();
+  closeModal();
+}
+function deleteCustomer(id){
+  if(!confirm('Diesen Standort wirklich löschen?')) return;
+  state.customers=state.customers.filter(c=>c.id!==id);
+  state.employees.forEach(e=>{e.customerIds=e.customerIds.filter(cid=>cid!==id);});
+  scheduleSave();
+  state.panelLocationId=null;
+  render();
+  toast('Standort gelöscht.');
+}
+
+/* ============ BERICHTE ============ */
+function viewReports(){
+  const canExport=hasPerm('reports_export');
+  const canDetail=hasPerm('reports_time_view');
+  const period = state.filter.reportPeriod || 'week';
+  const rangeStart = period==='week'? mondayOf(new Date()) : new Date(new Date().getFullYear(), new Date().getMonth(),1);
+  const rangeEnd = period==='week'? addDays(rangeStart,7) : new Date(new Date().getFullYear(), new Date().getMonth()+1,1);
+  const rows = state.employees.filter(e=>e.status==='aktiv').map(e=>{
+    const entries = state.timeEntries.filter(t=>t.employeeId===e.id && t.clockOut && new Date(t.clockIn)>=rangeStart && new Date(t.clockIn)<rangeEnd);
+    const totalMin = entries.reduce((s,t)=>s+((new Date(t.clockOut)-new Date(t.clockIn))/60000 - (t.pauseMinutes||0)),0);
+    const shifts = state.shifts.filter(s=>s.employeeId===e.id && new Date(s.date)>=rangeStart && new Date(s.date)<rangeEnd).length;
+    return {e, hours: totalMin/60, entries: entries.length, shifts};
+  }).sort((a,b)=>b.hours-a.hours);
+  const totalHours = rows.reduce((s,r)=>s+r.hours,0);
+  return `
+  <div class="toolbar">
+    <div class="tabs">
+      <button class="tab ${period==='week'?'active':''}" onclick="state.filter.reportPeriod='week';render();">Diese Woche</button>
+      <button class="tab ${period==='month'?'active':''}" onclick="state.filter.reportPeriod='month';render();">Dieser Monat</button>
+    </div>
+    ${canExport?`<button class="btn btn-outline" onclick="exportReport('${period}')">${ic('check')} Als CSV exportieren</button>`:''}
+  </div>
+  <div class="grid cols-4" style="margin-bottom:16px;">
+    ${kpiCard('hourglass','Gesamtstunden',totalHours.toFixed(1)+' h','var(--amber-tint)','#93670A', period==='week'?'diese Woche':'dieser Monat')}
+    ${kpiCard('users2','Aktive Mitarbeiter',rows.length,'var(--primary-tint)','var(--primary-dark)','im Zeitraum')}
+    ${kpiCard('schedule','Geplante Schichten',rows.reduce((s,r)=>s+r.shifts,0),'#E3FBEF','var(--accent-dark)','im Zeitraum')}
+    ${kpiCard('clock','Ø Stunden / Mitarbeiter',rows.length?(totalHours/rows.length).toFixed(1)+' h':'0 h','var(--red-tint)','var(--red)','Durchschnitt')}
+  </div>
+  ${canDetail? `<div class="card">
+    <div class="card-head"><h3>Arbeitszeiten nach Mitarbeiter</h3></div>
+    <div class="table-wrap"><table><thead><tr><th>Mitarbeiter</th><th>Rolle</th><th>Einträge</th><th>Schichten</th><th>Stunden</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td><div class="person"><div class="avatar" style="background:${colorFor(r.e.id)}">${initials(r.e.name)}</div><span>${r.e.name}</span></div></td>
+        <td>${r.e.role}</td>
+        <td>${r.entries}</td><td>${r.shifts}</td><td class="mono">${r.hours.toFixed(1)} h</td></tr>`).join('') || `<tr><td colspan="5"><div class="empty">${ic('briefcase')}<p>Keine Daten im gewählten Zeitraum.</p></div></td></tr>`}
+    </tbody></table></div>
+  </div>` : `<div class="empty">${ic('briefcase')}<p>Detaillierte Arbeitszeitberichte sind für deine Rolle nicht freigegeben.</p></div>`}`;
+}
+function exportReport(period){
+  const rangeStart = period==='week'? mondayOf(new Date()) : new Date(new Date().getFullYear(), new Date().getMonth(),1);
+  const rangeEnd = period==='week'? addDays(rangeStart,7) : new Date(new Date().getFullYear(), new Date().getMonth()+1,1);
+  const rows = state.employees.map(e=>{
+    const entries = state.timeEntries.filter(t=>t.employeeId===e.id && t.clockOut && new Date(t.clockIn)>=rangeStart && new Date(t.clockIn)<rangeEnd);
+    const totalMin = entries.reduce((s,t)=>s+((new Date(t.clockOut)-new Date(t.clockIn))/60000 - (t.pauseMinutes||0)),0);
+    return [e.name, e.role, entries.length, (totalMin/60).toFixed(2)];
+  });
+  const csv = ['Mitarbeiter;Rolle;Einträge;Stunden', ...rows.map(r=>r.join(';'))].join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='arbeitszeitbericht-'+period+'.csv'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Bericht exportiert.');
+}
+
+/* ============ ROLLEN & BERECHTIGUNGEN ============ */
+function viewPermissions(){
+  const role = state.filter.permRole || 'manager';
+  const perms = state.permissions[role];
+  return `
+  <div class="toolbar">
+    <div class="tabs">
+      <button class="tab ${role==='manager'?'active':''}" onclick="state.filter.permRole='manager';render();">Manager</button>
+      <button class="tab ${role==='mitarbeiter'?'active':''}" onclick="state.filter.permRole='mitarbeiter';render();">Mitarbeiter</button>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="resetPermissions('${role}')">Auf Standard zurücksetzen</button>
+  </div>
+  <div class="hint" style="margin-bottom:16px;">Der Administrator hat immer vollen Zugriff auf alle Bereiche. Diese Matrix bestimmt, was die Rolle <b>${roleLabel(role)}</b> in der App sehen und tun darf.</div>
+  <div class="grid cols-2" style="align-items:start;">
+    ${PERMISSION_GROUPS.map(g=>`<div class="card">
+      <div class="card-head"><h3>${g.label}</h3></div>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        ${g.perms.map(p=>`<label class="perm-row">
+          <span>${p.label}</span>
+          <span class="toggle ${perms[p.id]?'on':''}" onclick="togglePermission('${role}','${p.id}')"><span class="toggle-knob"></span></span>
+        </label>`).join('')}
+      </div>
+    </div>`).join('')}
+    <div class="card">
+      <div class="card-head"><h3>Profil-Bearbeitung (nur Mitarbeiter)</h3></div>
+      <div class="hint" style="margin-bottom:10px;">Welche Profilfelder dürfen Mitarbeitende in ihrem eigenen Profil selbst ändern?</div>
+      ${Object.entries({phone:'Telefonnummer',email:'E-Mail-Adresse'}).map(([k,label])=>`<label class="perm-row">
+        <span>${label}</span>
+        <span class="toggle ${state.settings.profileEditableFields[k]?'on':''}" onclick="toggleProfileField('${k}')"><span class="toggle-knob"></span></span>
+      </label>`).join('')}
+    </div>
+  </div>`;
+}
+function togglePermission(role,permId){
+  if(!isAdmin()) return;
+  state.permissions[role][permId] = !state.permissions[role][permId];
+  scheduleSave();
+  render();
+}
+function toggleProfileField(key){
+  if(!isAdmin()) return;
+  state.settings.profileEditableFields[key] = !state.settings.profileEditableFields[key];
+  scheduleSave();
+  render();
+}
+function resetPermissions(role){
+  if(!confirm('Berechtigungen für '+roleLabel(role)+' auf Standard zurücksetzen?')) return;
+  state.permissions[role] = {...DEFAULT_PERMISSIONS[role]};
+  scheduleSave();
+  render();
+  toast('Auf Standard zurückgesetzt.');
+}
+
+/* ============ EINSTELLUNGEN ============ */
+function viewSettings(){
+  const s=state.settings;
+  return `
+  <div class="grid cols-2">
+    <div class="card">
+      <div class="settings-section">
+        <h3>Unternehmensangaben</h3>
+        <div class="desc">Diese Angaben erscheinen auf Auswertungen und Berichten.</div>
+        <div class="field"><label>Firmenname</label><input id="st-company" value="${s.companyName}"></div>
+        <div class="field"><label>Adresse</label><input id="st-address" value="${s.address}"></div>
+      </div>
+      <div class="settings-section">
+        <h3>Arbeitszeitregeln</h3>
+        <div class="desc">Grundlage für Soll-Stunden und Rundung der Zeiterfassung.</div>
+        <div class="field-row">
+          <div class="field"><label>Soll-Wochenstunden</label><input id="st-hours" type="number" value="${s.weeklyHours}"></div>
+          <div class="field"><label>Rundung (Minuten)</label><input id="st-round" type="number" value="${s.rounding}"></div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>Geofencing</h3>
+        <div class="desc">Standard-Radius für neu angelegte Standorte.</div>
+        <div class="field" style="max-width:220px;"><label>Standard-Radius (Meter)</label><input id="st-radius" type="number" value="${s.defaultRadius}"></div>
+        <div class="checks">
+          <label class="chip-check ${s.notifyGeofence?'on':''}"><input type="checkbox" ${s.notifyGeofence?'checked':''} onchange="state.settings.notifyGeofence=this.checked;render();" style="display:none;">${ic('check')} Benachrichtigung bei Geofence-Abweichung</label>
+          <label class="chip-check ${s.notifyLate?'on':''}"><input type="checkbox" ${s.notifyLate?'checked':''} onchange="state.settings.notifyLate=this.checked;render();" style="display:none;">${ic('check')} Benachrichtigung bei Verspätung</label>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()">${ic('check')} Einstellungen speichern</button>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Daten</h3></div>
+      <div class="desc" style="margin-bottom:12px;">Alle Daten werden automatisch und persönlich in diesem Browser-Konto gespeichert.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn btn-outline" onclick="exportData()">Daten als JSON exportieren</button>
+        <button class="btn btn-danger" onclick="resetDemoData()">${ic('trash')} Demo-Daten zurücksetzen</button>
+      </div>
+      <div class="divider"></div>
+      <div class="hint">Version 1.0 · ReinTrack Web-App · Für Reinigungsunternehmen entwickelt</div>
+      <div class="divider"></div>
+      <div class="card-head" style="margin-bottom:8px;"><h3 style="font-size:13px;">Rollen & Berechtigungen</h3></div>
+      <div class="desc" style="margin-bottom:10px;">Lege fest, welche Funktionen Manager und Mitarbeitende verwenden dürfen.</div>
+      <button class="btn btn-outline" onclick="setView('permissions')">${ic('bolt')} Berechtigungsmatrix öffnen</button>
+    </div>
+  </div>`;
+}
+function saveSettings(){
+  const f=id=>document.getElementById(id).value;
+  state.settings.companyName=f('st-company');
+  state.settings.address=f('st-address');
+  state.settings.weeklyHours=parseFloat(f('st-hours'))||40;
+  state.settings.rounding=parseInt(f('st-round'))||0;
+  state.settings.defaultRadius=parseInt(f('st-radius'))||100;
+  scheduleSave();
+  toast('Einstellungen gespeichert.');
+  render();
+}
+function exportData(){
+  const data = JSON.stringify({employees:state.employees,customers:state.customers,shifts:state.shifts,absences:state.absences,timeEntries:state.timeEntries,settings:state.settings}, null, 2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='reintrack-export.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+async function resetDemoData(){
+  if(!confirm('Wirklich alle Daten auf die Demo-Ausgangslage zurücksetzen?')) return;
+  const fresh=seedData();
+  Object.assign(state, fresh);
+  state.currentEmployeeId=state.employees[0]?.id;
+  state.currentUserId=state.employees.find(e=>e.systemRole==='admin')?.id;
+  state.view='dashboard';
+  scheduleSave();
+  render();
+  toast('Demo-Daten wurden zurückgesetzt.');
+}
+
+/* ============================================================
+   MITARBEITER-ANSICHT (eigene, vereinfachte Mobile-First-UI)
+   ============================================================ */
+function myShifts(){ return state.shifts.filter(s=>s.employeeId===state.currentUserId); }
+function myOpenEntry(){ return openEntryFor(state.currentUserId); }
+function weekBounds(){ const s=mondayOf(new Date()); return [s, addDays(s,7)]; }
+function myWeekMinutes(){
+  const [ws,we]=weekBounds();
+  return state.timeEntries.filter(t=>t.employeeId===state.currentUserId && t.clockOut && new Date(t.clockIn)>=ws && new Date(t.clockIn)<we)
+    .reduce((s,t)=>s+((new Date(t.clockOut)-new Date(t.clockIn))/60000-(t.pauseMinutes||0)),0);
+}
+function myTodayMinutes(){
+  const todayIso=isoDate(new Date());
+  return state.timeEntries.filter(t=>t.employeeId===state.currentUserId && isoDate(new Date(t.clockIn))===todayIso)
+    .reduce((s,t)=>{ const end=t.clockOut? new Date(t.clockOut): new Date(); return s+((end-new Date(t.clockIn))/60000-(t.pauseMinutes||0)); },0);
+}
+
+/* ---- Start ---- */
+function meStart(){
+  const u=currentUser();
+  const todayIso=isoDate(new Date());
+  const mine=myShifts().sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+  const todayShift = mine.find(s=>s.date===todayIso);
+  const nextShift = mine.find(s=>s.date>todayIso || (s.date===todayIso && s.start> pad(new Date().getHours())+':'+pad(new Date().getMinutes())));
+  const weekH = myWeekMinutes()/60;
+  const remaining = Math.max(0,(state.settings.weeklyHours||40)-weekH);
+  const open = myOpenEntry();
+  const openShiftsCount = hasPerm('schedule_open_view')? state.shifts.filter(s=>!s.employeeId).length : 0;
+  const myAbsences = state.absences.filter(a=>a.employeeId===state.currentUserId).sort((a,b)=>b.start.localeCompare(a.start)).slice(0,2);
+  return `
+  <div class="me-greet">
+    <div class="me-greet-txt">
+      <div class="hint">${new Date().toLocaleDateString('de-CH',{weekday:'long',day:'2-digit',month:'long'})}</div>
+      <h2>Hallo, ${u.name.split(' ')[0]} 👋</h2>
+    </div>
+    <div class="avatar" style="background:${colorFor(u.id)};width:44px;height:44px;font-size:16px;">${initials(u.name)}</div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;">
+    ${meStampBlock()}
+  </div>
+
+  <div class="grid cols-2" style="margin-bottom:14px;">
+    <div class="card kpi"><div class="icon" style="background:var(--amber-tint);color:#93670A;">${ic('hourglass')}</div><div class="label">Diese Woche</div><div class="value">${weekH.toFixed(1)} h</div><div class="delta">${remaining.toFixed(1)} h verbleibend</div></div>
+    <div class="card kpi"><div class="icon" style="background:var(--primary-tint);color:var(--primary-dark);">${ic('clock')}</div><div class="label">Heute</div><div class="value">${(myTodayMinutes()/60).toFixed(1)} h</div><div class="delta">${open?'läuft gerade':'noch nicht gestartet'}</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-head"><h3>Heutige Schicht</h3></div>
+    ${todayShift? meShiftRow(todayShift) : `<div class="empty" style="padding:16px;">${ic('schedule')}<p>Heute ist keine Schicht für dich geplant.</p></div>`}
+  </div>
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-head"><h3>Nächste Schicht</h3></div>
+    ${nextShift? meShiftRow(nextShift) : `<div class="empty" style="padding:16px;">${ic('schedule')}<p>Keine weiteren Schichten geplant.</p></div>`}
+  </div>
+  ${hasPerm('schedule_open_view')? `<div class="card" style="margin-bottom:14px;">
+    <div class="card-head"><h3>Offene Schichten</h3><button class="muted-link" onclick="setView('me-schedule')">Alle ansehen →</button></div>
+    ${openShiftsCount? `<div class="hint">${openShiftsCount} offene Schicht${openShiftsCount>1?'en':''} verfügbar${hasPerm('schedule_open_claim')?' – jetzt übernehmen':''}.</div>` : `<div class="hint">Aktuell keine offenen Schichten.</div>`}
+  </div>`:''}
+  <div class="card">
+    <div class="card-head"><h3>Meine Abwesenheitsanträge</h3><button class="muted-link" onclick="setView('me-absence')">Alle ansehen →</button></div>
+    ${myAbsences.length? myAbsences.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);">
+      <div><div style="font-weight:600;font-size:12.8px;">${absTypeBadge(a.type)}</div><div class="hint">${fmtDate(new Date(a.start))} – ${fmtDate(new Date(a.end))}</div></div>
+      ${statusBadge(a.status)}
+    </div>`).join('') : `<div class="hint">Keine Anträge vorhanden.</div>`}
+  </div>`;
+}
+function meShiftRow(s){
+  const c=getCust(s.customerId), conflictIds=computeConflictIds();
+  const accent = c? colorFor(c.id) : '#8A9A97';
+  return `<div class="me-shift-row" onclick="openShiftPanel('${s.id}')">
+    <div style="width:4px;align-self:stretch;border-radius:3px;background:${accent};"></div>
+    <div style="flex:1;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="mono" style="font-weight:700;font-size:13.5px;">${s.start}–${s.end}</span>
+        ${statusBadge(shiftDisplayStatus(s,conflictIds))}
+      </div>
+      <div class="hint" style="margin-top:3px;">${c?c.name:'—'}${s.pause?' · '+s.pause+' Min. Pause':''}</div>
+      ${s.notes?`<div class="hint" style="margin-top:2px;font-style:italic;">${s.notes}</div>`:''}
+    </div>
+  </div>`;
+}
+
+/* ---- Zeiterfassung-Stempelblock (gemeinsam für Start & Zeiterfassung) ---- */
+function meStampBlock(){
+  const open = myOpenEntry();
+  const isOn = !!open;
+  const onPause = isOn && !!open.pauseStart;
+  const canClock = hasPerm('time_clock');
+  return `
+  <div class="stamp-widget">
+    <div class="dial-wrap">
+      ${isOn && !onPause?`<div class="dial-pulse"></div><div class="dial-pulse d2"></div><div class="dial-pulse d3"></div>`:''}
+      <div class="dial-ring"></div>
+      <div class="dial-core ${isOn && !onPause?'':'off'}" style="${onPause?'background:linear-gradient(160deg,#DB9B0C,#93670A);':''}">
+        <div class="time mono" id="meDialTime">--:--:--</div>
+        <div class="lbl">${onPause?'Pause':(isOn?'Eingestempelt':'Bereit')}</div>
+      </div>
+    </div>
+    <div class="stamp-info">
+      <div class="stamp-meta">
+        <div>Status<b>${onPause?'In Pause':(isOn?'Im Einsatz':'Nicht eingestempelt')}</b></div>
+        ${isOn?`<div>Seit<b>${fmtTime(new Date(open.clockIn))}</b></div><div>Standort<b>${getCust(open.customerId)?.name||'—'}</b></div>`:''}
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+        ${!canClock? `<span class="hint">Keine Berechtigung zur Zeiterfassung.</span>` :
+          !isOn? `<button class="btn btn-accent" onclick="openClockInFlow()">${ic('pin')} Arbeitszeit starten</button>`
+          : onPause? `<button class="btn btn-accent" onclick="endPause()">${ic('check')} Pause beenden</button>`
+          : `<button class="btn btn-outline" onclick="startPause()">Pause starten</button><button class="btn btn-danger" onclick="handleClockOut()">${ic('close')} Arbeitszeit beenden</button>`
+        }
+      </div>
+    </div>
+  </div>`;
+}
+function startPause(){
+  const open=openEntryFor(actingEmployeeId()); if(!open) return;
+  open.pauseStart=new Date().toISOString();
+  open.updatedAt=open.pauseStart;
+  scheduleSave(); render();
+  toast('Pause gestartet.');
+}
+function endPause(){
+  const open=openEntryFor(actingEmployeeId()); if(!open||!open.pauseStart) return;
+  const mins=Math.round((new Date()-new Date(open.pauseStart))/60000);
+  open.pauseMinutes=(open.pauseMinutes||0)+mins;
+  open.pauseStart=null;
+  open.updatedAt=new Date().toISOString();
+  scheduleSave(); render();
+  toast('Pause beendet ('+mins+' Min.).');
+}
+
+/* ---- Mein Dienstplan ---- */
+function meSchedule(){
+  const tab = state.filter.meSchedTab || 'week';
+  const conflictIds=computeConflictIds();
+  const mine=myShifts();
+  const openShifts = hasPerm('schedule_open_view')? state.shifts.filter(s=>!s.employeeId) : [];
+  const todayIso=isoDate(new Date());
+  const [ws]=weekBounds();
+  const days=[...Array(7)].map((_,i)=>addDays(ws,i));
+  return `
+  <div class="tabs" style="margin-bottom:14px;">
+    <button class="tab ${tab==='day'?'active':''}" onclick="state.filter.meSchedTab='day';render();">Heute</button>
+    <button class="tab ${tab==='week'?'active':''}" onclick="state.filter.meSchedTab='week';render();">Woche</button>
+    ${hasPerm('schedule_open_view')?`<button class="tab ${tab==='open'?'active':''}" onclick="state.filter.meSchedTab='open';render();">Offene Schichten</button>`:''}
+  </div>
+  ${tab==='day'? (()=>{
+      const todays=mine.filter(s=>s.date===todayIso).sort((a,b)=>a.start.localeCompare(b.start));
+      return todays.length? todays.map(s=>meShiftRow(s)).join('') : `<div class="empty">${ic('schedule')}<p>Heute ist keine Schicht für dich geplant.</p></div>`;
+    })() : ''}
+  ${tab==='week'? days.map(d=>{
+      const iso=isoDate(d);
+      const dayShifts=mine.filter(s=>s.date===iso).sort((a,b)=>a.start.localeCompare(b.start));
+      return `<div style="margin-bottom:14px;">
+        <div style="font-weight:700;font-family:'Space Grotesk';font-size:13px;margin-bottom:6px;color:${iso===todayIso?'var(--primary-dark)':'var(--ink)'};">${WEEKDAYS[(d.getDay()+6)%7]}, ${d.getDate()}.${d.getMonth()+1}.${iso===todayIso?' · Heute':''}</div>
+        ${dayShifts.length? dayShifts.map(s=>meShiftRow(s)).join('') : `<div class="cal-empty-hint">Keine Schicht</div>`}
+      </div>`;
+    }).join('') : ''}
+  ${tab==='open'? (openShifts.length? openShifts.map(s=>{
+      const c=getCust(s.customerId);
+      const accent = c? colorFor(c.id) : '#8A9A97';
+      return `<div class="me-shift-row" style="background:var(--amber-tint);border-color:#F0DBA0;">
+        <div style="width:4px;align-self:stretch;border-radius:3px;background:${accent};"></div>
+        <div style="flex:1;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="mono" style="font-weight:700;font-size:13.5px;">${fmtDate(new Date(s.date))} · ${s.start}–${s.end}</span>
+            ${statusBadge('offen')}
+          </div>
+          <div class="hint" style="margin-top:3px;">${c?c.name:'—'}${s.pause?' · '+s.pause+' Min. Pause':''}</div>
+          ${hasPerm('schedule_open_claim')? `<button class="btn btn-accent btn-sm" style="margin-top:8px;" onclick="claimOpenShift('${s.id}')">${ic('check')} Schicht übernehmen</button>` : `<div class="hint" style="margin-top:6px;">Übernahme durch dich ist nicht freigegeben.</div>`}
+        </div>
+      </div>`;
+    }).join('') : `<div class="empty">${ic('schedule')}<p>Aktuell keine offenen Schichten.</p></div>`) : ''}
+  ${state.panelShiftId? renderShiftPanel(): ''}`;
+}
+function claimOpenShift(id){
+  const s=state.shifts.find(x=>x.id===id);
+  if(!s || s.employeeId) return;
+  s.employeeId=state.currentUserId;
+  s.status='bestätigt';
+  scheduleSave();
+  render();
+  toast('Schicht übernommen.');
+}
+
+/* ---- Zeiterfassung (Mitarbeiter) ---- */
+function meTime(){
+  const mine=[...state.timeEntries].filter(t=>t.employeeId===state.currentUserId).sort((a,b)=>new Date(b.clockIn)-new Date(a.clockIn));
+  const canCorrection = hasPerm('time_correction_request');
+  return `
+  <div class="card" style="margin-bottom:16px;">${meStampBlock()}</div>
+  <div class="grid cols-2" style="margin-bottom:16px;">
+    <div class="card kpi"><div class="icon" style="background:var(--primary-tint);color:var(--primary-dark);">${ic('clock')}</div><div class="label">Heute</div><div class="value">${(myTodayMinutes()/60).toFixed(1)} h</div></div>
+    <div class="card kpi"><div class="icon" style="background:var(--amber-tint);color:#93670A;">${ic('hourglass')}</div><div class="label">Diese Woche</div><div class="value">${(myWeekMinutes()/60).toFixed(1)} h</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Meine Zeiteinträge</h3><span class="hint">${mine.length} Einträge</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${mine.length? mine.map(t=>{
+        const c=getCust(t.customerId); const inD=new Date(t.clockIn), outD=t.clockOut?new Date(t.clockOut):null;
+        const dur=outD?((outD-inD)/60000-(t.pauseMinutes||0)):null;
+        return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-size:12.8px;">${fmtDate(inD)}</span>
+            ${statusBadge(t.status)}
+          </div>
+          <div class="hint" style="margin-top:5px;"><span class="mono">${fmtTime(inD)}–${outD?fmtTime(outD):'läuft…'}</span> · ${c?c.name:'—'}</div>
+          <div class="hint">${t.pauseMinutes?t.pauseMinutes+' Min. Pause':'Keine Pause'}${dur!==null?' · '+Math.round(dur)+' Min. gesamt':''}</div>
+          ${canCorrection? `<button class="link-btn" style="margin-top:6px;" onclick="openMeCorrection('${t.id}')">Korrektur beantragen</button>` : ''}
+        </div>`;
+      }).join('') : `<div class="empty">${ic('clock')}<p>Noch keine Zeiteinträge vorhanden.</p></div>`}
+    </div>
+  </div>`;
+}
+function openMeCorrection(entryId){
+  state.editing={entryId, note:''};
+  state.modal='meCorrection';
+  render();
+}
+function submitMeCorrection(){
+  const note=document.getElementById('mc-note').value.trim();
+  if(!note){ toast('Bitte eine kurze Beschreibung angeben.'); return; }
+  state.timeCorrections.push({id:uid(),employeeId:state.currentUserId,entryId:state.editing.entryId,note,status:'offen',date:isoDate(new Date())});
+  scheduleSave();
+  closeModal();
+  toast('Korrekturanfrage gesendet.');
+}
+function modalMeCorrection(){
+  return modalWrap('Korrektur beantragen', `
+    <div class="field"><label>Was soll korrigiert werden?</label><textarea id="mc-note" rows="3" placeholder="z. B. Kommen war 08:00 statt 08:30…"></textarea></div>
+    <div class="hint">Deine Anfrage wird an die Verwaltung gesendet und dort geprüft. Der Eintrag selbst bleibt bis dahin unverändert.</div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn btn-primary" onclick="submitMeCorrection()">${ic('check')} Anfrage senden</button>`);
+}
+
+/* ---- Abwesenheiten (Mitarbeiter) ---- */
+function meAbsence(){
+  const mine=state.absences.filter(a=>a.employeeId===state.currentUserId).sort((a,b)=>b.start.localeCompare(a.start));
+  return `
+  <div class="toolbar">
+    <div class="sub" style="color:var(--ink-soft);font-size:12.5px;">${mine.length} Anträge</div>
+    ${hasPerm('absence_request')?`<button class="btn btn-primary" onclick="openMeAbsenceModal()">${ic('plus')} Neuer Antrag</button>`:''}
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    ${mine.length? mine.map(a=>{
+      const days=Math.round((new Date(a.end)-new Date(a.start))/86400000)+1;
+      return `<div class="card" style="padding:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          ${absTypeBadge(a.type)}
+          ${statusBadge(a.status)}
+        </div>
+        <div style="font-weight:700;font-size:13.5px;margin-top:8px;">${fmtDate(new Date(a.start))} – ${fmtDate(new Date(a.end))}</div>
+        <div class="hint">${days} Tag${days>1?'e':''}${a.note?' · '+a.note:''}</div>
+        ${a.status==='beantragt'? `<button class="link-btn" style="margin-top:8px;" onclick="cancelMyAbsence('${a.id}')">Antrag zurückziehen</button>` : ''}
+      </div>`;
+    }).join('') : `<div class="empty">${ic('absence')}<p>Noch keine Abwesenheiten beantragt.</p></div>`}
+  </div>`;
+}
+function cancelMyAbsence(id){
+  const a=state.absences.find(x=>x.id===id);
+  if(!a || a.status!=='beantragt') return;
+  state.absences=state.absences.filter(x=>x.id!==id);
+  scheduleSave(); render();
+  toast('Antrag zurückgezogen.');
+}
+function openMeAbsenceModal(){
+  state.editing={type:'Urlaub',start:isoDate(new Date()),end:isoDate(new Date()),note:''};
+  state.modal='meAbsence';
+  render();
+}
+function saveMeAbsence(){
+  const f=id=>document.getElementById(id).value;
+  const data={employeeId:state.currentUserId,type:f('ma-type'),start:f('ma-start'),end:f('ma-end'),note:f('ma-note'),status:'beantragt'};
+  state.absences.push({id:uid(),...data});
+  scheduleSave();
+  closeModal();
+  toast('Antrag eingereicht.');
+}
+function modalMeAbsence(){
+  const e=state.editing;
+  return modalWrap('Abwesenheit beantragen', `
+    <div class="field"><label>Art</label><select id="ma-type">
+      <option ${e.type==='Urlaub'?'selected':''}>Urlaub</option>
+      <option ${e.type==='Krankheit'?'selected':''}>Krankheit</option>
+      <option ${e.type==='Unbezahlt'?'selected':''}>Unbezahlt</option>
+      <option ${e.type==='Sonstiges'?'selected':''}>Sonstiges</option>
+    </select></div>
+    <div class="field-row">
+      <div class="field"><label>Startdatum</label><input id="ma-start" type="date" value="${e.start}"></div>
+      <div class="field"><label>Enddatum</label><input id="ma-end" type="date" value="${e.end}"></div>
+    </div>
+    <div class="field"><label>Kommentar (optional)</label><textarea id="ma-note" rows="2">${e.note||''}</textarea></div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn btn-primary" onclick="saveMeAbsence()">${ic('check')} Antrag senden</button>`);
+}
+
+/* ---- Profil (Mitarbeiter) ---- */
+function meProfile(){
+  const u=currentUser();
+  const c=state.customers.filter(cc=>u.customerIds.includes(cc.id));
+  return `
+  <div class="card" style="text-align:center;padding:28px 20px;margin-bottom:16px;">
+    <div class="avatar" style="background:${colorFor(u.id)};width:64px;height:64px;font-size:22px;margin:0 auto 12px;">${initials(u.name)}</div>
+    <h2>${u.name}</h2>
+    <div class="hint">${u.role}</div>
+  </div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-head"><h3>Angaben</h3><button class="muted-link" onclick="openMeProfileModal()">${ic('edit')} Bearbeiten</button></div>
+    <div class="detail-grid">
+      <div><span class="dl">E-Mail</span><span class="dv">${u.email}</span></div>
+      <div><span class="dl">Telefon</span><span class="dv">${u.phone}</span></div>
+      <div><span class="dl">Standort(e)</span><span class="dv">${c.length? c.map(x=>x.name).join(', '):'—'}</span></div>
+      <div><span class="dl">Rolle</span><span class="dv">${u.role}</span></div>
+      <div><span class="dl">Wochenstunden (Soll)</span><span class="dv">${state.settings.weeklyHours} h</span></div>
+    </div>
+  </div>
+  <div class="hint">Nur vom Administrator freigegebene Felder können hier bearbeitet werden.</div>`;
+}
+function openMeProfileModal(){
+  state.editing={phone:currentUser().phone, email:currentUser().email};
+  state.modal='meProfile';
+  render();
+}
+function saveMeProfile(){
+  const u=currentUser();
+  const fields=state.settings.profileEditableFields;
+  if(fields.phone) u.phone=document.getElementById('mp-phone').value;
+  if(fields.email) u.email=document.getElementById('mp-email').value;
+  scheduleSave();
+  closeModal();
+  toast('Profil aktualisiert.');
+}
+function modalMeProfile(){
+  const e=state.editing, fields=state.settings.profileEditableFields;
+  return modalWrap('Profil bearbeiten', `
+    <div class="field"><label>Telefonnummer</label><input id="mp-phone" value="${e.phone}" ${fields.phone?'':'disabled'}></div>
+    <div class="field"><label>E-Mail</label><input id="mp-email" value="${e.email}" ${fields.email?'':'disabled'}></div>
+    ${(!fields.phone && !fields.email)? `<div class="hint">Dein Administrator hat aktuell keine Profilfelder zur Selbstbearbeitung freigegeben.</div>`:''}
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn btn-primary" onclick="saveMeProfile()">${ic('check')} Speichern</button>`);
+}
+
+/* ============ MODALS ============ */
+function renderModal(){
+  if(state.modal==='clockin') return modalClockIn();
+  if(state.modal==='shift') return modalShift();
+  if(state.modal==='employee') return modalEmployee();
+  if(state.modal==='absence') return modalAbsence();
+  if(state.modal==='customer') return modalCustomer();
+  if(state.modal==='meAbsence') return modalMeAbsence();
+  if(state.modal==='meCorrection') return modalMeCorrection();
+  if(state.modal==='meProfile') return modalMeProfile();
+  return '';
+}
+function modalWrap(title, bodyHtml, footHtml, wide, bodyId){
+  return `<div class="overlay" onclick="if(event.target===this) closeModal();">
+    <div class="modal ${wide?'modal-wide':''}">
+      <div class="modal-head"><h3>${title}</h3><button class="close-x" onclick="closeModal()">${ic('close')}</button></div>
+      <div class="modal-body" ${bodyId?`id="${bodyId}"`:''}>${bodyHtml}</div>
+      ${footHtml?`<div class="modal-foot">${footHtml}</div>`:''}
+    </div>
+  </div>`;
+}
+function modalClockIn(){
+  return modalWrap('Einstempeln', `<div id="clockinModalBody">${clockInModalContent()}</div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn btn-accent" onclick="confirmClockIn()">${ic('check')} Jetzt einstempeln</button>`);
+}
+function modalShift(){
+  const e=state.editing;
+  return modalWrap(e.id?'Schicht bearbeiten':'Neue Schicht', `
+    <div class="field-row">
+      <div class="field"><label>Datum</label><input id="sf-date" type="date" value="${e.date}"></div>
+      <div class="field"><label>Standort / Kunde</label><select id="sf-cust">${state.customers.map(x=>`<option value="${x.id}" ${x.id===e.customerId?'selected':''}>${x.name}</option>`).join('')}</select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Startzeit</label><input id="sf-start" type="time" value="${e.start}"></div>
+      <div class="field"><label>Endzeit</label><input id="sf-end" type="time" value="${e.end}"></div>
+    </div>
+    <div class="field" style="max-width:220px;"><label>Pause (Minuten)</label><input id="sf-pause" type="number" min="0" step="5" value="${e.pause||0}"></div>
+    <div class="field">
+      <label>Mitarbeiter</label>
+      <select id="sf-emp" onchange="document.getElementById('sf-status').value=(this.value?'geplant':'offen');">
+        <option value="">— Offen / noch nicht zugewiesen —</option>
+        ${state.employees.filter(x=>x.status==='aktiv').map(x=>`<option value="${x.id}" ${x.id===e.employeeId?'selected':''}>${x.name} · ${x.role}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Status</label><select id="sf-status">
+      <option value="geplant" ${e.status==='geplant'?'selected':''}>Geplant</option>
+      <option value="offen" ${e.status==='offen'?'selected':''}>Offen</option>
+      <option value="bestätigt" ${e.status==='bestätigt'?'selected':''}>Bestätigt</option>
+      <option value="konflikt" ${e.status==='konflikt'?'selected':''}>Konflikt</option>
+    </select></div>
+    <div class="field"><label>Notiz</label><textarea id="sf-notes" rows="2" placeholder="z. B. Besonderheiten, Vertretung, Event…">${e.notes||''}</textarea></div>
+  `, `${e.id?`<button class="btn btn-danger" onclick="deleteShift('${e.id}')">${ic('trash')} Löschen</button>`:''}<button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn btn-primary" onclick="saveShift()">${ic('check')} Speichern</button>`);
+}
+function modalEmployee(){
+  const e=state.editing;
+  return modalWrap(e.id?'Mitarbeiter bearbeiten':'Mitarbeiter anlegen', `
+    <div class="field"><label>Name</label><input id="ef-name" value="${e.name}" placeholder="Vor- und Nachname"></div>
+    <div class="field-row">
+      <div class="field"><label>Rolle</label><select id="ef-role">
+        <option ${e.role==='Küchenchef'?'selected':''}>Küchenchef</option>
+        <option ${e.role==='Koch'?'selected':''}>Koch</option>
+        <option ${e.role==='Chef de Rang'?'selected':''}>Chef de Rang</option>
+        <option ${e.role==='Servicefachkraft'?'selected':''}>Servicefachkraft</option>
+        <option ${e.role==='Barkeeper'?'selected':''}>Barkeeper</option>
+        <option ${e.role==='Empfangsmitarbeiterin'?'selected':''}>Empfangsmitarbeiterin</option>
+        <option ${e.role==='Housekeeping'?'selected':''}>Housekeeping</option>
+        <option ${e.role==='Teamleitung'?'selected':''}>Teamleitung</option>
+        <option ${e.role==='Admin'?'selected':''}>Admin</option>
+      </select></div>
+      <div class="field"><label>Status</label><select id="ef-status">
+        <option value="aktiv" ${e.status==='aktiv'?'selected':''}>Aktiv</option>
+        <option value="inaktiv" ${e.status==='inaktiv'?'selected':''}>Inaktiv</option>
+      </select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>E-Mail</label><input id="ef-email" value="${e.email}"></div>
+      <div class="field"><label>Telefon</label><input id="ef-phone" value="${e.phone}"></div>
+    </div>
+
+    ${isAdmin()? `<div class="field"><label>Systemrolle</label><select id="ef-systemrole">
+      <option value="mitarbeiter" ${e.systemRole==='mitarbeiter'?'selected':''}>Mitarbeiter</option>
+      <option value="manager" ${e.systemRole==='manager'?'selected':''}>Manager</option>
+      <option value="admin" ${e.systemRole==='admin'?'selected':''}>Administrator</option>
+    </select><div class="hint">Bestimmt Navigation und Berechtigungen in der App. Nur für Administratoren sichtbar.</div></div>` : ''}
+    <div class="field-row">
+      <div class="field"><label>PIN (Zeiterfassung)</label><input id="ef-pin" value="${e.pin}"></div>
+      <div class="field"><label>Eintrittsdatum</label><input id="ef-start" type="date" value="${e.startDate}"></div>
+    </div>
+    <div class="field">
+      <label>Verknüpfte Standorte / Kunden</label>
+      <div class="checks">
+        ${state.customers.map(c=>`<label class="chip-check ${e.customerIds.includes(c.id)?'on':''}" onclick="toggleEditingCustomer('${c.id}')">${e.customerIds.includes(c.id)?ic('check'):''}${c.name}</label>`).join('')}
+      </div>
+      <div class="hint">Auswählen, um diesen Mitarbeiter mit Einsatzorten zu verknüpfen.</div>
+    </div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn btn-primary" onclick="saveEmployee()">${ic('check')} ${e.id?'Speichern':'Anlegen'}</button>`);
+}
+function modalAbsence(){
+  const e=state.editing;
+  return modalWrap('Abwesenheit erfassen', `
+    <div class="field"><label>Mitarbeiter</label><select id="af-emp">${state.employees.map(x=>`<option value="${x.id}" ${x.id===e.employeeId?'selected':''}>${x.name}</option>`).join('')}</select></div>
+    <div class="field"><label>Art</label><select id="af-type">
+      <option ${e.type==='Urlaub'?'selected':''}>Urlaub</option>
+      <option ${e.type==='Krankheit'?'selected':''}>Krankheit</option>
+      <option ${e.type==='Unbezahlt'?'selected':''}>Unbezahlt</option>
+      <option ${e.type==='Sonstiges'?'selected':''}>Sonstiges</option>
+    </select></div>
+    <div class="field-row">
+      <div class="field"><label>Von</label><input id="af-start" type="date" value="${e.start}"></div>
+      <div class="field"><label>Bis</label><input id="af-end" type="date" value="${e.end}"></div>
+    </div>
+    <div class="field"><label>Notiz</label><textarea id="af-note" rows="2">${e.note||''}</textarea></div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn btn-primary" onclick="saveAbsence()">Antrag erfassen</button>`);
+}
+function modalCustomer(){
+  const e=state.editing;
+  return modalWrap(e.id?'Standort bearbeiten':'Standort / Kunde anlegen', `
+    <div class="field"><label>Name</label><input id="cf-name" value="${e.name}" placeholder="z. B. Bürozentrum Nord"></div>
+    <div id="addrSection">${addrSectionHtml()}</div>
+    <div class="field"><label>Geofence-Radius (Meter)</label><input id="cf-radius" type="number" value="${e.radius}"></div>
+    <div class="divider"></div>
+    <div class="field-row">
+      <div class="field"><label>Objekttyp</label><select id="cf-type">
+        ${['Büro','Gastronomie','Praxis / Klinik','Hotel','Wohnobjekt','Lager / Küche','Industrie','Aussenanlage','Sonstiges'].map(t=>`<option ${e.type===t?'selected':''}>${t}</option>`).join('')}
+      </select></div>
+      <div class="field"><label>Fläche (m²)</label><input id="cf-area" type="number" value="${e.area||0}"></div>
+    </div>
+    <div class="field"><label>Reinigungsintervall</label><select id="cf-interval">
+      ${['täglich','2x wöchentlich','wöchentlich','14-täglich','monatlich','nach Vereinbarung'].map(t=>`<option ${e.interval===t?'selected':''}>${t}</option>`).join('')}
+    </select></div>
+    <div class="divider"></div>
+    <div class="field-row">
+      <div class="field"><label>Ansprechperson</label><input id="cf-contact" value="${e.contact||''}"></div>
+      <div class="field"><label>Telefon</label><input id="cf-phone" value="${e.phone||''}"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="field-row">
+      <div class="field"><label>Vertragsbeginn</label><input id="cf-contractstart" type="date" value="${e.contractStart||''}"></div>
+      <div class="field"><label>Stundenkontingent / Monat</label><input id="cf-hours" type="number" step="0.5" value="${e.monthlyHours||0}"></div>
+    </div>
+    <div class="field" style="max-width:220px;"><label>Stundensatz (CHF)</label><input id="cf-rate" type="number" step="0.5" value="${e.hourlyRate||0}"></div>
+    <div class="divider"></div>
+    <div class="field-row">
+      <div class="field"><label>Schlüsselnummer</label><input id="cf-key" value="${e.keyNumber||''}"></div>
+      <div class="field"><label>Zugangscode</label><input id="cf-code" value="${e.accessCode||''}"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Zugang von</label><input id="cf-from" type="time" value="${e.accessFrom||''}"></div>
+      <div class="field"><label>Zugang bis</label><input id="cf-to" type="time" value="${e.accessTo||''}"></div>
+    </div>
+    <div class="field"><label>Zugangshinweis</label><textarea id="cf-accessnotes" rows="2" placeholder="z. B. Schlüssel bei Empfang, Alarmcode beachten…">${e.accessNotes||''}</textarea></div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Abbrechen</button><button class="btn btn-primary" onclick="saveCustomer()">${ic('check')} ${e.id?'Speichern':'Anlegen'}</button>`, true);
+}
+
+/* ============ INIT ============ */
+loadState();
+</script>
+</body>
+</html>
