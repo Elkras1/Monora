@@ -1,4 +1,4 @@
-import type { AppData, Employee, Shift, ShiftStatus, SystemRole, TimeEntry } from '../types';
+import type { AppData, Customer, Employee, Shift, ShiftStatus, SystemRole, TimeEntry } from '../types';
 
 export function getEmp(data: AppData, id: string | null | undefined): Employee | undefined {
   if (!id) return undefined;
@@ -13,6 +13,13 @@ export function getCust(data: AppData, id: string | null | undefined) {
 export function openEntryFor(data: AppData, employeeId: string | null | undefined): TimeEntry | undefined {
   if (!employeeId) return undefined;
   return data.timeEntries.find((t) => t.employeeId === employeeId && !t.clockOut);
+}
+
+/** Reinigungsobjekte, die ein Mitarbeiter beim Einstempeln zur Auswahl bekommt (zugewiesene, sonst alle aktiven). */
+export function eligibleCustomersFor(data: AppData, employee: Employee | undefined): Customer[] {
+  if (!employee) return [];
+  const assigned = data.customers.filter((c) => employee.customerIds.includes(c.id) && c.active);
+  return assigned.length ? assigned : data.customers.filter((c) => c.active);
 }
 
 export function currentUser(data: AppData, currentUserId: string | null): Employee | undefined {

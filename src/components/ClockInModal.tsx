@@ -1,23 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal } from './ui/Overlay';
 import { Icon } from './icons/Icon';
 import { useApp, useActingEmployeeId } from '../state/AppContext';
+import { eligibleCustomersFor } from '../state/selectors';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { haversine } from '../utils/geo';
-import type { Customer } from '../types';
 
-export function ClockInModal() {
+export function ClockInModal({ payload }: { payload?: { customerId?: string } }) {
   const { state, actions } = useApp();
   const actingId = useActingEmployeeId();
   const emp = state.employees.find((e) => e.id === actingId);
 
-  const pool = useMemo<Customer[]>(() => {
-    if (!emp) return [];
-    const assigned = state.customers.filter((c) => emp.customerIds.includes(c.id) && c.active);
-    return assigned.length ? assigned : state.customers.filter((c) => c.active);
-  }, [state.customers, emp]);
-
-  const [customerId, setCustomerId] = useState<string>(pool[0]?.id ?? '');
+  const pool = eligibleCustomersFor(state, emp);
+  const preselected = payload?.customerId;
+  const [customerId, setCustomerId] = useState<string>(preselected || pool[0]?.id || '');
   const { status, fix, error, locate } = useGeolocation();
 
   useEffect(() => {
@@ -93,16 +89,25 @@ export function ClockInModal() {
         </>
       }
     >
-      <div className="field">
-        <label>Standort / Kunde</label>
-        <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-          {pool.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {preselected && cust ? (
+        <div className="field">
+          <label>Reinigungsobjekt</label>
+          <div style={{ padding: '9px 11px', border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface-alt)', fontWeight: 600 }}>
+            {cust.name}
+          </div>
+        </div>
+      ) : (
+        <div className="field">
+          <label>Standort / Kunde</label>
+          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            {pool.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div>{statusBox}</div>
       <div className="hint" style={{ marginTop: 10 }}>
         Geofence-Radius für diesen Standort: <b>{cust ? cust.radius : '–'} m</b>

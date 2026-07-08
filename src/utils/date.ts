@@ -6,6 +6,15 @@ export function fmtTime(d: Date): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** Formats a duration in milliseconds as a ticking HH:MM:SS stopwatch string. */
+export function formatDurationClock(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
 export function fmtDate(d: Date): string {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
 }

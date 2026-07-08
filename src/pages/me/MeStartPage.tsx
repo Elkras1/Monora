@@ -52,6 +52,9 @@ export function MeStartPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <h3>Zeiterfassung</h3>
+        </div>
         <MeStampBlock />
       </div>
 

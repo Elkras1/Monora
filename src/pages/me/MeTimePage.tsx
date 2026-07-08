@@ -28,6 +28,9 @@ export function MeTimePage() {
   return (
     <>
       <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-head">
+          <h3>Zeiterfassung</h3>
+        </div>
         <MeStampBlock />
       </div>
       <div className="grid cols-2" style={{ marginBottom: 16 }}>

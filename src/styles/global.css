@@ -98,6 +98,10 @@ a{color:inherit;}
 /* login screen */
 .login-screen{min-height:100vh;width:100%;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px;}
 .login-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:32px 28px;}
+@media (max-width:480px){
+  .login-screen{padding:12px;}
+  .login-card{padding:24px 18px;}
+}
 .login-brand{display:flex;align-items:center;gap:10px;}
 .login-error{color:var(--red);font-size:12.5px;font-weight:600;min-height:16px;margin:-4px 0 10px;}
 .login-demo-divider{display:flex;align-items:center;gap:10px;margin:22px 0 12px;color:var(--ink-faint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
@@ -153,6 +157,7 @@ a{color:inherit;}
 .btn-danger:hover{background:var(--red);color:#fff;}
 .btn-sm{padding:6px 11px;font-size:12.2px;border-radius:8px;}
 .btn svg{width:14px;height:14px;}
+.btn-stamp{flex:1;justify-content:center;min-width:130px;padding:13px 18px;font-size:14.5px;border-radius:11px;}
 .icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;}
 .icon-btn:hover{border-color:var(--primary);color:var(--primary);}
 .icon-btn svg{width:15px;height:15px;}
@@ -237,6 +242,15 @@ tbody tr:hover{background:var(--surface-alt);}
 .stamp-meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;}
 .stamp-meta div{font-size:12px;color:var(--ink-faint);}
 .stamp-meta b{display:block;color:var(--ink);font-size:14px;font-family:'Space Grotesk';}
+
+@media (max-width:480px){
+  .stamp-widget{flex-direction:column;align-items:center;text-align:center;gap:16px;}
+  .dial-wrap{width:128px;height:128px;}
+  .dial-core .time{font-size:17px;}
+  .stamp-info{min-width:0;width:100%;}
+  .stamp-meta{justify-content:center;text-align:left;}
+  .stamp-info .field{margin-left:auto;margin-right:auto;}
+}
 
 /* calendar */
 .week-nav{display:flex;align-items:center;gap:10px;}
@@ -370,4 +384,17 @@ tbody tr:hover{background:var(--surface-alt);}
   .mobile-toggle{display:flex;}
   .content{padding:18px 14px 60px;}
   .topbar{padding:12px 14px;}
+
+  /* grössere Touchflächen auf dem Handy */
+  .btn{padding:11px 16px;font-size:14px;min-height:44px;}
+  .btn-sm{padding:9px 13px;font-size:12.8px;min-height:38px;}
+  .icon-btn{width:40px;height:40px;}
+  .icon-btn svg{width:17px;height:17px;}
+  .field input,.field select,.field textarea{padding:11px 12px;font-size:15px;}
+  .tab{padding:10px 14px;font-size:13px;}
+  .tabs{width:100%;}
+  .tabs .tab{flex:1;text-align:center;}
+  .mtab{padding:8px 2px;min-height:52px;justify-content:center;}
+  .mtab svg{width:21px;height:21px;}
+  .close-x{width:34px;height:34px;}
 }

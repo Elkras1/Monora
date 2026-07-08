@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Icon } from './icons/Icon';
 import { useApp, useActingEmployeeId, useHasPerm } from '../state/AppContext';
-import { getCust, getEmp, openEntryFor } from '../state/selectors';
+import { eligibleCustomersFor, getCust, getEmp, openEntryFor } from '../state/selectors';
 import { useClock } from '../hooks/useClock';
-import { fmtTime, pad } from '../utils/date';
+import { fmtTime, formatDurationClock, pad } from '../utils/date';
 
 /** Admin/Manager Stempeluhr – zeigt den gewählten Mitarbeiter und erlaubt manuelles Ein-/Ausstempeln. */
 export function StampWidget({ compact }: { compact?: boolean }) {
@@ -79,16 +79,34 @@ export function StampWidget({ compact }: { compact?: boolean }) {
   );
 }
 
-/** Mitarbeiter-Stempelblock (Self-Service) – inkl. Pausenlogik. */
+/** Mitarbeiter-Stempelblock (Self-Service) – einfache Stempeluhr mit Objekt-Auswahl und Pausenlogik. */
 export function MeStampBlock() {
   const { state, actions } = useApp();
   const now = useClock();
   const actingId = useActingEmployeeId();
   const hasPerm = useHasPerm();
+  const emp = getEmp(state, actingId);
   const open = openEntryFor(state, actingId);
   const isOn = !!open;
   const onPause = isOn && !!open?.pauseStart;
   const canClock = hasPerm('time_clock');
+
+  const pool = eligibleCustomersFor(state, emp);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(pool[0]?.id ?? '');
+
+  const clockInDate = open ? new Date(open.clockIn) : null;
+  const workedMs = open
+    ? now.getTime() -
+      new Date(open.clockIn).getTime() -
+      open.pauseMinutes * 60000 -
+      (onPause && open.pauseStart ? now.getTime() - new Date(open.pauseStart).getTime() : 0)
+    : 0;
+  const dialTime = isOn ? formatDurationClock(workedMs) : `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  const startClockIn = () => {
+    if (!selectedCustomerId) return;
+    actions.openModal('clockin', { customerId: selectedCustomerId });
+  };
 
   return (
     <div className="stamp-widget">
@@ -105,53 +123,70 @@ export function MeStampBlock() {
           className={`dial-core ${isOn && !onPause ? '' : 'off'}`}
           style={onPause ? { background: 'linear-gradient(160deg,#DB9B0C,#93670A)' } : undefined}
         >
-          <div className="time mono">
-            {pad(now.getHours())}:{pad(now.getMinutes())}:{pad(now.getSeconds())}
-          </div>
-          <div className="lbl">{onPause ? 'Pause' : isOn ? 'Eingestempelt' : 'Bereit'}</div>
+          <div className="time mono">{dialTime}</div>
+          <div className="lbl">{onPause ? 'Pause' : isOn ? 'Arbeitet' : 'Bereit'}</div>
         </div>
       </div>
       <div className="stamp-info">
         <div className="stamp-meta">
           <div>
             Status
-            <b>{onPause ? 'In Pause' : isOn ? 'Im Einsatz' : 'Nicht eingestempelt'}</b>
+            <b>{onPause ? 'Pause' : isOn ? 'Arbeitet' : 'Nicht eingestempelt'}</b>
           </div>
-          {isOn && open ? (
+          {isOn && open && clockInDate ? (
             <>
               <div>
                 Seit
-                <b>{fmtTime(new Date(open.clockIn))}</b>
+                <b>{fmtTime(clockInDate)}</b>
               </div>
               <div>
-                Standort
+                Objekt
                 <b>{getCust(state, open.customerId)?.name || '–'}</b>
               </div>
             </>
           ) : null}
         </div>
-        <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {!canClock ? (
+
+        {!canClock ? (
+          <div style={{ marginTop: 14 }}>
             <span className="hint">Keine Berechtigung zur Zeiterfassung.</span>
-          ) : !isOn ? (
-            <button className="btn btn-accent" onClick={() => actions.openModal('clockin')}>
-              <Icon name="pin" /> Arbeitszeit starten
+          </div>
+        ) : !isOn ? (
+          <div style={{ marginTop: 14 }}>
+            <div className="field" style={{ maxWidth: 320 }}>
+              <label>Reinigungsobjekt</label>
+              <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)}>
+                <option value="">– Objekt wählen –</option>
+                {pool.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {!selectedCustomerId ? <div className="hint" style={{ marginBottom: 10 }}>Bitte zuerst Objekt auswählen.</div> : null}
+            <button className="btn btn-accent btn-stamp" onClick={startClockIn} disabled={!selectedCustomerId}>
+              <Icon name="pin" /> Start
             </button>
-          ) : onPause ? (
-            <button className="btn btn-accent" onClick={() => actingId && actions.endPause(actingId)}>
-              <Icon name="check" /> Pause beenden
-            </button>
-          ) : (
-            <>
-              <button className="btn btn-outline" onClick={() => actingId && actions.startPause(actingId)}>
-                Pause starten
+          </div>
+        ) : (
+          <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {onPause ? (
+              <button className="btn btn-accent btn-stamp" onClick={() => actingId && actions.endPause(actingId)}>
+                <Icon name="check" /> Pause beenden
               </button>
-              <button className="btn btn-danger" onClick={() => actions.openModal('clockout')}>
-                <Icon name="close" /> Arbeitszeit beenden
-              </button>
-            </>
-          )}
-        </div>
+            ) : (
+              <>
+                <button className="btn btn-outline btn-stamp" onClick={() => actingId && actions.startPause(actingId)}>
+                  Pause
+                </button>
+                <button className="btn btn-danger btn-stamp" onClick={() => actions.openModal('clockout')}>
+                  <Icon name="close" /> Stopp
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

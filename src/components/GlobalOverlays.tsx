@@ -20,7 +20,7 @@ export function GlobalOverlays() {
 
   return (
     <>
-      {modal?.type === 'clockin' ? <ClockInModal /> : null}
+      {modal?.type === 'clockin' ? <ClockInModal payload={modal.payload} /> : null}
       {modal?.type === 'clockout' ? <ClockOutModal /> : null}
       {modal?.type === 'shift' ? <ShiftModal payload={modal.payload} /> : null}
       {modal?.type === 'employee' ? <EmployeeModal payload={modal.payload} /> : null}
