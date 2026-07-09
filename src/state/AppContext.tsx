@@ -238,6 +238,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state]);
 
+  // Hält mehrere gleichzeitig offene Tabs/Fenster (z. B. Admin- und Mitarbeiter-Ansicht nebeneinander
+  // zum Testen) synchron: Sobald ein anderer Tab im selben Browser Daten speichert (z. B. Standort-Radius
+  // geändert), übernimmt dieser Tab die aktuellen Daten sofort, ohne die eigene Navigation/Login-Session
+  // zu verlieren.
+  useEffect(() => {
+    function handleStorage(e: StorageEvent) {
+      if (e.key !== STORAGE_KEY || !e.newValue) return;
+      try {
+        const incoming = migrateData(JSON.parse(e.newValue) as AppData);
+        setState((s) => ({
+          ...s,
+          employees: incoming.employees,
+          customers: incoming.customers,
+          shifts: incoming.shifts,
+          absences: incoming.absences,
+          timeEntries: incoming.timeEntries,
+          timeCorrections: incoming.timeCorrections,
+          settings: incoming.settings,
+          permissions: incoming.permissions,
+        }));
+      } catch {
+        /* ignore malformed data written by another tab */
+      }
+    }
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const toast = useCallback((message: string) => {
     const id = uid();
     setToasts((prev) => [...prev, { id, message }]);
