@@ -252,6 +252,29 @@ tbody tr:hover{background:var(--surface-alt);}
   .stamp-info .field{margin-left:auto;margin-right:auto;}
 }
 
+/* ---- Mitarbeiter: radikal einfache Stempeluhr (Sparte "Zeiterfassung") ---- */
+.stamp-simple{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px;min-height:calc(100vh - 220px);padding:24px 16px;}
+.stamp-simple-field{width:100%;max-width:300px;}
+.stamp-simple-status{font-size:13px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;}
+.stamp-simple-object{font-size:17px;font-weight:700;color:var(--ink);font-family:'Space Grotesk';}
+.stamp-simple-timer{font-family:'IBM Plex Mono',monospace;font-size:58px;font-weight:600;color:var(--ink);letter-spacing:.01em;}
+.stamp-simple-pause-timer{font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;color:#93670A;}
+.stamp-simple-actions{display:flex;gap:12px;width:100%;max-width:360px;flex-wrap:wrap;}
+.stamp-simple-actions .btn{flex:1;}
+.stamp-round-btn{
+  width:172px;height:172px;border-radius:50%;border:none;background:#22C55E;color:#042015;
+  font-size:22px;font-weight:800;letter-spacing:.06em;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 16px 34px rgba(34,197,94,.35);transition:transform .08s, background .12s;
+}
+.stamp-round-btn:hover{background:#16A34A;}
+.stamp-round-btn:active{transform:scale(.96);}
+.stamp-round-btn:disabled{background:var(--surface-alt);color:var(--ink-faint);box-shadow:none;cursor:not-allowed;}
+@media (max-width:480px){
+  .stamp-simple{min-height:calc(100vh - 190px);gap:18px;}
+  .stamp-round-btn{width:148px;height:148px;font-size:19px;}
+  .stamp-simple-timer{font-size:46px;}
+}
+
 /* calendar */
 .week-nav{display:flex;align-items:center;gap:10px;}
 .sched-week-input{padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink-soft);font-size:12.5px;}

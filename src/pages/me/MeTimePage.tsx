@@ -1,83 +1,92 @@
-import React from 'react';
-import { useApp, useHasPerm } from '../../state/AppContext';
-import { getCust } from '../../state/selectors';
-import { MeStampBlock } from '../../components/StampWidget';
-import { StatusBadge } from '../../components/ui/Badge';
-import { Empty } from '../../components/ui/Empty';
-import { KpiCard } from '../../components/ui/KpiCard';
-import { fmtDate, fmtTime, isoDate, mondayOf } from '../../utils/date';
+import React, { useState } from 'react';
+import { useApp, useActingEmployeeId, useHasPerm } from '../../state/AppContext';
+import { eligibleCustomersFor, getCust, getEmp, openEntryFor } from '../../state/selectors';
+import { useClock } from '../../hooks/useClock';
+import { formatDurationMinSec } from '../../utils/date';
 
+/**
+ * Mitarbeiter-Zeiterfassung: zeigt ausschliesslich die Stempeluhr (kein Verlauf, keine Statistiken).
+ * Geofencing-Prüfung läuft weiterhin über die bestehenden ClockInModal/ClockOutModal-Dialoge.
+ */
 export function MeTimePage() {
   const { state, actions } = useApp();
+  const now = useClock();
+  const actingId = useActingEmployeeId();
   const hasPerm = useHasPerm();
-  const canCorrection = hasPerm('time_correction_request');
-  const mine = [...state.timeEntries].filter((t) => t.employeeId === state.currentUserId).sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
+  const emp = getEmp(state, actingId);
+  const open = openEntryFor(state, actingId);
+  const isOn = !!open;
+  const onPause = isOn && !!open?.pauseStart;
+  const canClock = hasPerm('time_clock');
 
-  const todayIso = isoDate(new Date());
-  const todayMinutes = state.timeEntries
-    .filter((t) => t.employeeId === state.currentUserId && isoDate(new Date(t.clockIn)) === todayIso)
-    .reduce((s, t) => {
-      const end = t.clockOut ? new Date(t.clockOut) : new Date();
-      return s + ((end.getTime() - new Date(t.clockIn).getTime()) / 60000 - (t.pauseMinutes || 0));
-    }, 0);
-  const weekStart = mondayOf(new Date());
-  const weekMinutes = state.timeEntries
-    .filter((t) => t.employeeId === state.currentUserId && t.clockOut && new Date(t.clockIn) >= weekStart)
-    .reduce((s, t) => s + ((new Date(t.clockOut as string).getTime() - new Date(t.clockIn).getTime()) / 60000 - (t.pauseMinutes || 0)), 0);
+  const pool = eligibleCustomersFor(state, emp);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(pool[0]?.id ?? '');
+
+  if (!canClock) {
+    return (
+      <div className="stamp-simple">
+        <div className="hint">Keine Berechtigung zur Zeiterfassung.</div>
+      </div>
+    );
+  }
+
+  if (!isOn) {
+    const startClockIn = () => {
+      if (!selectedCustomerId) return;
+      actions.openModal('clockin', { customerId: selectedCustomerId });
+    };
+
+    return (
+      <div className="stamp-simple">
+        <div className="field stamp-simple-field">
+          <label>Objekt</label>
+          <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)}>
+            <option value="">– Objekt wählen –</option>
+            {pool.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {!selectedCustomerId ? <div className="hint">Bitte Objekt auswählen</div> : null}
+        </div>
+        <button className="stamp-round-btn" onClick={startClockIn} disabled={!selectedCustomerId}>
+          START
+        </button>
+      </div>
+    );
+  }
+
+  const cust = getCust(state, open.customerId);
+  const pauseStartMs = open.pauseStart ? new Date(open.pauseStart).getTime() : null;
+  const nowMs = now.getTime();
+  const clockInMs = new Date(open.clockIn).getTime();
+  const workedMs = (onPause && pauseStartMs ? pauseStartMs : nowMs) - clockInMs - open.pauseMinutes * 60000;
+  const pauseMs = onPause && pauseStartMs ? nowMs - pauseStartMs : 0;
 
   return (
-    <>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-head">
-          <h3>Zeiterfassung</h3>
-        </div>
-        <MeStampBlock />
+    <div className="stamp-simple">
+      <div className="stamp-simple-status">{onPause ? 'Pause läuft' : 'Arbeitszeit läuft'}</div>
+      <div className="stamp-simple-object">{cust ? cust.name : '–'}</div>
+      <div className="stamp-simple-timer">{formatDurationMinSec(workedMs)}</div>
+      {onPause ? <div className="stamp-simple-pause-timer">Pause: {formatDurationMinSec(pauseMs)}</div> : null}
+      <div className="stamp-simple-actions">
+        {onPause ? (
+          <button className="btn btn-accent btn-stamp" onClick={() => actingId && actions.endPause(actingId)}>
+            Pause beenden
+          </button>
+        ) : (
+          <button className="btn btn-outline btn-stamp" onClick={() => actingId && actions.startPause(actingId)}>
+            Pause
+          </button>
+        )}
+        <button
+          className="btn btn-danger btn-stamp"
+          onClick={() => actions.openModal('clockout', { successMessage: 'Arbeitszeit gespeichert.' })}
+        >
+          Stopp
+        </button>
       </div>
-      <div className="grid cols-2" style={{ marginBottom: 16 }}>
-        <KpiCard icon="clock" label="Heute" value={`${(todayMinutes / 60).toFixed(1)} h`} bg="var(--primary-tint)" fg="var(--primary-dark)" />
-        <KpiCard icon="hourglass" label="Diese Woche" value={`${(weekMinutes / 60).toFixed(1)} h`} bg="var(--amber-tint)" fg="#93670A" />
-      </div>
-      <div className="card">
-        <div className="card-head">
-          <h3>Meine Zeiteinträge</h3>
-          <span className="hint">{mine.length} Einträge</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {mine.length ? (
-            mine.map((t) => {
-              const c = getCust(state, t.customerId);
-              const inD = new Date(t.clockIn);
-              const outD = t.clockOut ? new Date(t.clockOut) : null;
-              const dur = outD ? (outD.getTime() - inD.getTime()) / 60000 - (t.pauseMinutes || 0) : null;
-              return (
-                <div key={t.id} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: 12.8 }}>{fmtDate(inD)}</span>
-                    <StatusBadge status={t.status} />
-                  </div>
-                  <div className="hint" style={{ marginTop: 5 }}>
-                    <span className="mono">
-                      {fmtTime(inD)}–{outD ? fmtTime(outD) : 'läuft…'}
-                    </span>{' '}
-                    · {c ? c.name : '–'}
-                  </div>
-                  <div className="hint">
-                    {t.pauseMinutes ? `${t.pauseMinutes} Min. Pause` : 'Keine Pause'}
-                    {dur !== null ? ` · ${Math.round(dur)} Min. gesamt` : ''}
-                  </div>
-                  {canCorrection ? (
-                    <button className="link-btn" style={{ marginTop: 6 }} onClick={() => actions.openModal('meCorrection', { entryId: t.id })}>
-                      Korrektur beantragen
-                    </button>
-                  ) : null}
-                </div>
-              );
-            })
-          ) : (
-            <Empty icon="clock" text="Noch keine Zeiteinträge vorhanden." />
-          )}
-        </div>
-      </div>
-    </>
+    </div>
   );
 }

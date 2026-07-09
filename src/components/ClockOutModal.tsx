@@ -6,7 +6,7 @@ import { getCust, openEntryFor } from '../state/selectors';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { haversine } from '../utils/geo';
 
-export function ClockOutModal() {
+export function ClockOutModal({ payload }: { payload?: { successMessage?: string } }) {
   const { state, actions } = useApp();
   const actingId = useActingEmployeeId();
   const open = openEntryFor(state, actingId);
@@ -68,7 +68,7 @@ export function ClockOutModal() {
 
   const confirm = () => {
     if (!fix || !canConfirm) return;
-    actions.confirmClockOut(actingId, fix, distance ?? 0);
+    actions.confirmClockOut(actingId, fix, distance ?? 0, payload?.successMessage);
   };
 
   return (

@@ -177,7 +177,7 @@ interface AppContextValue {
     saveMeAbsence: (data: Omit<Absence, 'id' | 'employeeId' | 'status'>) => void;
     // time entries
     confirmClockIn: (employeeId: string, customerId: string, geo: GeoFix, distance: number, radius: number, geofenceOk: boolean) => void;
-    confirmClockOut: (employeeId: string, geo: GeoFix, distance: number) => void;
+    confirmClockOut: (employeeId: string, geo: GeoFix, distance: number, successMessage?: string) => void;
     startPause: (employeeId: string) => void;
     endPause: (employeeId: string) => void;
     quickSetStatus: (entryId: string, status: TimeEntry['status']) => void;
@@ -465,7 +465,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }));
         toast('Erfolgreich eingestempelt.');
       },
-      confirmClockOut: (employeeId, geo, distance) => {
+      confirmClockOut: (employeeId, geo, distance, successMessage) => {
         setState((s) => ({
           ...s,
           timeEntries: s.timeEntries.map((t) => {
@@ -489,7 +489,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }),
           modal: null,
         }));
-        toast('Erfolgreich ausgestempelt.');
+        toast(successMessage ?? 'Erfolgreich ausgestempelt.');
       },
       startPause: (employeeId) => {
         setState((s) => ({

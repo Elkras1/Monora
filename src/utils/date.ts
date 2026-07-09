@@ -15,6 +15,14 @@ export function formatDurationClock(ms: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
+/** Formats a duration in milliseconds as MM:SS (minutes uncapped, e.g. "125:33"). */
+export function formatDurationMinSec(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${pad(m)}:${pad(s)}`;
+}
+
 export function fmtDate(d: Date): string {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
 }
