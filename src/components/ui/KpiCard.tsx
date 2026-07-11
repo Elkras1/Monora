@@ -9,6 +9,7 @@ export function KpiCard({
   fg,
   delta,
   onClick,
+  active,
 }: {
   icon: IconName;
   label: string;
@@ -17,9 +18,10 @@ export function KpiCard({
   fg: string;
   delta?: React.ReactNode;
   onClick?: () => void;
+  active?: boolean;
 }) {
   return (
-    <div className="card kpi" style={onClick ? { cursor: 'pointer' } : undefined} onClick={onClick}>
+    <div className={`card kpi ${active ? 'is-active' : ''}`} style={onClick ? { cursor: 'pointer' } : undefined} onClick={onClick}>
       <div className="icon" style={{ background: bg, color: fg }}>
         <Icon name={icon} />
       </div>

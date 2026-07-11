@@ -1,7 +1,6 @@
 import React from 'react';
 import { useApp, useCurrentUser, useHasPerm } from '../../state/AppContext';
 import { openEntryFor } from '../../state/selectors';
-import { MeStampBlock } from '../../components/StampWidget';
 import { MeShiftRow } from '../../components/MeShiftRow';
 import { AbsenceTypeBadge, StatusBadge } from '../../components/ui/Badge';
 import { Empty } from '../../components/ui/Empty';
@@ -49,13 +48,6 @@ export function MeStartPage() {
         <div className="avatar" style={{ background: colorFor(user.id), width: 44, height: 44, fontSize: 16 }}>
           {initials(user.name)}
         </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-head">
-          <h3>Zeiterfassung</h3>
-        </div>
-        <MeStampBlock />
       </div>
 
       <div className="grid cols-2" style={{ marginBottom: 14 }}>

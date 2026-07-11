@@ -1,7 +1,7 @@
 import React from 'react';
 import { Drawer } from './ui/Overlay';
 import { Icon } from './icons/Icon';
-import { StatusBadge } from './ui/Badge';
+import { ShiftStatusBadge } from './ui/Badge';
 import { useApp, useHasPerm } from '../state/AppContext';
 import { computeConflictIds, getCust, getEmp, shiftDisplayStatus } from '../state/selectors';
 import { colorFor, initials } from '../utils/format';
@@ -80,7 +80,7 @@ export function ShiftPanel() {
         <div>
           <span className="dl">Status</span>
           <span className="dv">
-            <StatusBadge status={dispStatus} />
+            <ShiftStatusBadge status={dispStatus} />
           </span>
         </div>
         <div>

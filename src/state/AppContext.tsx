@@ -3,11 +3,16 @@ import type {
   Absence,
   AbsenceStatus,
   AppData,
+  ChatMessage,
   Customer,
   CustomerIssue,
+  CustomFieldDef,
   Employee,
+  EmployeeDocumentMeta,
   FilterState,
   IssueSeverity,
+  MessageAttachmentMeta,
+  Service,
   Shift,
   ShiftStatus,
   TimeCorrection,
@@ -16,8 +21,10 @@ import type {
 } from '../types';
 import { seedData } from '../data/seed';
 import { DEFAULT_PERMISSIONS, roleLabel } from '../data/permissions';
+import { makeDefaultServices } from '../data/services';
+import { makeChatId } from './chat';
 import { uid } from '../utils/format';
-import { isoDate } from '../utils/date';
+import { addDays, isoDate } from '../utils/date';
 import { currentRole, currentUser, hasPerm as hasPermSelector, isAdmin as isAdminSelector, openEntryFor } from './selectors';
 import type { GeoFix } from '../hooks/useGeolocation';
 
@@ -30,6 +37,7 @@ export type ModalType =
   | 'employee'
   | 'absence'
   | 'customer'
+  | 'service'
   | 'meAbsence'
   | 'meCorrection'
   | 'meProfile';
@@ -60,6 +68,7 @@ export interface UIState {
   panelLocationId: string | null;
   panelTimeEntryId: string | null;
   panelLiveStatusId: string | null;
+  panelMyShiftId: string | null;
 }
 
 export interface AppState extends AppData, UIState {}
@@ -71,6 +80,11 @@ function migrateData(data: AppData): AppData {
   });
   data.employees.forEach((e) => {
     if (e.password === undefined) e.password = 'demo1234';
+    // Login lief früher über den Namen; die drei Demo-Konten bekommen jetzt feste E-Mail-Logins,
+    // auch wenn in localStorage noch die alte automatisch generierte Adresse hinterlegt ist.
+    if (e.name === 'Laura Keller' && e.systemRole === 'admin') e.email = 'admin@monora.ch';
+    if (e.name === 'Marco Baumann' && e.systemRole === 'manager') e.email = 'manager@monora.ch';
+    if (e.name === 'Luca Meier' && e.systemRole === 'mitarbeiter') e.email = 'mitarbeiter@monora.ch';
   });
   data.timeEntries.forEach((t) => {
     const anyT = t as any;
@@ -83,8 +97,33 @@ function migrateData(data: AppData): AppData {
     if (t.checkOutLng === undefined) t.checkOutLng = null;
     if (t.checkOutAccuracy === undefined) t.checkOutAccuracy = null;
     if (t.checkOutDistance === undefined) t.checkOutDistance = null;
+    if (t.serviceId === undefined) t.serviceId = null;
     delete anyT.distance;
   });
+  if (data.permissions.manager.time_export === undefined) data.permissions.manager.time_export = true;
+  if (data.permissions.mitarbeiter.time_export === undefined) data.permissions.mitarbeiter.time_export = false;
+  if (data.permissions.manager.services_manage === undefined) data.permissions.manager.services_manage = true;
+  if (data.permissions.mitarbeiter.services_manage === undefined) data.permissions.mitarbeiter.services_manage = false;
+  if (!data.services || !data.services.length) data.services = makeDefaultServices();
+  data.shifts.forEach((sh) => {
+    if ((sh as any).serviceId === undefined) sh.serviceId = null;
+  });
+  if (!data.customFieldDefs) data.customFieldDefs = [];
+  data.employees.forEach((e) => {
+    if (e.serviceIds === undefined) e.serviceIds = [];
+    if (e.customFieldValues === undefined) e.customFieldValues = {};
+    if (e.documents === undefined) e.documents = [];
+  });
+  if (data.permissions.manager.emp_view_sensitive === undefined) data.permissions.manager.emp_view_sensitive = false;
+  if (data.permissions.mitarbeiter.emp_view_sensitive === undefined) data.permissions.mitarbeiter.emp_view_sensitive = false;
+  if (data.permissions.manager.emp_edit_sensitive === undefined) data.permissions.manager.emp_edit_sensitive = false;
+  if (data.permissions.mitarbeiter.emp_edit_sensitive === undefined) data.permissions.mitarbeiter.emp_edit_sensitive = false;
+  if (data.permissions.manager.emp_docs_manage === undefined) data.permissions.manager.emp_docs_manage = false;
+  if (data.permissions.mitarbeiter.emp_docs_manage === undefined) data.permissions.mitarbeiter.emp_docs_manage = false;
+  if (data.permissions.manager.custom_fields_manage === undefined) data.permissions.manager.custom_fields_manage = false;
+  if (data.permissions.mitarbeiter.custom_fields_manage === undefined) data.permissions.mitarbeiter.custom_fields_manage = false;
+  if (!data.chats) data.chats = [];
+  if (!data.messages) data.messages = [];
   return data;
 }
 
@@ -119,6 +158,7 @@ function loadInitialState(): AppState {
     panelLocationId: null,
     panelTimeEntryId: null,
     panelLiveStatusId: null,
+    panelMyShiftId: null,
   };
 }
 
@@ -135,7 +175,7 @@ interface AppContextValue {
   toast: (message: string) => void;
   actions: {
     // auth / nav
-    attemptLogin: (name: string, password: string) => void;
+    attemptLogin: (email: string, password: string) => void;
     logout: () => void;
     setView: (view: ViewId) => void;
     toggleSidebar: () => void;
@@ -157,6 +197,8 @@ interface AppContextValue {
     closeTimeEntryPanel: () => void;
     openLiveStatusPanel: (id: string) => void;
     closeLiveStatusPanel: () => void;
+    openMyShiftPanel: (id: string) => void;
+    closeMyShiftPanel: () => void;
     // employees
     saveEmployee: (
       data: Omit<Employee, 'id' | 'customerIds' | 'password'> & { customerIds: string[]; password?: string },
@@ -164,29 +206,50 @@ interface AppContextValue {
     ) => void;
     deleteEmployee: (id: string) => void;
     toggleEmployeeStatus: (id: string) => void;
+    // Zusatzfelder (Schema, admin-/managerweit)
+    saveCustomFieldDef: (data: Omit<CustomFieldDef, 'id'>, id?: string | null) => void;
+    deleteCustomFieldDef: (id: string) => void;
+    // Mitarbeiterdokumente (Metadaten; die Datei selbst liegt in IndexedDB, siehe utils/docStore.ts)
+    addEmployeeDocument: (employeeId: string, doc: EmployeeDocumentMeta) => void;
+    updateEmployeeDocument: (employeeId: string, docId: string, updates: Partial<Pick<EmployeeDocumentMeta, 'docType' | 'note'>>) => void;
+    deleteEmployeeDocument: (employeeId: string, docId: string) => void;
     // shifts
     saveShift: (data: Omit<Shift, 'id'>, id?: string | null) => void;
     deleteShift: (id: string) => void;
     duplicateShift: (id: string) => void;
     claimOpenShift: (id: string) => void;
+    moveShift: (id: string, newDate: string) => void;
+    moveShiftTo: (id: string, newDate: string, newEmployeeId: string | null) => void;
     // absences
     saveAbsence: (data: Omit<Absence, 'id' | 'status'>) => void;
     setAbsStatus: (id: string, status: AbsenceStatus) => void;
     deleteAbsence: (id: string) => void;
+    moveAbsence: (id: string, newStart: string) => void;
     cancelMyAbsence: (id: string) => void;
     saveMeAbsence: (data: Omit<Absence, 'id' | 'employeeId' | 'status'>) => void;
     // time entries
-    confirmClockIn: (employeeId: string, customerId: string, geo: GeoFix, distance: number, radius: number, geofenceOk: boolean) => void;
+    confirmClockIn: (
+      employeeId: string,
+      customerId: string,
+      geo: GeoFix,
+      distance: number,
+      radius: number,
+      geofenceOk: boolean,
+      serviceId?: string | null
+    ) => void;
     confirmClockOut: (employeeId: string, geo: GeoFix, distance: number, successMessage?: string) => void;
     startPause: (employeeId: string) => void;
     endPause: (employeeId: string) => void;
     quickSetStatus: (entryId: string, status: TimeEntry['status']) => void;
     saveTimeEntryDetail: (
       entryId: string,
-      updates: { start: string; end: string; pauseMinutes: number; notes: string; status: TimeEntry['status'] }
+      updates: { start: string; end: string; pauseMinutes: number; notes: string; status: TimeEntry['status']; serviceId?: string | null }
     ) => void;
     submitMeCorrection: (entryId: string, note: string) => void;
     resolveCorrection: (id: string, status: TimeCorrection['status']) => void;
+    // services (Leistungen)
+    saveService: (data: Omit<Service, 'id' | 'active'>, id?: string | null) => void;
+    toggleServiceActive: (id: string) => void;
     // customers
     saveCustomer: (data: Omit<Customer, 'id' | 'tasks' | 'issues'> & Partial<Pick<Customer, 'tasks' | 'issues'>>, id?: string | null) => void;
     deleteCustomer: (id: string) => void;
@@ -204,6 +267,16 @@ interface AppContextValue {
     resetDemoData: () => void;
     // profile
     saveMeProfile: (updates: { phone?: string; email?: string }) => void;
+    saveMyPhoto: (photoUrl: string | null) => void;
+    // Nachrichten (Prototyp: localStorage für Text, IndexedDB für Anhänge — siehe utils/chatAttachmentStore.ts)
+    sendMessage: (input: {
+      senderId: string;
+      recipientId: string;
+      text: string;
+      attachments?: MessageAttachmentMeta[];
+      replyToId?: string | null;
+    }) => void;
+    markChatRead: (chatId: string, readerId: string) => void;
   };
 }
 
@@ -220,10 +293,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const persistable: AppData = {
         employees: state.employees,
         customers: state.customers,
+        services: state.services,
         shifts: state.shifts,
         absences: state.absences,
         timeEntries: state.timeEntries,
         timeCorrections: state.timeCorrections,
+        customFieldDefs: state.customFieldDefs,
+        chats: state.chats,
+        messages: state.messages,
         settings: state.settings,
         permissions: state.permissions,
       };
@@ -251,10 +328,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...s,
           employees: incoming.employees,
           customers: incoming.customers,
+          services: incoming.services,
           shifts: incoming.shifts,
           absences: incoming.absences,
           timeEntries: incoming.timeEntries,
           timeCorrections: incoming.timeCorrections,
+          customFieldDefs: incoming.customFieldDefs,
+          chats: incoming.chats,
+          messages: incoming.messages,
           settings: incoming.settings,
           permissions: incoming.permissions,
         }));
@@ -279,18 +360,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const actions = useMemo<AppContextValue['actions']>(
     () => ({
-      attemptLogin: (name, password) => {
+      attemptLogin: (email, password) => {
         setState((s) => {
-          const query = name.trim().toLowerCase();
-          const emp = query ? s.employees.find((e) => e.status === 'aktiv' && e.name.trim().toLowerCase() === query) : undefined;
+          const query = email.trim().toLowerCase();
+          const emp = query ? s.employees.find((e) => e.status === 'aktiv' && e.email.trim().toLowerCase() === query) : undefined;
           if (!emp || !password || password !== emp.password) {
-            return { ...s, loginError: 'Name oder Passwort ist nicht korrekt.' };
+            return { ...s, loginError: 'E-Mail oder Passwort ist nicht korrekt.' };
           }
           return {
             ...s,
             currentUserId: emp.id,
             loggedIn: true,
-            view: emp.systemRole === 'mitarbeiter' ? 'me-start' : 'dashboard',
+            view: emp.systemRole === 'mitarbeiter' ? 'me-time' : 'dashboard',
             sidebarOpen: false,
             userMenuOpen: false,
             loginError: '',
@@ -299,6 +380,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             panelLocationId: null,
             panelTimeEntryId: null,
             panelLiveStatusId: null,
+            panelMyShiftId: null,
           };
         });
       },
@@ -312,6 +394,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           panelLocationId: null,
           panelTimeEntryId: null,
           panelLiveStatusId: null,
+          panelMyShiftId: null,
         }));
       },
       setView: (view) => setState((s) => ({ ...s, view, sidebarOpen: false })),
@@ -338,6 +421,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       closeTimeEntryPanel: () => setState((s) => ({ ...s, panelTimeEntryId: null })),
       openLiveStatusPanel: (id) => setState((s) => ({ ...s, panelLiveStatusId: id })),
       closeLiveStatusPanel: () => setState((s) => ({ ...s, panelLiveStatusId: null })),
+      openMyShiftPanel: (id) => setState((s) => ({ ...s, panelMyShiftId: id })),
+      closeMyShiftPanel: () => setState((s) => ({ ...s, panelMyShiftId: null })),
 
       saveEmployee: (data, id) => {
         setState((s) => {
@@ -375,6 +460,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => toast(nowActive ? 'Mitarbeiter aktiviert.' : 'Mitarbeiter deaktiviert.'), 0);
       },
 
+      saveCustomFieldDef: (data, id) => {
+        setState((s) => {
+          if (id) {
+            return { ...s, customFieldDefs: s.customFieldDefs.map((f) => (f.id === id ? { ...f, ...data } : f)) };
+          }
+          return { ...s, customFieldDefs: [...s.customFieldDefs, { id: uid(), ...data }] };
+        });
+        toast(id ? 'Zusatzfeld aktualisiert.' : 'Zusatzfeld angelegt.');
+      },
+      deleteCustomFieldDef: (id) => {
+        if (!window.confirm('Dieses Zusatzfeld wirklich löschen? Bereits erfasste Werte gehen dabei verloren.')) return;
+        setState((s) => ({
+          ...s,
+          customFieldDefs: s.customFieldDefs.filter((f) => f.id !== id),
+          employees: s.employees.map((e) => {
+            if (!e.customFieldValues || !(id in e.customFieldValues)) return e;
+            const rest = { ...e.customFieldValues };
+            delete rest[id];
+            return { ...e, customFieldValues: rest };
+          }),
+        }));
+        toast('Zusatzfeld gelöscht.');
+      },
+
+      addEmployeeDocument: (employeeId, doc) => {
+        setState((s) => ({
+          ...s,
+          employees: s.employees.map((e) => (e.id === employeeId ? { ...e, documents: [...(e.documents ?? []), doc] } : e)),
+        }));
+        toast('Dokument hochgeladen.');
+      },
+      updateEmployeeDocument: (employeeId, docId, updates) => {
+        setState((s) => ({
+          ...s,
+          employees: s.employees.map((e) =>
+            e.id === employeeId
+              ? { ...e, documents: (e.documents ?? []).map((d) => (d.id === docId ? { ...d, ...updates } : d)) }
+              : e
+          ),
+        }));
+        toast('Dokument aktualisiert.');
+      },
+      deleteEmployeeDocument: (employeeId, docId) => {
+        setState((s) => ({
+          ...s,
+          employees: s.employees.map((e) =>
+            e.id === employeeId ? { ...e, documents: (e.documents ?? []).filter((d) => d.id !== docId) } : e
+          ),
+        }));
+        toast('Dokument gelöscht.');
+      },
+
       saveShift: (data, id) => {
         setState((s) => {
           if (id) {
@@ -406,6 +543,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }));
         toast('Schicht übernommen.');
       },
+      moveShift: (id, newDate) => {
+        setState((s) => ({ ...s, shifts: s.shifts.map((sh) => (sh.id === id && sh.date !== newDate ? { ...sh, date: newDate } : sh)) }));
+        toast('Schicht verschoben.');
+      },
+      moveShiftTo: (id, newDate, newEmployeeId) => {
+        setState((s) => ({
+          ...s,
+          shifts: s.shifts.map((sh) => {
+            if (sh.id !== id || (sh.date === newDate && sh.employeeId === newEmployeeId)) return sh;
+            const status: ShiftStatus = !newEmployeeId ? 'offen' : sh.status === 'offen' ? 'geplant' : sh.status;
+            return { ...sh, date: newDate, employeeId: newEmployeeId, status };
+          }),
+        }));
+        toast(newEmployeeId ? 'Schicht verschoben.' : 'Schicht als offen markiert.');
+      },
 
       saveAbsence: (data) => {
         setState((s) => ({ ...s, absences: [...s.absences, { id: uid(), ...data, status: 'beantragt' }] }));
@@ -417,6 +569,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       deleteAbsence: (id) => {
         setState((s) => ({ ...s, absences: s.absences.filter((a) => a.id !== id) }));
+      },
+      moveAbsence: (id, newStart) => {
+        setState((s) => ({
+          ...s,
+          absences: s.absences.map((a) => {
+            if (a.id !== id || a.start === newStart) return a;
+            const lengthDays = Math.round((new Date(a.end).getTime() - new Date(a.start).getTime()) / 86400000);
+            const newEnd = isoDate(addDays(new Date(newStart), lengthDays));
+            return { ...a, start: newStart, end: newEnd };
+          }),
+        }));
+        toast('Abwesenheit verschoben.');
       },
       cancelMyAbsence: (id) => {
         setState((s) => ({ ...s, absences: s.absences.filter((a) => a.id !== id) }));
@@ -430,7 +594,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         toast('Antrag eingereicht.');
       },
 
-      confirmClockIn: (employeeId, customerId, geo, distance, radius, geofenceOk) => {
+      confirmClockIn: (employeeId, customerId, geo, distance, radius, geofenceOk, serviceId) => {
         const now = new Date().toISOString();
         setState((s) => ({
           ...s,
@@ -440,6 +604,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               id: uid(),
               employeeId,
               customerId,
+              serviceId: serviceId ?? null,
               clockIn: now,
               clockOut: null,
               geofenceOk,
@@ -557,6 +722,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 next = logChange(next, `Status wurde von "${statusLabel(t.status)}" auf "${statusLabel(updates.status)}" gesetzt.`, by);
                 next = { ...next, status: updates.status };
               }
+              if (updates.serviceId !== undefined && updates.serviceId !== t.serviceId) {
+                const oldName = s.services.find((sv) => sv.id === t.serviceId)?.name ?? 'Keine Leistung';
+                const newName = s.services.find((sv) => sv.id === updates.serviceId)?.name ?? 'Keine Leistung';
+                next = logChange(next, `Leistung wurde von "${oldName}" auf "${newName}" geändert.`, by);
+                next = { ...next, serviceId: updates.serviceId };
+              }
               return { ...next, updatedAt: new Date().toISOString() };
             }),
           };
@@ -577,6 +748,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       resolveCorrection: (id, status) => {
         setState((s) => ({ ...s, timeCorrections: s.timeCorrections.map((c) => (c.id === id ? { ...c, status } : c)) }));
         toast('Korrekturanfrage aktualisiert.');
+      },
+
+      saveService: (data, id) => {
+        setState((s) => {
+          if (id) {
+            return { ...s, services: s.services.map((sv) => (sv.id === id ? { ...sv, ...data } : sv)) };
+          }
+          return { ...s, services: [...s.services, { id: uid(), active: true, ...data }] };
+        });
+        toast(id ? 'Leistung aktualisiert.' : 'Leistung angelegt.');
+      },
+      toggleServiceActive: (id) => {
+        let nowActive = true;
+        setState((s) => ({
+          ...s,
+          services: s.services.map((sv) => {
+            if (sv.id !== id) return sv;
+            nowActive = !sv.active;
+            return { ...sv, active: nowActive };
+          }),
+        }));
+        setTimeout(() => toast(nowActive ? 'Leistung aktiviert.' : 'Leistung deaktiviert.'), 0);
       },
 
       saveCustomer: (data, id) => {
@@ -700,6 +893,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           modal: null,
         }));
         toast('Profil aktualisiert.');
+      },
+      saveMyPhoto: (photoUrl) => {
+        // Ändert ausschliesslich das Profilbild des aktuell eingeloggten Kontos – niemals das einer anderen Person.
+        setState((s) => ({
+          ...s,
+          employees: s.employees.map((e) => (e.id === s.currentUserId ? { ...e, photoUrl: photoUrl ?? undefined } : e)),
+        }));
+        toast(photoUrl ? 'Profilbild gespeichert.' : 'Profilbild entfernt.');
+      },
+
+      sendMessage: ({ senderId, recipientId, text, attachments, replyToId }) => {
+        const chatId = makeChatId(senderId, recipientId);
+        const now = new Date().toISOString();
+        setState((s) => {
+          const chatExists = s.chats.some((c) => c.id === chatId);
+          const chats = chatExists
+            ? s.chats
+            : [...s.chats, { id: chatId, participantIds: [senderId, recipientId].sort() as [string, string], createdAt: now }];
+          const msg: ChatMessage = {
+            id: uid(),
+            chatId,
+            senderId,
+            recipientId,
+            text,
+            createdAt: now,
+            read: false,
+            attachments,
+            replyToId: replyToId ?? null,
+          };
+          return { ...s, chats, messages: [...s.messages, msg] };
+        });
+      },
+      markChatRead: (chatId, readerId) => {
+        setState((s) => ({
+          ...s,
+          messages: s.messages.map((m) => (m.chatId === chatId && m.recipientId === readerId && !m.read ? { ...m, read: true } : m)),
+        }));
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps

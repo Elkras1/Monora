@@ -17,12 +17,25 @@ export type IconName =
   | 'pin'
   | 'chevL'
   | 'chevR'
+  | 'chevUp'
+  | 'chevDown'
   | 'users2'
   | 'briefcase'
   | 'hourglass'
   | 'menu'
   | 'bolt'
-  | 'droplet';
+  | 'droplet'
+  | 'eye'
+  | 'eyeOff'
+  | 'pause'
+  | 'alert'
+  | 'download'
+  | 'upload'
+  | 'fileText'
+  | 'checklist'
+  | 'message'
+  | 'send'
+  | 'paperclip';
 
 const paths: Record<IconName, React.ReactNode> = {
   dashboard: (
@@ -113,6 +126,8 @@ const paths: Record<IconName, React.ReactNode> = {
   ),
   chevL: <polyline points="15 18 9 12 15 6" />,
   chevR: <polyline points="9 18 15 12 9 6" />,
+  chevUp: <polyline points="18 15 12 9 6 15" />,
+  chevDown: <polyline points="6 9 12 15 18 9" />,
   users2: (
     <>
       <circle cx="9" cy="8" r="3.4" />
@@ -136,6 +151,79 @@ const paths: Record<IconName, React.ReactNode> = {
   ),
   bolt: <polygon points="13 2 3 14 11 14 10 22 21 10 13 10 13 2" />,
   droplet: <path d="M12 2.5s6.5 7.6 6.5 12.1a6.5 6.5 0 11-13 0C5.5 10.1 12 2.5 12 2.5z" />,
+  eye: (
+    <>
+      <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z" />
+      <circle cx="12" cy="12" r="3.2" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.1A10.9 10.9 0 0112 5c7 0 10.5 7 10.5 7a13.6 13.6 0 01-3.1 3.9M6.6 6.6C3.6 8.6 1.5 12 1.5 12s3.5 7 10.5 7a10.7 10.7 0 004.4-.9" />
+      <path d="M9.5 9.6a3.2 3.2 0 004.5 4.5" />
+    </>
+  ),
+  pause: (
+    <>
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </>
+  ),
+  alert: (
+    <>
+      <path d="M12 3.5l10 17.3H2z" />
+      <line x1="12" y1="9.5" x2="12" y2="14" />
+      <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 3v12" />
+      <polyline points="7 10 12 15 17 10" />
+      <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+    </>
+  ),
+  upload: (
+    <>
+      <path d="M12 21V9" />
+      <polyline points="7 14 12 9 17 14" />
+      <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+    </>
+  ),
+  fileText: (
+    <>
+      <path d="M6 2.5h8l4 4V20a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 014 20V4a1.5 1.5 0 011.5-1.5z" />
+      <path d="M14 2.5V7h4.5" />
+      <line x1="7.5" y1="12" x2="14.5" y2="12" />
+      <line x1="7.5" y1="15.5" x2="14.5" y2="15.5" />
+    </>
+  ),
+  checklist: (
+    <>
+      <rect x="3" y="3.5" width="18" height="17" rx="2.5" />
+      <path d="M7.5 8.5l1.5 1.5 2.5-2.5" />
+      <line x1="13.5" y1="8.5" x2="17.5" y2="8.5" />
+      <path d="M7.5 14.5l1.5 1.5 2.5-2.5" />
+      <line x1="13.5" y1="14.5" x2="17.5" y2="14.5" />
+    </>
+  ),
+  message: (
+    <>
+      <path d="M4 5.5h16a1.5 1.5 0 011.5 1.5v9a1.5 1.5 0 01-1.5 1.5H9l-4.5 4v-4H4A1.5 1.5 0 012.5 16V7A1.5 1.5 0 014 5.5z" />
+    </>
+  ),
+  send: (
+    <>
+      <path d="M21.5 2.5L10.5 13.5" />
+      <path d="M21.5 2.5l-7 19-4-8-8-4z" />
+    </>
+  ),
+  paperclip: (
+    <>
+      <path d="M20.5 12.5l-8.4 8.4a5 5 0 01-7.1-7.1l9.2-9.2a3.5 3.5 0 014.9 4.9l-9.2 9.2a2 2 0 01-2.8-2.8l8-8" />
+    </>
+  ),
 };
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {
@@ -146,7 +234,9 @@ export function Icon({ name, className }: { name: IconName; className?: string }
         viewBox="0 0 24 24"
         fill={isFilled ? 'currentColor' : 'none'}
         stroke={isFilled ? 'none' : 'currentColor'}
-        strokeWidth={name === 'plus' ? 2.4 : name === 'check' ? 2.4 : name === 'close' ? 2.2 : name === 'chevL' || name === 'chevR' ? 2.3 : 2}
+        strokeWidth={
+          name === 'plus' ? 2.4 : name === 'check' ? 2.4 : name === 'close' ? 2.2 : name === 'chevL' || name === 'chevR' || name === 'chevUp' || name === 'chevDown' ? 2.3 : 2
+        }
         strokeLinecap="round"
         strokeLinejoin="round"
       >

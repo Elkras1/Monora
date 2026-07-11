@@ -4,10 +4,11 @@ import { useApp } from '../state/AppContext';
 
 export function LoginPage() {
   const { state, actions } = useApp();
-  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  const submit = () => actions.attemptLogin(name, password);
+  const submit = () => actions.attemptLogin(email, password);
 
   return (
     <div className="login-screen">
@@ -27,15 +28,17 @@ export function LoginPage() {
         </div>
         <h2 style={{ marginTop: 18 }}>Anmelden</h2>
         <div className="hint" style={{ marginBottom: 18 }}>
-          Melde dich mit deinem Namen und Passwort an. Deine Rolle (Admin, Manager oder Mitarbeiter) wird danach automatisch erkannt.
+          Melde dich mit deiner E-Mail-Adresse und deinem Passwort an. Deine Rolle (Admin, Manager oder Mitarbeiter) wird danach
+          automatisch erkannt.
         </div>
         <div className="field">
-          <label>Name</label>
+          <label>E-Mail</label>
           <input
+            type="email"
             autoComplete="username"
-            placeholder="Vor- und Nachname"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            placeholder="name@monora.ch"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') submit();
             }}
@@ -43,16 +46,26 @@ export function LoginPage() {
         </div>
         <div className="field">
           <label>Passwort</label>
-          <input
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submit();
-            }}
-          />
+          <div className="password-field">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+              }}
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              <Icon name={showPassword ? 'eyeOff' : 'eye'} />
+            </button>
+          </div>
         </div>
         <div className="login-error">{state.loginError}</div>
         <button

@@ -6,19 +6,23 @@ import { StatusBadge } from '../components/ui/Badge';
 import { Empty } from '../components/ui/Empty';
 import { Icon } from '../components/icons/Icon';
 import { StampWidget } from '../components/StampWidget';
+import { TimeEvaluation } from '../components/TimeEvaluation';
 import { colorFor, initials } from '../utils/format';
-import { fmtDate, fmtTime, mondayOf } from '../utils/date';
+import { fmtDate, fmtTime, isoDate, mondayOf } from '../utils/date';
+import { buildExportRows, downloadFile, printRowsAsPdf, rowsToCsv } from '../utils/export';
 import type { TimeEntry, TimeEntryStatus } from '../types';
 
 export function ClockPage() {
-  const { state, actions } = useApp();
+  const { state, actions, toast } = useApp();
   const hasPerm = useHasPerm();
   const isAdmin = useIsAdmin();
   const f = state.filter;
 
   const canAll = hasPerm('time_view_all');
+  const clockTab = canAll ? f.clockTab ?? 'entries' : 'entries';
   const canManual = hasPerm('time_manual_create');
   const canEditAny = hasPerm('time_edit') || hasPerm('time_correct') || hasPerm('time_confirm');
+  const canExport = hasPerm('time_export');
 
   const filteredTimeEntries = (): TimeEntry[] => {
     let entries = [...state.timeEntries];
@@ -26,7 +30,10 @@ export function ClockPage() {
     if (f.teEmp && f.teEmp !== 'alle') entries = entries.filter((t) => t.employeeId === f.teEmp);
     if (f.teCust && f.teCust !== 'alle') entries = entries.filter((t) => t.customerId === f.teCust);
     if (f.teStatus && f.teStatus !== 'alle') entries = entries.filter((t) => t.status === f.teStatus);
-    if (f.tePeriod && f.tePeriod !== 'alle') {
+    if (f.tePeriod === 'custom') {
+      if (f.teDateFrom) entries = entries.filter((t) => isoDate(new Date(t.clockIn)) >= (f.teDateFrom as string));
+      if (f.teDateTo) entries = entries.filter((t) => isoDate(new Date(t.clockIn)) <= (f.teDateTo as string));
+    } else if (f.tePeriod && f.tePeriod !== 'alle') {
       const now = new Date();
       let start: Date;
       if (f.tePeriod === 'heute') start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -45,12 +52,60 @@ export function ClockPage() {
 
   const openCorrections = state.timeCorrections.filter((c) => c.status === 'offen');
 
+  const exportEmpLabel = f.teEmp && f.teEmp !== 'alle' ? getEmp(state, f.teEmp)?.name : null;
+  const exportCustLabel = f.teCust && f.teCust !== 'alle' ? getCust(state, f.teCust)?.name : null;
+  const exportTitleParts = [exportEmpLabel, exportCustLabel].filter(Boolean) as string[];
+  const exportTitle = `Zeiterfassung${exportTitleParts.length ? ' – ' + exportTitleParts.join(' · ') : ''}`;
+  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const exportFileBase = ['zeiterfassung', exportEmpLabel && slug(exportEmpLabel), exportCustLabel && slug(exportCustLabel), isoDate(new Date())]
+    .filter(Boolean)
+    .join('_');
+
+  const exportCsv = () => {
+    if (!entries.length) {
+      toast('Keine Einträge für diese Filter zum Exportieren.');
+      return;
+    }
+    const rows = buildExportRows(state, entries);
+    downloadFile(`${exportFileBase}.csv`, rowsToCsv(rows), 'text/csv;charset=utf-8;');
+    toast(`${entries.length} Zeiteinträge als CSV exportiert.`);
+  };
+
+  const exportPdf = () => {
+    if (!entries.length) {
+      toast('Keine Einträge für diese Filter zum Exportieren.');
+      return;
+    }
+    const rows = buildExportRows(state, entries);
+    const ok = printRowsAsPdf(rows, exportTitle);
+    if (!ok) {
+      toast('Popup wurde blockiert. Bitte Popups für diese Seite erlauben.');
+      return;
+    }
+    toast('PDF-Druckansicht geöffnet – im Druckdialog „Als PDF speichern“ wählen.');
+  };
+
   return (
     <>
-      <div className="card" style={{ marginBottom: 18 }}>
-        {canManual ? (
-          <StampWidget />
-        ) : (
+      {canAll ? (
+        <div className="tabs" style={{ marginBottom: 16 }}>
+          <button className={`tab ${clockTab === 'entries' ? 'active' : ''}`} onClick={() => actions.setFilter({ clockTab: 'entries' })}>
+            Zeiterfassungen
+          </button>
+          <button className={`tab ${clockTab === 'eval' ? 'active' : ''}`} onClick={() => actions.setFilter({ clockTab: 'eval' })}>
+            Auswertung
+          </button>
+        </div>
+      ) : null}
+
+      {clockTab === 'eval' ? (
+        <TimeEvaluation />
+      ) : (
+        <>
+          <div className="card" style={{ marginBottom: 18 }}>
+            {canManual ? (
+              <StampWidget />
+            ) : (
           <Empty
             icon="clock"
             text={
@@ -116,7 +171,24 @@ export function ClockPage() {
             <option value="heute">Heute</option>
             <option value="woche">Diese Woche</option>
             <option value="monat">Dieser Monat</option>
+            <option value="custom">Benutzerdefiniert…</option>
           </select>
+          {f.tePeriod === 'custom' ? (
+            <>
+              <input
+                type="date"
+                value={f.teDateFrom ?? ''}
+                onChange={(e) => actions.setFilter({ teDateFrom: e.target.value })}
+                aria-label="Von"
+              />
+              <input
+                type="date"
+                value={f.teDateTo ?? ''}
+                onChange={(e) => actions.setFilter({ teDateTo: e.target.value })}
+                aria-label="Bis"
+              />
+            </>
+          ) : null}
           <select value={f.teCust ?? 'alle'} onChange={(e) => actions.setFilter({ teCust: e.target.value })}>
             <option value="alle">Alle Reinigungsobjekte</option>
             {state.customers.map((c) => (
@@ -132,10 +204,25 @@ export function ClockPage() {
             <option value="korrigiert">Korrigiert</option>
           </select>
         </div>
+        {canExport ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-outline" onClick={exportCsv}>
+              <Icon name="download" /> CSV exportieren
+            </button>
+            <button className="btn btn-outline" onClick={exportPdf}>
+              <Icon name="fileText" /> PDF exportieren
+            </button>
+          </div>
+        ) : null}
       </div>
       {!canAll ? (
         <div className="hint" style={{ marginBottom: 10 }}>
           Du siehst nur deine eigenen Einträge (Berechtigung „Alle Arbeitszeiten anzeigen“ ist deaktiviert).
+        </div>
+      ) : null}
+      {canExport ? (
+        <div className="hint" style={{ marginBottom: 10 }}>
+          Export berücksichtigt die aktuell gewählten Filter ({entries.length} Einträge{exportTitleParts.length ? ` · ${exportTitleParts.join(' · ')}` : ''}).
         </div>
       ) : null}
 
@@ -256,6 +343,8 @@ export function ClockPage() {
           })}
         </div>
       ) : null}
+        </>
+      )}
     </>
   );
 }

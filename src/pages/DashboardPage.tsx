@@ -1,20 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { computeConflictIds, getCust, getEmp, shiftDisplayStatus } from '../state/selectors';
 import { KpiCard } from '../components/ui/KpiCard';
-import { StatusBadge } from '../components/ui/Badge';
+import { AbsenceTypeBadge, StatusBadge } from '../components/ui/Badge';
 import { Empty } from '../components/ui/Empty';
+import { Icon } from '../components/icons/Icon';
 import { StampWidget } from '../components/StampWidget';
 import { colorFor, initials } from '../utils/format';
 import { addDays, fmtDate, fmtTime, isoDate, mondayOf } from '../utils/date';
-import type { TimeEntryStatus } from '../types';
+import type { TimeEntry, TimeEntryStatus } from '../types';
+
+type DetailKey = 'activeEmp' | 'activeNow' | 'pause' | 'openEntries' | 'absencesToday' | 'geofence';
 
 export function DashboardPage() {
   const { state, actions } = useApp();
+  const [detail, setDetail] = useState<DetailKey | null>(null);
+  const toggleDetail = (key: DetailKey) => setDetail((d) => (d === key ? null : key));
+  // Alles unterhalb der Live-Kennzahlen ist standardmässig sichtbar (keine Information geht verloren),
+  // lässt sich aber einklappen, damit das Dashboard auf den ersten Blick weniger überladen wirkt.
+  const [moreExpanded, setMoreExpanded] = useState(true);
 
   const activeNow = state.timeEntries.filter((t) => !t.clockOut);
-  const activeEmp = state.employees.filter((e) => e.status === 'aktiv').length;
-  const openAbsences = state.absences.filter((a) => a.status === 'beantragt').length;
+  const activeEmployees = state.employees.filter((e) => e.status === 'aktiv');
+  const activeEmp = activeEmployees.length;
   const weekStart = mondayOf(new Date());
   const weekEnd = addDays(weekStart, 7);
   const hoursWeek = state.timeEntries
@@ -34,11 +42,24 @@ export function DashboardPage() {
     .sort((a, b) => a.start.localeCompare(b.start))
     .slice(0, 5);
 
-  const onPauseCount = activeNow.filter((t) => t.pauseStart).length;
+  const pauseNow = activeNow.filter((t) => t.pauseStart);
+  const onPauseCount = pauseNow.length;
   const openTodayCount = state.timeEntries.filter((t) => isoDate(new Date(t.clockIn)) === todayIso && t.status === 'offen').length;
   const todaysEntries = [...state.timeEntries]
     .filter((t) => isoDate(new Date(t.clockIn)) === todayIso)
     .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
+
+  const openEntries = [...state.timeEntries]
+    .filter((t) => t.status === 'offen')
+    .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
+
+  const absentToday = state.absences.filter((a) => a.status === 'genehmigt' && a.start <= todayIso && a.end >= todayIso);
+
+  const geofenceIssues = [...state.timeEntries]
+    .filter((t) => !t.geofenceOk && (!t.clockOut || isoDate(new Date(t.clockIn)) === todayIso))
+    .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
+
+  const openTimeEntry = (t: TimeEntry) => (t.clockOut ? actions.openTimeEntryPanel(t.id) : actions.openLiveStatusPanel(t.id));
 
   return (
     <>
@@ -50,6 +71,8 @@ export function DashboardPage() {
           bg="var(--primary-tint)"
           fg="var(--primary-dark)"
           delta={`${state.employees.length} insgesamt`}
+          active={detail === 'activeEmp'}
+          onClick={() => toggleDetail('activeEmp')}
         />
         <KpiCard
           icon="bolt"
@@ -58,6 +81,48 @@ export function DashboardPage() {
           bg="#E3F3FE"
           fg="var(--accent-dark)"
           delta={activeNow.length ? 'Live eingestempelt' : 'Niemand aktiv'}
+          active={detail === 'activeNow'}
+          onClick={() => toggleDetail('activeNow')}
+        />
+        <KpiCard
+          icon="pause"
+          label="In Pause"
+          value={onPauseCount}
+          bg="var(--amber-tint)"
+          fg="#93670A"
+          delta={onPauseCount ? 'Pausiert aktuell' : 'Niemand pausiert'}
+          active={detail === 'pause'}
+          onClick={() => toggleDetail('pause')}
+        />
+        <KpiCard
+          icon="clock"
+          label="Offene Zeiteinträge"
+          value={teCounts.offen}
+          bg="#E3EDF7"
+          fg="#2A6FA8"
+          delta={teCounts.offen ? 'zur Prüfung' : 'Alles bearbeitet'}
+          active={detail === 'openEntries'}
+          onClick={() => toggleDetail('openEntries')}
+        />
+        <KpiCard
+          icon="absence"
+          label="Abwesenheiten heute"
+          value={absentToday.length}
+          bg="var(--red-tint)"
+          fg="var(--red)"
+          delta={absentToday.length ? 'aktuell abwesend' : 'Alle anwesend'}
+          active={detail === 'absencesToday'}
+          onClick={() => toggleDetail('absencesToday')}
+        />
+        <KpiCard
+          icon="alert"
+          label="Geofencing-Hinweise"
+          value={geofenceIssues.length}
+          bg="var(--amber-tint)"
+          fg="var(--amber)"
+          delta={geofenceIssues.length ? 'Standortabweichung' : 'Keine Auffälligkeiten'}
+          active={detail === 'geofence'}
+          onClick={() => toggleDetail('geofence')}
         />
         <KpiCard
           icon="hourglass"
@@ -67,16 +132,206 @@ export function DashboardPage() {
           fg="#93670A"
           delta={`Soll: ${state.settings.weeklyHours} h/Woche`}
         />
-        <KpiCard
-          icon="absence"
-          label="Offene Anträge"
-          value={openAbsences}
-          bg="var(--red-tint)"
-          fg="var(--red)"
-          delta={openAbsences ? 'Prüfung erforderlich' : 'Alles bearbeitet'}
-        />
       </div>
 
+      {detail ? (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-head">
+            <h3>
+              {detail === 'activeEmp' && 'Aktive Mitarbeiter'}
+              {detail === 'activeNow' && 'Aktuell im Einsatz'}
+              {detail === 'pause' && 'In Pause'}
+              {detail === 'openEntries' && 'Offene Zeiteinträge'}
+              {detail === 'absencesToday' && 'Abwesenheiten heute'}
+              {detail === 'geofence' && 'Geofencing-Hinweise'}
+            </h3>
+            <button className="icon-btn" onClick={() => setDetail(null)}>
+              <Icon name="close" />
+            </button>
+          </div>
+
+          {detail === 'activeEmp' &&
+            (activeEmployees.length ? (
+              activeEmployees.map((e) => {
+                const live = activeNow.find((t) => t.employeeId === e.id);
+                return (
+                  <div key={e.id} className="dash-detail-row">
+                    <div className="avatar" style={{ background: colorFor(e.id) }}>
+                      {initials(e.name)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div className="name" style={{ fontWeight: 600 }}>
+                        {e.name}
+                      </div>
+                      <div className="meta" style={{ color: 'var(--ink-faint)', fontSize: 11.5 }}>
+                        {e.role}
+                      </div>
+                    </div>
+                    {live ? (
+                      <span className={`badge ${live.pauseStart ? 'badge-amber' : 'badge-mint'}`}>
+                        <span className="badge-dot" />
+                        {live.pauseStart ? 'In Pause' : 'Im Einsatz'}
+                      </span>
+                    ) : (
+                      <span className="hint">Nicht eingestempelt</span>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <Empty icon="users2" text="Keine aktiven Mitarbeiter." />
+            ))}
+
+          {detail === 'activeNow' &&
+            (activeNow.length ? (
+              activeNow.map((t) => {
+                const e = getEmp(state, t.employeeId);
+                const c = getCust(state, t.customerId);
+                if (!e) return null;
+                return (
+                  <div key={t.id} className="me-shift-row" onClick={() => actions.openLiveStatusPanel(t.id)}>
+                    <div className="person" style={{ flex: 1 }}>
+                      <div className="avatar" style={{ background: colorFor(e.id) }}>
+                        {initials(e.name)}
+                      </div>
+                      <div>
+                        <div className="name">{e.name}</div>
+                        <div className="meta">{c ? c.name : '–'}</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="mono" style={{ fontSize: 12.5, fontWeight: 700 }}>
+                        seit {fmtTime(new Date(t.clockIn))}
+                      </div>
+                      <div className="hint">{durationSince(t.clockIn)}</div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <Empty icon="bolt" text="Aktuell ist niemand eingestempelt." />
+            ))}
+
+          {detail === 'pause' &&
+            (pauseNow.length ? (
+              pauseNow.map((t) => {
+                const e = getEmp(state, t.employeeId);
+                const c = getCust(state, t.customerId);
+                if (!e) return null;
+                return (
+                  <div key={t.id} className="me-shift-row" onClick={() => actions.openLiveStatusPanel(t.id)}>
+                    <div className="person" style={{ flex: 1 }}>
+                      <div className="avatar" style={{ background: colorFor(e.id) }}>
+                        {initials(e.name)}
+                      </div>
+                      <div>
+                        <div className="name">{e.name}</div>
+                        <div className="meta">{c ? c.name : '–'}</div>
+                      </div>
+                    </div>
+                    <span className="badge badge-amber">
+                      <span className="badge-dot" />
+                      Pause seit {fmtTime(new Date(t.pauseStart as string))}
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <Empty icon="pause" text="Aktuell macht niemand Pause." />
+            ))}
+
+          {detail === 'openEntries' &&
+            (openEntries.length ? (
+              openEntries.map((t) => {
+                const e = getEmp(state, t.employeeId);
+                const c = getCust(state, t.customerId);
+                if (!e) return null;
+                return (
+                  <div key={t.id} className="me-shift-row" onClick={() => openTimeEntry(t)}>
+                    <div className="person" style={{ flex: 1 }}>
+                      <div className="avatar" style={{ background: colorFor(e.id) }}>
+                        {initials(e.name)}
+                      </div>
+                      <div>
+                        <div className="name">{e.name}</div>
+                        <div className="meta">
+                          {c ? c.name : '–'} · {fmtDate(new Date(t.clockIn))}
+                        </div>
+                      </div>
+                    </div>
+                    <StatusBadge status={t.status} />
+                  </div>
+                );
+              })
+            ) : (
+              <Empty icon="clock" text="Keine offenen Zeiteinträge." />
+            ))}
+
+          {detail === 'absencesToday' &&
+            (absentToday.length ? (
+              absentToday.map((a) => {
+                const e = getEmp(state, a.employeeId);
+                if (!e) return null;
+                return (
+                  <div key={a.id} className="dash-detail-row">
+                    <div className="avatar" style={{ background: colorFor(e.id) }}>
+                      {initials(e.name)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div className="name" style={{ fontWeight: 600 }}>
+                        {e.name}
+                      </div>
+                      <div className="meta" style={{ color: 'var(--ink-faint)', fontSize: 11.5 }}>
+                        {fmtDate(new Date(a.start))} – {fmtDate(new Date(a.end))}
+                      </div>
+                    </div>
+                    <AbsenceTypeBadge type={a.type} />
+                  </div>
+                );
+              })
+            ) : (
+              <Empty icon="absence" text="Heute ist niemand abwesend." />
+            ))}
+
+          {detail === 'geofence' &&
+            (geofenceIssues.length ? (
+              geofenceIssues.map((t) => {
+                const e = getEmp(state, t.employeeId);
+                const c = getCust(state, t.customerId);
+                if (!e) return null;
+                return (
+                  <div key={t.id} className="me-shift-row" onClick={() => openTimeEntry(t)}>
+                    <div className="person" style={{ flex: 1 }}>
+                      <div className="avatar" style={{ background: colorFor(e.id) }}>
+                        {initials(e.name)}
+                      </div>
+                      <div>
+                        <div className="name">{e.name}</div>
+                        <div className="meta">
+                          {c ? c.name : '–'} · {fmtTime(new Date(t.clockIn))} · {Math.round(t.checkInDistance)} m Abweichung
+                        </div>
+                      </div>
+                    </div>
+                    <span className="badge badge-amber">
+                      <span className="badge-dot" />
+                      Abweichung
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <Empty icon="alert" text="Keine Geofencing-Auffälligkeiten." />
+            ))}
+        </div>
+      ) : null}
+
+      <button className="dash-more-toggle" onClick={() => setMoreExpanded((v) => !v)}>
+        <span>Weitere Details</span>
+        <Icon name={moreExpanded ? 'chevUp' : 'chevDown'} />
+      </button>
+
+      {moreExpanded ? (
+        <>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-head">
           <h3>Zeiterfassung im Überblick</h3>
@@ -341,6 +596,16 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+        </>
+      ) : null}
     </>
   );
+}
+
+function durationSince(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const totalMin = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h} Std. ${m} Min.` : `${m} Min.`;
 }

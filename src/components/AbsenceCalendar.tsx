@@ -5,28 +5,14 @@ import { AbsenceTypeBadge, StatusBadge, absenceTypeColor } from './ui/Badge';
 import { useApp } from '../state/AppContext';
 import { getEmp } from '../state/selectors';
 import type { Absence } from '../types';
-import { fmtDate, isoDate, WEEKDAYS } from '../utils/date';
+import { buildMonthWeeks, fmtDate, isoDate, WEEKDAYS } from '../utils/date';
 
 function absencesOnDay(absences: Absence[], iso: string): Absence[] {
   return absences.filter((a) => a.start <= iso && iso <= a.end);
 }
 
-function buildMonthWeeks(monthCursor: Date): (Date | null)[][] {
-  const year = monthCursor.getFullYear();
-  const month = monthCursor.getMonth();
-  const firstOfMonth = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
-  const cells: (Date | null)[] = [...Array(leadingBlanks)].map(() => null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
-  while (cells.length % 7 !== 0) cells.push(null);
-  const weeks: (Date | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-  return weeks;
-}
-
-export function AbsenceCalendar({ absences, mode }: { absences: Absence[]; mode: 'month' | 'year' }) {
-  const { state } = useApp();
+export function AbsenceCalendar({ absences, mode, canManage }: { absences: Absence[]; mode: 'month' | 'year'; canManage?: boolean }) {
+  const { state, actions } = useApp();
   const todayIso = isoDate(new Date());
   const [monthCursor, setMonthCursor] = useState(() => {
     const d = new Date();
@@ -36,9 +22,33 @@ export function AbsenceCalendar({ absences, mode }: { absences: Absence[]; mode:
   });
   const [yearCursor, setYearCursor] = useState(() => new Date().getFullYear());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   const weeks = useMemo(() => buildMonthWeeks(monthCursor), [monthCursor]);
   const dayDetail = selectedDay ? absencesOnDay(absences, selectedDay) : [];
+
+  const onBarDragStart = (e: React.DragEvent, absenceId: string) => {
+    e.stopPropagation();
+    e.dataTransfer.setData('text/plain', absenceId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const onDayDragOver = (e: React.DragEvent, iso: string) => {
+    if (!canManage) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dropTarget !== iso) setDropTarget(iso);
+  };
+  const onDayDragLeave = (iso: string) => {
+    setDropTarget((d) => (d === iso ? null : d));
+  };
+  const onDayDrop = (e: React.DragEvent, iso: string) => {
+    if (!canManage) return;
+    e.preventDefault();
+    setDropTarget(null);
+    const id = e.dataTransfer.getData('text/plain');
+    const a = absences.find((x) => x.id === id);
+    if (a && a.start !== iso) actions.moveAbsence(id, iso);
+  };
 
   return (
     <div>
@@ -61,6 +71,11 @@ export function AbsenceCalendar({ absences, mode }: { absences: Absence[]; mode:
               <Icon name="chevR" />
             </button>
           </div>
+          {canManage ? (
+            <div className="hint" style={{ marginBottom: 10 }}>
+              Abwesenheiten können per Drag &amp; Drop auf einen anderen Tag verschoben werden.
+            </div>
+          ) : null}
           <div className="abs-cal-weekdays">
             {WEEKDAYS.map((w) => (
               <div key={w}>{w}</div>
@@ -78,14 +93,25 @@ export function AbsenceCalendar({ absences, mode }: { absences: Absence[]; mode:
                 return (
                   <div
                     key={di}
-                    className={`abs-cal-day ${hasAbs ? 'has-abs' : ''} ${iso === todayIso ? 'is-today' : ''}`}
+                    className={`abs-cal-day ${hasAbs ? 'has-abs' : ''} ${iso === todayIso ? 'is-today' : ''} ${
+                      dropTarget === iso ? 'is-drop-target' : ''
+                    }`}
                     onClick={() => hasAbs && setSelectedDay(iso)}
+                    onDragOver={(e) => onDayDragOver(e, iso)}
+                    onDragLeave={() => onDayDragLeave(iso)}
+                    onDrop={(e) => onDayDrop(e, iso)}
                   >
                     <div className="abs-cal-day-num">{day.getDate()}</div>
                     {hasAbs ? (
                       <div className="abs-cal-bars">
                         {shown.map((a) => (
-                          <div key={a.id} className="abs-cal-bar" style={{ background: absenceTypeColor(a.type) }} />
+                          <div
+                            key={a.id}
+                            className="abs-cal-bar"
+                            style={{ background: absenceTypeColor(a.type), cursor: canManage ? 'grab' : undefined }}
+                            draggable={canManage}
+                            onDragStart={(e) => onBarDragStart(e, a.id)}
+                          />
                         ))}
                         {more > 0 ? <div className="abs-cal-more">+{more}</div> : null}
                       </div>

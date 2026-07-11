@@ -11,6 +11,7 @@ import type {
 import { uid } from '../utils/format';
 import { addDays, isoDate, mondayOf } from '../utils/date';
 import { DEFAULT_PERMISSIONS, DEFAULT_PROFILE_EDITABLE } from './permissions';
+import { makeDefaultServices } from './services';
 
 /** Shared demo login password for all seeded employees (mock auth only, no real backend). */
 const DEMO_PASSWORD = 'demo1234';
@@ -36,7 +37,8 @@ function makeEmployee(
   role: string,
   customerIds: string[],
   pin: string,
-  systemRole?: SystemRole
+  systemRole?: SystemRole,
+  emailOverride?: string
 ): Employee {
   const emailLocal = name
     .toLowerCase()
@@ -48,7 +50,7 @@ function makeEmployee(
     name,
     role,
     systemRole: systemRole ?? 'mitarbeiter',
-    email: `${emailLocal}@alpen-gastro.demo`,
+    email: emailOverride ?? `${emailLocal}@alpen-gastro.demo`,
     phone: `+41 79 ${Math.floor(100 + Math.random() * 899)} ${Math.floor(10 + Math.random() * 89)} ${Math.floor(
       10 + Math.random() * 89
     )}`,
@@ -229,6 +231,8 @@ export function seedData(): AppData {
     ],
   });
   const customers = [c1, c2, c3, c4];
+  const services = makeDefaultServices();
+  const [svcUnterhalt, svcFenster, svcRasen, svcTreppenhaus, svcGrund, svcBuero, svcWinter] = services;
 
   const e1 = makeEmployee('Sandro Wyss', 'Küchenchef', [c1.id, c4.id], '4471');
   const e2 = makeEmployee('Lea Hofmann', 'Chef de Rang', [c1.id], '1298');
@@ -239,9 +243,9 @@ export function seedData(): AppData {
   const e7 = makeEmployee('Aleksandar Popović', 'Koch', [c3.id], '2290');
   const e8 = makeEmployee('Tanja Egger', 'Housekeeping', [c1.id, c2.id], '7743');
   const e9 = makeEmployee('David Meier', 'Barkeeper', [c4.id, c1.id], '9012');
-  const eAdmin = makeEmployee('Laura Keller', 'Administrator', [], '0001', 'admin');
-  const eManager = makeEmployee('Marco Baumann', 'Manager Service', [c1.id, c2.id], '0002', 'manager');
-  const eStaff = makeEmployee('Luca Meier', 'Service Mitarbeiter', [c1.id], '0003', 'mitarbeiter');
+  const eAdmin = makeEmployee('Laura Keller', 'Administrator', [], '0001', 'admin', 'admin@monora.ch');
+  const eManager = makeEmployee('Marco Baumann', 'Manager Service', [c1.id, c2.id], '0002', 'manager', 'manager@monora.ch');
+  const eStaff = makeEmployee('Luca Meier', 'Service Mitarbeiter', [c1.id], '0003', 'mitarbeiter', 'mitarbeiter@monora.ch');
   const employees = [e1, e2, e3, e4, e5, e6, e7, e8, e9, eAdmin, eManager, eStaff];
 
   const monday = mondayOf(today);
@@ -255,12 +259,14 @@ export function seedData(): AppData {
     en: string,
     pause: number,
     status: Shift['status'],
-    notes?: string
+    notes?: string,
+    serviceId: string | null = null
   ) {
     shifts.push({
       id: uid(),
       employeeId: e ? e.id : null,
       customerId: c.id,
+      serviceId,
       date: isoDate(addDays(monday, dOff)),
       start: st,
       end: en,
@@ -270,15 +276,15 @@ export function seedData(): AppData {
     });
   }
   // Montag
-  addShift(e1, c1, 0, '06:30', '14:30', 30, 'bestätigt', 'Wochenstart, Mise en Place komplett');
+  addShift(e1, c1, 0, '06:30', '14:30', 30, 'bestätigt', 'Wochenstart, Mise en Place komplett', svcUnterhalt.id);
   addShift(e2, c1, 0, '10:30', '18:00', 30, 'bestätigt');
-  addShift(e6, c1, 0, '08:00', '16:00', 30, 'geplant');
+  addShift(e6, c1, 0, '08:00', '16:00', 30, 'geplant', undefined, svcBuero.id);
   addShift(e3, c2, 0, '16:00', '23:30', 30, 'geplant');
-  addShift(e8, c1, 0, '06:00', '09:00', 0, 'bestätigt');
+  addShift(e8, c1, 0, '06:00', '09:00', 0, 'bestätigt', undefined, svcTreppenhaus.id);
   // Dienstag
   addShift(e1, c1, 1, '06:30', '14:30', 30, 'bestätigt');
-  addShift(e5, c2, 1, '11:00', '19:00', 30, 'geplant');
-  addShift(e4, c2, 1, '11:00', '19:00', 30, 'geplant');
+  addShift(e5, c2, 1, '11:00', '19:00', 30, 'geplant', undefined, svcRasen.id);
+  addShift(e4, c2, 1, '11:00', '19:00', 30, 'geplant', undefined, svcWinter.id);
   addShift(null, c3, 1, '08:00', '16:00', 30, 'offen', 'Vertretung für Krankheitsausfall gesucht');
   addShift(e9, c4, 1, '17:00', '23:00', 30, 'geplant', 'Firmenanlass, 80 Personen');
   // Mittwoch
@@ -294,7 +300,7 @@ export function seedData(): AppData {
   addShift(null, c1, 3, '17:00', '23:00', 30, 'offen', 'Zusatzschicht wegen Reservationen');
   addShift(e8, c2, 3, '14:00', '17:00', 0, 'bestätigt');
   // Freitag
-  addShift(e1, c4, 4, '09:00', '22:00', 60, 'bestätigt', 'Catering Hochzeit Zürich');
+  addShift(e1, c4, 4, '09:00', '22:00', 60, 'bestätigt', 'Catering Hochzeit Zürich', svcGrund.id);
   addShift(e9, c4, 4, '16:00', '23:59', 30, 'bestätigt');
   addShift(e2, c1, 4, '17:00', '23:30', 30, 'geplant');
   addShift(e5, c2, 4, '17:00', '23:00', 30, 'geplant');
@@ -313,8 +319,8 @@ export function seedData(): AppData {
   addShift(e8, c1, 6, '06:00', '09:00', 0, 'bestätigt');
   addShift(null, c4, 6, '11:00', '16:00', 30, 'offen', 'Brunch-Event, Barkeeper gesucht');
   // Luca Meier (Demo-Mitarbeiter)
-  addShift(eStaff, c1, 0, '10:30', '18:00', 30, 'bestätigt');
-  addShift(eStaff, c1, dow, '10:00', '18:00', 30, 'geplant', 'Mittags- und Abendservice');
+  addShift(eStaff, c1, 0, '10:30', '18:00', 30, 'bestätigt', undefined, svcUnterhalt.id);
+  addShift(eStaff, c1, dow, '10:00', '18:00', 30, 'geplant', 'Mittags- und Abendservice', svcFenster.id);
   addShift(eStaff, c1, (dow + 1) % 7, '10:30', '18:30', 30, 'geplant');
   addShift(eStaff, c2, (dow + 3) % 7, '16:00', '23:00', 30, 'geplant', 'Vertretung Alpen Stube');
 
@@ -387,7 +393,8 @@ export function seedData(): AppData {
     dist: number,
     pauseMinutes: number,
     status: TimeEntry['status'],
-    changeLog?: TimeEntry['changeLog']
+    changeLog?: TimeEntry['changeLog'],
+    serviceId: string | null = null
   ) {
     const day = addDays(monday, dayOffset);
     const inD = new Date(day);
@@ -400,6 +407,7 @@ export function seedData(): AppData {
       id: uid(),
       employeeId: e.id,
       customerId: c.id,
+      serviceId,
       clockIn: inD.toISOString(),
       clockOut: outD.toISOString(),
       geofenceOk,
@@ -421,10 +429,10 @@ export function seedData(): AppData {
       changeLog: changeLog || [],
     });
   }
-  mkEntry(e1, c1, -1, 6, 32, 478, true, 15, 30, 'bestätigt');
-  mkEntry(e2, c1, -1, 10, 28, 452, true, 22, 30, 'offen');
+  mkEntry(e1, c1, -1, 6, 32, 478, true, 15, 30, 'bestätigt', undefined, svcUnterhalt.id);
+  mkEntry(e2, c1, -1, 10, 28, 452, true, 22, 30, 'offen', undefined, svcFenster.id);
   mkEntry(e7, c3, -1, 8, 3, 478, true, 18, 30, 'bestätigt');
-  mkEntry(e5, c2, -2, 11, 2, 478, true, 30, 30, 'offen');
+  mkEntry(e5, c2, -2, 11, 2, 478, true, 30, 30, 'offen', undefined, svcRasen.id);
   mkEntry(e4, c2, -2, 11, 4, 470, false, 260, 30, 'korrigiert', [
     {
       ts: `${isoDate(addDays(monday, -2))}T18:10:00`,
@@ -447,6 +455,7 @@ export function seedData(): AppData {
     id: uid(),
     employeeId: e2.id,
     customerId: c1.id,
+    serviceId: null,
     clockIn: inNow.toISOString(),
     clockOut: null,
     geofenceOk: true,
@@ -471,10 +480,14 @@ export function seedData(): AppData {
   return {
     employees,
     customers,
+    services,
     shifts,
     absences,
     timeEntries,
     timeCorrections: [],
+    customFieldDefs: [],
+    chats: [],
+    messages: [],
     settings: {
       companyName: 'Alpen Gastro AG',
       weeklyHours: 42,

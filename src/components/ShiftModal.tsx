@@ -8,6 +8,8 @@ import { isoDate } from '../utils/date';
 export interface ShiftModalPayload {
   shift?: Shift;
   date?: string;
+  employeeId?: string;
+  customerId?: string;
 }
 
 export function ShiftModal({ payload }: { payload?: ShiftModalPayload }) {
@@ -15,20 +17,25 @@ export function ShiftModal({ payload }: { payload?: ShiftModalPayload }) {
   const editing = payload?.shift ?? null;
 
   const [date, setDate] = useState(editing?.date ?? payload?.date ?? isoDate(new Date()));
-  const [customerId, setCustomerId] = useState(editing?.customerId ?? state.customers[0]?.id ?? '');
+  const [customerId, setCustomerId] = useState(editing?.customerId ?? payload?.customerId ?? state.customers[0]?.id ?? '');
   const [start, setStart] = useState(editing?.start ?? '09:00');
   const [end, setEnd] = useState(editing?.end ?? '13:00');
   const [pause, setPause] = useState(editing?.pause ?? 30);
-  const [employeeId, setEmployeeId] = useState(editing?.employeeId ?? '');
+  const [employeeId, setEmployeeId] = useState(editing?.employeeId ?? payload?.employeeId ?? '');
   const [status, setStatus] = useState<ShiftStatus>(editing?.status ?? 'geplant');
   const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [serviceId, setServiceId] = useState(editing?.serviceId ?? '');
 
   const activeEmployees = state.employees.filter((e) => e.status === 'aktiv');
+  // Inaktive Leistungen bleiben in der Auswahl sichtbar, falls die Schicht bereits darauf verweist,
+  // damit die bestehende Zuordnung beim Bearbeiten nicht verschwindet.
+  const serviceOptions = state.services.filter((sv) => sv.active || sv.id === editing?.serviceId);
 
   const save = () => {
     const data = {
       employeeId: employeeId || null,
       customerId,
+      serviceId: serviceId || null,
       date,
       start,
       end,
@@ -86,9 +93,23 @@ export function ShiftModal({ payload }: { payload?: ShiftModalPayload }) {
           <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
         </div>
       </div>
-      <div className="field" style={{ maxWidth: 220 }}>
-        <label>Pause (Minuten)</label>
-        <input type="number" min={0} step={5} value={pause} onChange={(e) => setPause(parseInt(e.target.value) || 0)} />
+      <div className="field-row">
+        <div className="field" style={{ maxWidth: 220 }}>
+          <label>Pause (Minuten)</label>
+          <input type="number" min={0} step={5} value={pause} onChange={(e) => setPause(parseInt(e.target.value) || 0)} />
+        </div>
+        <div className="field">
+          <label>Leistung</label>
+          <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
+            <option value="">– Keine Leistung –</option>
+            {serviceOptions.map((sv) => (
+              <option key={sv.id} value={sv.id}>
+                {sv.name}
+                {!sv.active ? ' (inaktiv)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className="field">
         <label>Mitarbeiter</label>

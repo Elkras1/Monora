@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { TopNav } from './TopNav';
 import { MobileTabBar } from './MobileTabBar';
 import { useApp } from '../../state/AppContext';
 
@@ -16,10 +17,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <Sidebar />
-      <div className="main">
-        <Topbar />
-        <div className="content">{children}</div>
+      {/* Desktop/Tablet: horizontale Navigation oben (siehe global.css für die Breakpoint-Umschaltung). */}
+      <TopNav />
+      <div className="app-body">
+        {/* Mobile (Admin/Manager): weiterhin die bestehende ausklappbare Sidebar. Auf Desktop per CSS ausgeblendet. */}
+        <Sidebar />
+        <div className="main">
+          {/* Mobile: bestehende Kopfzeile mit Seitentitel + Hamburger-Menü. Auf Desktop per CSS ausgeblendet. */}
+          <Topbar />
+          <div className="content">{children}</div>
+        </div>
       </div>
       <MobileTabBar />
     </>

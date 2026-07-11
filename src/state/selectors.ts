@@ -1,4 +1,4 @@
-import type { AppData, Customer, Employee, Shift, ShiftStatus, SystemRole, TimeEntry } from '../types';
+import type { AppData, Customer, Employee, Service, Shift, ShiftStatus, SystemRole, TimeEntry } from '../types';
 
 export function getEmp(data: AppData, id: string | null | undefined): Employee | undefined {
   if (!id) return undefined;
@@ -8,6 +8,11 @@ export function getEmp(data: AppData, id: string | null | undefined): Employee |
 export function getCust(data: AppData, id: string | null | undefined) {
   if (!id) return undefined;
   return data.customers.find((c) => c.id === id);
+}
+
+export function getService(data: AppData, id: string | null | undefined): Service | undefined {
+  if (!id) return undefined;
+  return data.services.find((s) => s.id === id);
 }
 
 export function openEntryFor(data: AppData, employeeId: string | null | undefined): TimeEntry | undefined {
@@ -71,4 +76,21 @@ export function computeConflictIds(shifts: Shift[]): Set<string> {
 
 export function shiftDisplayStatus(shift: Shift, conflictIds: Set<string>): ShiftStatus | 'konflikt' {
   return conflictIds.has(shift.id) ? 'konflikt' : shift.status;
+}
+
+/** Andere Mitarbeitende, die am selben Tag am selben Objekt eingeteilt sind ("Team" einer Schicht). */
+export function teammatesFor(data: AppData, shift: Shift): Employee[] {
+  const ids = new Set<string>();
+  const team: Employee[] = [];
+  data.shifts.forEach((s) => {
+    if (s.id === shift.id || !s.employeeId) return;
+    if (s.customerId !== shift.customerId || s.date !== shift.date) return;
+    if (s.employeeId === shift.employeeId || ids.has(s.employeeId)) return;
+    const emp = getEmp(data, s.employeeId);
+    if (emp) {
+      ids.add(emp.id);
+      team.push(emp);
+    }
+  });
+  return team;
 }

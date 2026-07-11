@@ -12,7 +12,7 @@ export function MeShiftRow({ shift }: { shift: Shift }) {
   const accent = c ? colorFor(c.id) : '#8A9A97';
 
   return (
-    <div className="me-shift-row" onClick={() => actions.openShiftPanel(shift.id)}>
+    <div className="me-shift-row" onClick={() => actions.openMyShiftPanel(shift.id)}>
       <div style={{ width: 4, alignSelf: 'stretch', borderRadius: 3, background: accent }} />
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

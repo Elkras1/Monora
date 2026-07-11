@@ -155,7 +155,7 @@ export function AbsencePage() {
       ) : (
         <div className="card">
           {list.length ? (
-            <AbsenceCalendar absences={list} mode={view} />
+            <AbsenceCalendar absences={list} mode={view} canManage={hasPerm('absence_approve')} />
           ) : (
             <Empty icon="absence" text="Keine Einträge in dieser Ansicht." />
           )}

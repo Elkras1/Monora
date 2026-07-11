@@ -18,7 +18,8 @@ export function EmployeesPage() {
   const canDeactivate = hasPerm('emp_deactivate');
   const canCreate = hasPerm('emp_create');
   const canDetails = hasPerm('emp_view_details');
-  const showActions = canEdit || canDeactivate || isAdmin;
+  const canOpen = canEdit || canDetails || isAdmin;
+  const showActions = canOpen || canDeactivate || isAdmin;
 
   return (
     <>
@@ -108,19 +109,24 @@ export function EmployeesPage() {
                           <span className="badge-dot" />
                           Aktiv
                         </span>
+                      ) : e.status === 'eingeladen' ? (
+                        <span className="badge badge-amber">
+                          <span className="badge-dot" />
+                          Eingeladen
+                        </span>
                       ) : (
                         <span className="badge badge-grey">
                           <span className="badge-dot" />
-                          Inaktiv
+                          Deaktiviert
                         </span>
                       )}
                     </td>
                     {showActions ? (
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          {canEdit ? (
-                            <button className="icon-btn" onClick={() => actions.openModal('employee', e)}>
-                              <Icon name="edit" />
+                          {canOpen ? (
+                            <button className="icon-btn" title={canEdit ? 'Bearbeiten' : 'Details anzeigen'} onClick={() => actions.openModal('employee', e)}>
+                              <Icon name={canEdit ? 'edit' : 'eye'} />
                             </button>
                           ) : null}
                           {isAdmin ? (

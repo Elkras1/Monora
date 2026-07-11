@@ -47,6 +47,23 @@ export function absenceTypeColor(type: string): string {
   return 'var(--ink-faint)';
 }
 
+// Dienstplan-Farbcode: geplant = Blau, offen = Orange, bestätigt = Grün, Konflikt = Rot
+export function shiftStatusColor(status: string): string {
+  if (status === 'geplant') return 'var(--primary)';
+  if (status === 'offen') return 'var(--amber)';
+  if (status === 'bestätigt') return 'var(--green)';
+  if (status === 'konflikt') return 'var(--red)';
+  return 'var(--ink-faint)';
+}
+
+export function shiftStatusTint(status: string): string {
+  if (status === 'geplant') return 'var(--primary-tint)';
+  if (status === 'offen') return 'var(--amber-tint)';
+  if (status === 'bestätigt') return 'var(--green-tint)';
+  if (status === 'konflikt') return 'var(--red-tint)';
+  return 'var(--surface-alt)';
+}
+
 const ISSUE_MAP: Record<string, [BadgeVariant, string]> = {
   offen: ['red', 'Offen'],
   'in Bearbeitung': ['amber', 'In Bearbeitung'],
@@ -69,6 +86,18 @@ export function StatusBadge({ status }: { status: string }) {
 
 export function AbsenceTypeBadge({ type }: { type: string }) {
   return <span className={`badge badge-${absenceTypeVariant(type)}`}>{absenceTypeLabel(type)}</span>;
+}
+
+const SHIFT_STATUS_LABELS: Record<string, string> = { geplant: 'Geplant', offen: 'Offen', bestätigt: 'Bestätigt', konflikt: 'Konflikt' };
+
+/** Status pill for the Dienstplan that always matches the schedule's own colour code (blue/orange/green/red), independent of the shared badge palette. */
+export function ShiftStatusBadge({ status }: { status: string }) {
+  return (
+    <span className="badge" style={{ background: shiftStatusTint(status), color: shiftStatusColor(status) }}>
+      <span className="badge-dot" style={{ background: shiftStatusColor(status) }} />
+      {SHIFT_STATUS_LABELS[status] || status}
+    </span>
+  );
 }
 
 export function IssueBadge({ status }: { status: string }) {

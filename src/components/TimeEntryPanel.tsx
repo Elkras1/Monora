@@ -3,7 +3,7 @@ import { Drawer } from './ui/Overlay';
 import { Icon } from './icons/Icon';
 import { StatusBadge } from './ui/Badge';
 import { useApp, useHasPerm } from '../state/AppContext';
-import { getCust, getEmp } from '../state/selectors';
+import { getCust, getEmp, getService } from '../state/selectors';
 import { fmtDate, fmtTime, pad } from '../utils/date';
 import { colorFor, initials } from '../utils/format';
 import type { TimeEntryStatus } from '../types';
@@ -22,14 +22,17 @@ export function TimeEntryPanel() {
   const [pauseMinutes, setPauseMinutes] = useState(entry?.pauseMinutes ?? 0);
   const [notes, setNotes] = useState(entry?.notes ?? '');
   const [status, setStatus] = useState<TimeEntryStatus>(entry?.status ?? 'offen');
+  const [serviceId, setServiceId] = useState(entry?.serviceId ?? '');
 
   if (!entry || !inD) return null;
   const e = getEmp(state, entry.employeeId);
   const c = getCust(state, entry.customerId);
+  const svc = getService(state, entry.serviceId);
+  const serviceOptions = state.services.filter((sv) => sv.active || sv.id === entry.serviceId);
   const log = [...entry.changeLog].reverse();
 
   const save = () => {
-    actions.saveTimeEntryDetail(entry.id, { start, end, pauseMinutes, notes, status });
+    actions.saveTimeEntryDetail(entry.id, { start, end, pauseMinutes, notes, status, serviceId: serviceId || null });
   };
 
   return (
@@ -68,6 +71,10 @@ export function TimeEntryPanel() {
           <span className="dv">
             <StatusBadge status={entry.status} />
           </span>
+        </div>
+        <div>
+          <span className="dl">Leistung</span>
+          <span className="dv">{svc ? svc.name : 'Keine Leistung zugewiesen'}</span>
         </div>
         <div>
           <span className="dl">Erstellt am</span>
@@ -161,6 +168,18 @@ export function TimeEntryPanel() {
               <option value="offen">Offen</option>
               <option value="bestätigt">Bestätigt</option>
               <option value="korrigiert">Korrigiert</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Leistung</label>
+            <select value={serviceId} onChange={(ev) => setServiceId(ev.target.value)}>
+              <option value="">– Keine Leistung –</option>
+              {serviceOptions.map((sv) => (
+                <option key={sv.id} value={sv.id}>
+                  {sv.name}
+                  {!sv.active ? ' (inaktiv)' : ''}
+                </option>
+              ))}
             </select>
           </div>
         </>

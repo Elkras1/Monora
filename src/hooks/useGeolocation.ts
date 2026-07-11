@@ -51,7 +51,11 @@ export function useGeolocation() {
         setStatus('error');
         setError(info);
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      // enableHighAccuracy:false nutzt WLAN-/Mobilfunk-Ortung statt reinem GPS – deutlich schneller
+      // und zuverlässiger (v. a. in Gebäuden), und für die üblichen Geofencing-Radien (ab ca. 50 m)
+      // präzise genug. Mit reinem High-Accuracy-GPS kam es drinnen oft zu Timeouts, wodurch Start/
+      // Stopp nie bestätigt werden konnten.
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 10000 }
     );
   }, []);
 

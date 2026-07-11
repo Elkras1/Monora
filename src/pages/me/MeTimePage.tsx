@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp, useActingEmployeeId, useHasPerm } from '../../state/AppContext';
 import { eligibleCustomersFor, getCust, getEmp, openEntryFor } from '../../state/selectors';
 import { useClock } from '../../hooks/useClock';
@@ -21,6 +21,16 @@ export function MeTimePage() {
 
   const pool = eligibleCustomersFor(state, emp);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(pool[0]?.id ?? '');
+
+  // Nach einem abgeschlossenen Stopp (isOn wechselt von true auf false) die Objekt-Auswahl zurücksetzen,
+  // damit für die nächste Schicht bewusst neu ausgewählt werden muss.
+  const wasOnRef = useRef(isOn);
+  useEffect(() => {
+    if (wasOnRef.current && !isOn) {
+      setSelectedCustomerId('');
+    }
+    wasOnRef.current = isOn;
+  }, [isOn]);
 
   if (!canClock) {
     return (

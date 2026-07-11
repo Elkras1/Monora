@@ -21,11 +21,18 @@ export function ClockOutModal({ payload }: { payload?: { successMessage?: string
   if (!open || !actingId) return null;
 
   const distance = fix && cust ? haversine(fix.lat, fix.lng, cust.lat, cust.lng) : null;
-  const withinRadius = !!cust && (!cust.geofenceEnabled || (distance !== null && distance <= cust.radius));
-  const canConfirm = status === 'success' && withinRadius;
+  const geofenceOff = !!cust && !cust.geofenceEnabled;
+  const withinRadius = !!cust && (geofenceOff || (distance !== null && distance <= cust.radius));
+  // Ist Geofencing für das Objekt deaktiviert, darf ein fehlender/verzögerter GPS-Fix das Ausstempeln
+  // nicht blockieren – die Standortprüfung entfällt dann komplett.
+  const canConfirm = geofenceOff || (status === 'success' && withinRadius);
 
   let statusBox: React.ReactNode = null;
-  if (status === 'locating') {
+  if (geofenceOff) {
+    statusBox = (
+      <div className="hint">Geofencing für diesen Standort ist deaktiviert – Ausstempeln ist ohne Standortprüfung möglich.</div>
+    );
+  } else if (status === 'locating') {
     statusBox = (
       <div className="sim-box">
         <Icon name="location" /> Standort wird ermittelt…
@@ -43,11 +50,7 @@ export function ClockOutModal({ payload }: { payload?: { successMessage?: string
       </div>
     );
   } else if (status === 'success' && cust && distance !== null) {
-    if (!cust.geofenceEnabled) {
-      statusBox = (
-        <div className="hint">Geofencing für diesen Standort ist deaktiviert – Ausstempeln ist ohne Standortprüfung möglich.</div>
-      );
-    } else if (withinRadius) {
+    if (withinRadius) {
       statusBox = (
         <div className="ok-box">
           <Icon name="check" /> Du befindest dich innerhalb des erlaubten Bereichs: ca. <b>{Math.round(distance)} m</b> von „
@@ -67,8 +70,9 @@ export function ClockOutModal({ payload }: { payload?: { successMessage?: string
   }
 
   const confirm = () => {
-    if (!fix || !canConfirm) return;
-    actions.confirmClockOut(actingId, fix, distance ?? 0, payload?.successMessage);
+    if (!canConfirm) return;
+    const effectiveFix = fix ?? { lat: 0, lng: 0, accuracy: 0 };
+    actions.confirmClockOut(actingId, effectiveFix, distance ?? 0, payload?.successMessage);
   };
 
   return (

@@ -47,6 +47,21 @@ export function addDays(d: Date, n: number): Date {
 
 export const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+/** Builds a Mo–So month grid (weeks of 7 cells, null = padding) for simple calendar views. */
+export function buildMonthWeeks(monthCursor: Date): (Date | null)[][] {
+  const year = monthCursor.getFullYear();
+  const month = monthCursor.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
+  const cells: (Date | null)[] = [...Array(leadingBlanks)].map(() => null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks: (Date | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
 export function weekInputValue(date: Date): string {
   const t = new Date(date);
   t.setHours(0, 0, 0, 0);

@@ -7,14 +7,17 @@ import { DashboardPage } from './pages/DashboardPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { ClockPage } from './pages/ClockPage';
+import { ServicesPage } from './pages/ServicesPage';
 import { AbsencePage } from './pages/AbsencePage';
 import { LocationsPage } from './pages/LocationsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PermissionsPage } from './pages/PermissionsPage';
+import { MessagesPage } from './pages/MessagesPage';
 import { MeStartPage } from './pages/me/MeStartPage';
 import { MeSchedulePage } from './pages/me/MeSchedulePage';
 import { MeTimePage } from './pages/me/MeTimePage';
+import { MeHoursPage } from './pages/me/MeHoursPage';
 import { MeAbsencePage } from './pages/me/MeAbsencePage';
 import { MeProfilePage } from './pages/me/MeProfilePage';
 import { Empty } from './components/ui/Empty';
@@ -34,6 +37,8 @@ function ViewRouter() {
       return hasPerm('emp_view') ? <EmployeesPage /> : <NoAccess />;
     case 'clock':
       return <ClockPage />;
+    case 'services':
+      return hasPerm('services_manage') ? <ServicesPage /> : <NoAccess />;
     case 'absence':
       return <AbsencePage />;
     case 'location':
@@ -44,12 +49,16 @@ function ViewRouter() {
       return isAdmin ? <SettingsPage /> : <NoAccess />;
     case 'permissions':
       return isAdmin ? <PermissionsPage /> : <NoAccess />;
+    case 'messages':
+      return <MessagesPage />;
     case 'me-start':
       return <MeStartPage />;
     case 'me-schedule':
       return <MeSchedulePage />;
     case 'me-time':
       return <MeTimePage />;
+    case 'me-hours':
+      return <MeHoursPage />;
     case 'me-absence':
       return <MeAbsencePage />;
     case 'me-profile':
