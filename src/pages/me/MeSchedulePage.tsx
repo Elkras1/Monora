@@ -4,7 +4,6 @@ import { getCust } from '../../state/selectors';
 import { MeShiftRow } from '../../components/MeShiftRow';
 import { StatusBadge } from '../../components/ui/Badge';
 import { Empty } from '../../components/ui/Empty';
-import { Drawer } from '../../components/ui/Overlay';
 import { Icon } from '../../components/icons/Icon';
 import { addDays, buildMonthWeeks, fmtDate, isoDate, mondayOf, WEEKDAYS } from '../../utils/date';
 import { colorFor } from '../../utils/format';
@@ -33,7 +32,17 @@ export function MeSchedulePage() {
     return d;
   });
   const monthWeeks = useMemo(() => buildMonthWeeks(monthCursor), [monthCursor]);
-  const [dayListIso, setDayListIso] = useState<string | null>(null);
+  const [selectedDayIso, setSelectedDayIso] = useState(todayIso);
+  const selectedDayShifts = mine.filter((s) => s.date === selectedDayIso).sort((a, b) => a.start.localeCompare(b.start));
+
+  const goToMonth = (offset: number) => {
+    setMonthCursor((d) => {
+      const nd = new Date(d.getFullYear(), d.getMonth() + offset, 1);
+      const ndIso = isoDate(nd);
+      setSelectedDayIso(ndIso <= todayIso && isoDate(new Date(nd.getFullYear(), nd.getMonth() + 1, 0)) >= todayIso ? todayIso : ndIso);
+      return nd;
+    });
+  };
 
   return (
     <>
@@ -75,75 +84,63 @@ export function MeSchedulePage() {
       {tab === 'month' ? (
         <>
           <div className="week-nav" style={{ marginBottom: 14 }}>
-            <button className="icon-btn" onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
+            <button className="icon-btn" onClick={() => goToMonth(-1)}>
               <Icon name="chevL" />
             </button>
             <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", minWidth: 160, textAlign: 'center', fontSize: 14 }}>
               {monthCursor.toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}
             </div>
-            <button className="icon-btn" onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>
+            <button className="icon-btn" onClick={() => goToMonth(1)}>
               <Icon name="chevR" />
             </button>
           </div>
-          <div className="abs-cal-weekdays">
+          <div className="me-cal-weekdays">
             {WEEKDAYS.map((w) => (
               <div key={w}>{w}</div>
             ))}
           </div>
           {monthWeeks.map((week, wi) => (
-            <div className="abs-cal-week" key={wi}>
+            <div className="me-cal-week" key={wi}>
               {week.map((day, di) => {
-                if (!day) return <div className="abs-cal-day is-blank" key={di} />;
+                if (!day) return <div className="me-cal-day is-blank" key={di} />;
                 const iso = isoDate(day);
-                const dayShifts = mine.filter((s) => s.date === iso).sort((a, b) => a.start.localeCompare(b.start));
-                const shown = dayShifts.slice(0, 2);
-                const more = dayShifts.length - shown.length;
+                const dayShifts = mine.filter((s) => s.date === iso);
+                const firstShift = [...dayShifts].sort((a, b) => a.start.localeCompare(b.start))[0];
+                const cust = firstShift ? getCust(state, firstShift.customerId) : undefined;
+                const accent = cust ? colorFor(cust.id) : '#8A9A97';
                 return (
-                  <div key={di} className={`abs-cal-day me-month-day ${dayShifts.length ? 'has-abs' : ''} ${iso === todayIso ? 'is-today' : ''}`}>
-                    <div className="abs-cal-day-num">{day.getDate()}</div>
+                  <button
+                    key={di}
+                    className={`me-cal-day ${dayShifts.length ? 'has-shifts' : ''} ${iso === todayIso ? 'is-today' : ''} ${
+                      iso === selectedDayIso ? 'is-selected' : ''
+                    }`}
+                    onClick={() => setSelectedDayIso(iso)}
+                  >
+                    <span className="me-cal-day-num">{day.getDate()}</span>
                     {dayShifts.length ? (
-                      <div className="me-month-chips">
-                        {shown.map((s) => {
-                          const c = getCust(state, s.customerId);
-                          const accent = c ? colorFor(c.id) : '#8A9A97';
-                          return (
-                            <div
-                              key={s.id}
-                              className="me-month-chip"
-                              style={{ background: `${accent}1f`, borderLeftColor: accent }}
-                              onClick={() => actions.openMyShiftPanel(s.id)}
-                            >
-                              <span className="me-month-chip-time">{s.start}</span>
-                              <span className="me-month-chip-obj">{c ? c.name : '–'}</span>
-                            </div>
-                          );
-                        })}
-                        {more > 0 ? (
-                          <button className="me-month-more" onClick={() => setDayListIso(iso)}>
-                            +{more} weitere
-                          </button>
-                        ) : null}
-                      </div>
+                      <span className="me-cal-day-marker">
+                        <span className="me-cal-day-dot" style={{ background: accent }} />
+                        <span className="me-cal-day-time">{firstShift.start}</span>
+                      </span>
                     ) : null}
-                  </div>
+                  </button>
                 );
               })}
             </div>
           ))}
-        </>
-      ) : null}
 
-      {dayListIso ? (
-        <Drawer title={fmtDate(new Date(dayListIso))} onClose={() => setDayListIso(null)}>
-          <div onClick={() => setDayListIso(null)}>
-            {mine
-              .filter((s) => s.date === dayListIso)
-              .sort((a, b) => a.start.localeCompare(b.start))
-              .map((s) => (
-                <MeShiftRow key={s.id} shift={s} />
-              ))}
+          <div className="me-cal-daylist">
+            <h3 style={{ fontSize: 13, marginBottom: 10 }}>
+              {fmtDate(new Date(selectedDayIso))}
+              {selectedDayIso === todayIso ? ' · Heute' : ''}
+            </h3>
+            {selectedDayShifts.length ? (
+              selectedDayShifts.map((s) => <MeShiftRow key={s.id} shift={s} />)
+            ) : (
+              <Empty icon="schedule" text="Keine Einsätze an diesem Tag." />
+            )}
           </div>
-        </Drawer>
+        </>
       ) : null}
 
       {tab === 'list'

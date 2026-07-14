@@ -19,9 +19,11 @@ export function Topbar() {
   return (
     <div className="topbar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button className="icon-btn mobile-toggle" onClick={() => actions.toggleSidebar()}>
-          <Icon name="menu" />
-        </button>
+        {!isStaff ? (
+          <button className="icon-btn mobile-toggle" onClick={() => actions.toggleSidebar()}>
+            <Icon name="menu" />
+          </button>
+        ) : null}
         <div>
           <h1>{title}</h1>
           <div className="sub">{sub}</div>
@@ -33,7 +35,7 @@ export function Topbar() {
             <span className="geo-dot" /> Geofencing aktiv
           </div>
         ) : null}
-        <NotificationBell />
+        {!isStaff ? <NotificationBell /> : null}
         <button
           className="user-chip"
           onClick={(e) => {

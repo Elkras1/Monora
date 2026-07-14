@@ -25,6 +25,7 @@ export function MeShiftRow({ shift }: { shift: Shift }) {
           {c ? c.name : '–'}
           {shift.pause ? ` · ${shift.pause} Min. Pause` : ''}
         </div>
+        {c?.address ? <div className="hint">{c.address}</div> : null}
         {shift.notes ? (
           <div className="hint" style={{ marginTop: 2, fontStyle: 'italic' }}>
             {shift.notes}

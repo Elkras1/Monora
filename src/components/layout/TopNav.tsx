@@ -56,7 +56,7 @@ export function TopNav() {
               <span className="geo-dot" /> Geofencing aktiv
             </div>
           ) : null}
-          <NotificationBell />
+          {role !== 'mitarbeiter' ? <NotificationBell /> : null}
           <button
             className="user-chip"
             onClick={(e) => {
