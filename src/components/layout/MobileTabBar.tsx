@@ -4,10 +4,20 @@ import { Drawer } from '../ui/Overlay';
 import { useApp, useCurrentRole, useCurrentUser } from '../../state/AppContext';
 import { navConfigFor } from '../../state/nav';
 import { getUnreadTotalFor } from '../../state/chat';
+import { unreadNotificationCountFor } from '../../state/notifications';
 import type { ViewId } from '../../types';
 
-/** Höchstens 4 Punkte direkt in der Bottom-Bar, alles Weitere hinter „Mehr" — hält die mobile Mitarbeiter-Navigation einfach. */
-const PRIMARY_VIEWS: ViewId[] = ['me-time', 'me-schedule', 'messages', 'me-profile'];
+/** Die wirklich notwendigen Bereiche direkt in der Bottom-Bar, alles Weitere hinter „Mehr" — hält die mobile Mitarbeiter-Navigation einfach. */
+const PRIMARY_VIEWS: ViewId[] = ['me-time', 'me-schedule', 'me-hours', 'me-material-order', 'messages'];
+/** Kurze, eindeutige Tab-Beschriftungen statt des ersten Worts des vollen Nav-Labels (das bei
+ * mehrteiligen Titeln wie „Mein Dienstplan" nur „Mein" zeigen würde). */
+const TAB_SHORT_LABEL: Partial<Record<ViewId, string>> = {
+  'me-time': 'Zeit',
+  'me-schedule': 'Dienstplan',
+  'me-hours': 'Stunden',
+  'me-material-order': 'Material',
+  messages: 'Chat',
+};
 
 export function MobileTabBar() {
   const { state, actions } = useApp();
@@ -17,9 +27,10 @@ export function MobileTabBar() {
   if (role !== 'mitarbeiter') return null;
   const nav = navConfigFor(role, state);
   const unreadMessages = getUnreadTotalFor(state, user?.id);
+  const unreadNotifs = unreadNotificationCountFor(state, role, user?.id ?? null);
 
   const primary = PRIMARY_VIEWS.map((v) => nav.find((n) => n.view === v)).filter((n): n is NonNullable<typeof n> => !!n);
-  const overflow = nav.filter((n) => !PRIMARY_VIEWS.includes(n.view));
+  const overflow = nav.filter((n) => !PRIMARY_VIEWS.includes(n.view) && n.view !== 'me-start');
   const overflowActive = overflow.some((n) => n.view === state.view);
 
   return (
@@ -31,12 +42,15 @@ export function MobileTabBar() {
               <Icon name={n.icon} />
               {n.view === 'messages' && unreadMessages > 0 ? <span className="nav-unread-dot" /> : null}
             </span>
-            <span>{n.label.split(' ')[0]}</span>
+            <span>{TAB_SHORT_LABEL[n.view] ?? n.label}</span>
           </button>
         ))}
         {overflow.length ? (
           <button className={`mtab ${overflowActive ? 'active' : ''}`} onClick={() => setShowMore(true)}>
-            <Icon name="menu" />
+            <span className="mtab-icon">
+              <Icon name="menu" />
+              {unreadNotifs > 0 ? <span className="nav-unread-dot" /> : null}
+            </span>
             <span>Mehr</span>
           </button>
         ) : null}

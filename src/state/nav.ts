@@ -19,6 +19,10 @@ export function navConfigFor(role: SystemRole, state: AppState): NavItem[] {
       { view: 'clock', icon: 'clock', label: 'Zeiterfassung' },
       { view: 'services', icon: 'checklist', label: 'Leistungen' },
       { view: 'absence', icon: 'absence', label: 'Abwesenheiten' },
+      { view: 'tickets', icon: 'ticket', label: 'Alle Tickets' },
+      { view: 'tickets-tasks', icon: 'checklist', label: 'Aufgaben' },
+      { view: 'tickets-material', icon: 'box', label: 'Materialanfragen' },
+      { view: 'tickets-calendar', icon: 'schedule', label: 'Ticket-Kalender' },
       { view: 'location', icon: 'location', label: 'Standorte & Kunden' },
       { view: 'reports', icon: 'briefcase', label: 'Berichte' },
       { view: 'settings', icon: 'settings', label: 'Einstellungen' },
@@ -36,15 +40,20 @@ export function navConfigFor(role: SystemRole, state: AppState): NavItem[] {
     if (has('time_view_own') || has('time_view_all')) items.push({ view: 'clock', icon: 'clock', label: 'Zeiterfassung' });
     if (has('services_manage')) items.push({ view: 'services', icon: 'checklist', label: 'Leistungen' });
     if (has('absence_view_own') || has('absence_view_all')) items.push({ view: 'absence', icon: 'absence', label: 'Abwesenheiten' });
+    if (has('tickets_view_own') || has('tickets_view_all')) items.push({ view: 'tickets', icon: 'ticket', label: 'Alle Tickets' });
+    if (has('tickets_view_own') || has('tickets_view_all')) items.push({ view: 'tickets-tasks', icon: 'checklist', label: 'Aufgaben' });
+    if (has('material_manage')) items.push({ view: 'tickets-material', icon: 'box', label: 'Materialanfragen' });
+    if (has('tickets_calendar_view')) items.push({ view: 'tickets-calendar', icon: 'schedule', label: 'Ticket-Kalender' });
     if (has('locations_view')) items.push({ view: 'location', icon: 'location', label: 'Standorte & Kunden' });
     if (has('reports_view')) items.push({ view: 'reports', icon: 'briefcase', label: 'Berichte' });
     return items;
   }
   return [
     { view: 'me-start', icon: 'dashboard', label: 'Start' },
-    { view: 'me-schedule', icon: 'schedule', label: 'Mein Dienstplan' },
     { view: 'me-time', icon: 'clock', label: 'Zeiterfassung' },
+    { view: 'me-schedule', icon: 'schedule', label: 'Mein Dienstplan' },
     { view: 'me-hours', icon: 'hourglass', label: 'Meine Stunden' },
+    { view: 'me-material-order', icon: 'box', label: 'Material bestellen' },
     { view: 'messages', icon: 'message', label: 'Chat' },
     { view: 'me-absence', icon: 'absence', label: 'Abwesenheiten' },
     { view: 'me-profile', icon: 'users2', label: 'Profil' },
@@ -67,6 +76,7 @@ export interface NavGroupDef {
 export const NAV_GROUPS: NavGroupDef[] = [
   { label: 'Personal', icon: 'employees', views: ['employees', 'services'] },
   { label: 'Planung', icon: 'schedule', views: ['schedule', 'absence'] },
+  { label: 'Tickets', icon: 'ticket', views: ['tickets', 'tickets-tasks', 'tickets-material', 'tickets-calendar'] },
   { label: 'Organisation', icon: 'location', views: ['location', 'settings', 'permissions'] },
 ];
 
@@ -109,10 +119,15 @@ export const VIEW_META: Record<ViewId, [string, string]> = {
   reports: ['Berichte', 'Arbeitszeiten auswerten und exportieren'],
   settings: ['Einstellungen', 'Unternehmensangaben und Regeln festlegen'],
   permissions: ['Rollen & Berechtigungen', 'Festlegen, was Manager und Mitarbeitende dürfen'],
+  tickets: ['Alle Tickets', 'Aufgaben und Materialtickets im Überblick'],
+  'tickets-tasks': ['Aufgaben', 'Kundentickets und Aufgaben verwalten'],
+  'tickets-material': ['Materialanfragen', 'Anfragen prüfen, genehmigen und in Tickets umwandeln'],
+  'tickets-calendar': ['Ticket-Kalender', 'Tickets terminieren und per Drag & Drop einplanen'],
   'me-start': ['Start', 'Dein persönlicher Überblick für heute'],
   'me-schedule': ['Mein Dienstplan', 'Deine Schichten auf einen Blick'],
   'me-time': ['Zeiterfassung', 'Starte, pausiere und beende deine Arbeitszeit'],
   'me-hours': ['Meine Stunden', 'Deine gespeicherten Arbeitszeiten im Überblick'],
   'me-absence': ['Abwesenheiten', 'Deine Anträge und ihr Status'],
   'me-profile': ['Profil', 'Deine persönlichen Angaben'],
+  'me-material-order': ['Material bestellen', 'Material für dein Objekt anfordern'],
 };

@@ -2,14 +2,14 @@ import React from 'react';
 import { useApp, useCurrentUser, useHasPerm } from '../../state/AppContext';
 import { openEntryFor } from '../../state/selectors';
 import { MeShiftRow } from '../../components/MeShiftRow';
-import { AbsenceTypeBadge, StatusBadge } from '../../components/ui/Badge';
+import { AbsenceTypeBadge, MaterialStatusBadge, StatusBadge } from '../../components/ui/Badge';
 import { Empty } from '../../components/ui/Empty';
 import { KpiCard } from '../../components/ui/KpiCard';
-import { colorFor, initials } from '../../utils/format';
+import { colorFor, initials, summarizeMaterialItems } from '../../utils/format';
 import { fmtDate, isoDate, pad } from '../../utils/date';
 
 export function MeStartPage() {
-  const { state } = useApp();
+  const { state, actions } = useApp();
   const user = useCurrentUser();
   const hasPerm = useHasPerm();
   if (!user) return null;
@@ -37,6 +37,11 @@ export function MeStartPage() {
   const open = openEntryFor(state, state.currentUserId);
   const openShiftsCount = hasPerm('schedule_open_view') ? state.shifts.filter((s) => !s.employeeId).length : 0;
   const myAbsences = [...state.absences].filter((a) => a.employeeId === state.currentUserId).sort((a, b) => b.start.localeCompare(a.start)).slice(0, 2);
+
+  const myMaterialRequests = [...state.materialRequests]
+    .filter((m) => m.employeeId === state.currentUserId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 2);
 
   return (
     <>
@@ -79,6 +84,24 @@ export function MeStartPage() {
           </div>
         </div>
       ) : null}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <h3>Meine Materialanfragen</h3>
+        </div>
+        {myMaterialRequests.length ? (
+          myMaterialRequests.map((m) => (
+            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--line)' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 12.8 }}>{summarizeMaterialItems(m.items, state.materials)}</div>
+                <div className="hint">{fmtDate(new Date(m.createdAt))}</div>
+              </div>
+              <MaterialStatusBadge status={m.status} />
+            </div>
+          ))
+        ) : (
+          <div className="hint">Noch keine Materialanfragen.</div>
+        )}
+      </div>
       <div className="card">
         <div className="card-head">
           <h3>Meine Abwesenheitsanträge</h3>

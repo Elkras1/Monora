@@ -14,12 +14,16 @@ import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PermissionsPage } from './pages/PermissionsPage';
 import { MessagesPage } from './pages/MessagesPage';
+import { TicketsPage } from './pages/TicketsPage';
+import { MaterialRequestsPage } from './pages/MaterialRequestsPage';
+import { TicketCalendarPage } from './pages/TicketCalendarPage';
 import { MeStartPage } from './pages/me/MeStartPage';
 import { MeSchedulePage } from './pages/me/MeSchedulePage';
 import { MeTimePage } from './pages/me/MeTimePage';
 import { MeHoursPage } from './pages/me/MeHoursPage';
 import { MeAbsencePage } from './pages/me/MeAbsencePage';
 import { MeProfilePage } from './pages/me/MeProfilePage';
+import { MeMaterialOrderPage } from './pages/me/MeMaterialOrderPage';
 import { Empty } from './components/ui/Empty';
 import { ToastHost } from './components/ui/Toast';
 
@@ -51,6 +55,14 @@ function ViewRouter() {
       return isAdmin ? <PermissionsPage /> : <NoAccess />;
     case 'messages':
       return <MessagesPage />;
+    case 'tickets':
+      return hasPerm('tickets_view_own') || hasPerm('tickets_view_all') ? <TicketsPage /> : <NoAccess />;
+    case 'tickets-tasks':
+      return hasPerm('tickets_view_own') || hasPerm('tickets_view_all') ? <TicketsPage fixedType="aufgabe" /> : <NoAccess />;
+    case 'tickets-material':
+      return hasPerm('material_manage') ? <MaterialRequestsPage /> : <NoAccess />;
+    case 'tickets-calendar':
+      return hasPerm('tickets_calendar_view') ? <TicketCalendarPage /> : <NoAccess />;
     case 'me-start':
       return <MeStartPage />;
     case 'me-schedule':
@@ -63,6 +75,8 @@ function ViewRouter() {
       return <MeAbsencePage />;
     case 'me-profile':
       return <MeProfilePage />;
+    case 'me-material-order':
+      return hasPerm('material_request') ? <MeMaterialOrderPage /> : <NoAccess />;
     default:
       return <NoAccess />;
   }

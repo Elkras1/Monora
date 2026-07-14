@@ -35,7 +35,13 @@ export type IconName =
   | 'checklist'
   | 'message'
   | 'send'
-  | 'paperclip';
+  | 'paperclip'
+  | 'stop'
+  | 'play'
+  | 'box'
+  | 'ticket'
+  | 'minus'
+  | 'camera';
 
 const paths: Record<IconName, React.ReactNode> = {
   dashboard: (
@@ -224,10 +230,32 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="M20.5 12.5l-8.4 8.4a5 5 0 01-7.1-7.1l9.2-9.2a3.5 3.5 0 014.9 4.9l-9.2 9.2a2 2 0 01-2.8-2.8l8-8" />
     </>
   ),
+  stop: <rect x="5.5" y="5.5" width="13" height="13" rx="2.5" fill="currentColor" stroke="none" />,
+  play: <path d="M7.5 4.8v14.4a1 1 0 001.5.87l12-7.2a1 1 0 000-1.74l-12-7.2a1 1 0 00-1.5.87z" fill="currentColor" stroke="none" />,
+  box: (
+    <>
+      <path d="M3 7.5L12 3l9 4.5-9 4.5-9-4.5z" />
+      <path d="M3 7.5v9L12 21l9-4.5v-9" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+    </>
+  ),
+  ticket: (
+    <>
+      <path d="M3 9a2 2 0 002-2h14a2 2 0 002 2v1.5a2 2 0 000 4V16a2 2 0 00-2 2H5a2 2 0 00-2-2v-1.5a2 2 0 000-4V9z" />
+      <line x1="14" y1="6.5" x2="14" y2="17.5" strokeDasharray="2 2" />
+    </>
+  ),
+  minus: <line x1="5" y1="12" x2="19" y2="12" />,
+  camera: (
+    <>
+      <path d="M4 8h3l1.6-2.5h6.8L17 8h3A1.5 1.5 0 0121.5 9.5v9A1.5 1.5 0 0120 20H4a1.5 1.5 0 01-1.5-1.5v-9A1.5 1.5 0 014 8z" />
+      <circle cx="12" cy="14" r="3.4" />
+    </>
+  ),
 };
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {
-  const isFilled = name === 'droplet';
+  const isFilled = name === 'droplet' || name === 'stop' || name === 'play';
   return (
     <span className={className} style={{ display: 'inline-flex' }}>
       <svg

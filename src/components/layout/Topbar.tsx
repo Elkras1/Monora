@@ -2,6 +2,7 @@ import React from 'react';
 import { Icon } from '../icons/Icon';
 import { Avatar } from '../ui/Avatar';
 import { UserMenu } from './UserMenu';
+import { NotificationBell } from './NotificationBell';
 import { useApp, useCurrentRole, useCurrentUser } from '../../state/AppContext';
 import { roleLabel } from '../../data/permissions';
 import { VIEW_META } from '../../state/nav';
@@ -32,6 +33,7 @@ export function Topbar() {
             <span className="geo-dot" /> Geofencing aktiv
           </div>
         ) : null}
+        <NotificationBell />
         <button
           className="user-chip"
           onClick={(e) => {

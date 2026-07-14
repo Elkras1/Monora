@@ -271,12 +271,17 @@ export type ViewId =
   | 'settings'
   | 'permissions'
   | 'messages'
+  | 'tickets'
+  | 'tickets-tasks'
+  | 'tickets-material'
+  | 'tickets-calendar'
   | 'me-start'
   | 'me-schedule'
   | 'me-time'
   | 'me-hours'
   | 'me-absence'
-  | 'me-profile';
+  | 'me-profile'
+  | 'me-material-order';
 
 export interface FilterState {
   teEmp?: string;
@@ -301,10 +306,25 @@ export interface FilterState {
   empSearch?: string;
   absStatus?: string;
   absView?: 'month' | 'year' | 'list';
+  absEmpFilter?: string;
+  absTypeFilter?: string;
+  absRoleFilter?: string;
+  absCustFilter?: string;
   reportPeriod?: 'week' | 'month';
   permRole?: 'manager' | 'mitarbeiter';
   meSchedTab?: 'day' | 'week' | 'month' | 'list' | 'open';
   hoursFilter?: 'week' | 'month' | 'all';
+  tickType?: string;
+  tickCust?: string;
+  tickEmp?: string;
+  tickManager?: string;
+  tickStatus?: string;
+  tickPriority?: string;
+  tickDateFrom?: string;
+  tickDateTo?: string;
+  tickCalView?: 'day' | 'week' | 'month' | 'list';
+  tickOverdueOnly?: boolean;
+  matStatus?: string;
 }
 
 /**
@@ -346,6 +366,155 @@ export interface ChatMessage {
   replyToId?: string | null;
 }
 
+/**
+ * Tickets (Aufgaben/Kundentickets + Materialanfragen).
+ *
+ * Wie beim Chat (siehe oben) ist dies bewusst ein normalisiertes, flaches Modell (eigene `Ticket`- und
+ * `MaterialRequest`-Entitäten mit stabilen IDs, Kommentare/Aktivitätsverlauf als eingebettete Arrays,
+ * Anhänge als reine Metadaten mit `storageRef` in die lokale IndexedDB — siehe utils/ticketAttachmentStore.ts).
+ * Für eine spätere Supabase-Anbindung würden `tickets`/`materialRequests` zu eigenen Tabellen (inkl.
+ * Fremdschlüsseln auf employees/customers), Kommentare/Aktivitätsverlauf könnten bei Bedarf in eigene
+ * Tabellen ausgelagert werden — an der UI und den AppContext-Actions müsste sich dafür nichts ändern,
+ * nur die Persistenzschicht.
+ */
+export type TicketType = 'aufgabe' | 'material';
+
+export type TicketCategory =
+  | 'Reinigung nachbessern'
+  | 'Qualitätskontrolle'
+  | 'Kundenanfrage'
+  | 'Reparatur / Schaden'
+  | 'Sonderreinigung'
+  | 'Fensterreinigung'
+  | 'Rasenpflege'
+  | 'Sonstiges';
+
+export type TicketPriority = 'niedrig' | 'normal' | 'hoch' | 'dringend';
+
+export type TicketStatus = 'neu' | 'geplant' | 'in_bearbeitung' | 'wartet_rueckmeldung' | 'erledigt' | 'abgeschlossen';
+
+export interface TicketComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  createdAt: string;
+}
+
+/** Metadaten wie bei MessageAttachmentMeta — die Bytes liegen in IndexedDB, siehe utils/ticketAttachmentStore.ts. */
+export interface TicketAttachmentMeta {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+  uploadedBy: string;
+  storageRef: string;
+}
+
+export interface TicketActivityEntry {
+  id: string;
+  ts: string;
+  text: string;
+  by: string;
+}
+
+export interface Ticket {
+  id: string;
+  ticketNumber: string;
+  type: TicketType;
+  title: string;
+  description: string;
+  customerId: string | null;
+  locationId: string | null; // in Monora = derselbe Kunde/Standort wie customerId (kein separates Location-Entity)
+  assignedEmployeeId: string | null;
+  assignedManagerId: string | null;
+  priority: TicketPriority;
+  status: TicketStatus;
+  startDate: string | null;
+  dueDate: string | null;
+  dueTime: string | null; // HH:MM, optional
+  category: TicketCategory | null;
+  note: string; // interne Notiz
+  materialRequestId: string | null; // gesetzt, wenn aus einer Materialanfrage erzeugt
+  comments: TicketComment[];
+  attachments: TicketAttachmentMeta[];
+  activityLog: TicketActivityEntry[];
+  createdBy: string; // Name
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Einfache Status, bewusst auf vier reduziert: "Erledigt" muss immer nur ein Klick entfernt sein. */
+export type MaterialRequestStatus = 'eingereicht' | 'in_bearbeitung' | 'erledigt' | 'abgelehnt';
+
+/** Von Admin/berechtigten Managern gepflegte Artikelliste ("Artikel verwalten"). */
+export interface Material {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface MaterialRequestItem {
+  id: string;
+  materialId?: string | null; // Verweis auf die zentrale Artikelliste (Material)
+  customMaterialName?: string | null; // freier Artikelname ("Anderer Artikel") — nur für diese Bestellung, nicht Teil der Artikelliste
+  quantity: number;
+}
+
+/** Eine Materialbestellung ist EIN zusammenhängender Vorgang mit mehreren Positionen (items), nicht ein
+ * Ticket pro Artikel. Bewusst schlank gehalten — Priorität/Kommentar/Wunschdatum sind optional und werden
+ * vom vereinfachten Mitarbeiterformular nicht mehr abgefragt (nur noch intern/für Admin-Bestellungen nutzbar). */
+export interface MaterialRequest {
+  id: string;
+  employeeId: string | null; // für/von wem — optional bei Admin-/Manager-Bestellungen ohne konkreten Mitarbeiter
+  createdByEmployeeId: string; // wer den Eintrag angelegt hat (Mitarbeiter selbst, oder Admin/Manager)
+  assigneeId: string | null; // zuständige Person (Admin/Manager), die die Anfrage bearbeitet
+  locationId: string | null; // Kunde/Objekt
+  items: MaterialRequestItem[];
+  priority?: TicketPriority;
+  comment?: string;
+  note?: string; // kurze, optionale Notiz aus dem einfachen Mitarbeiterformular (gehört zur gesamten Bestellung, nicht zu einer Position)
+  photos: TicketAttachmentMeta[];
+  requestedDate?: string | null; // gewünschtes Datum
+  status: MaterialRequestStatus;
+  completedAt: string | null;
+  completedBy: string | null; // Name
+  linkedTicketId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Einfache Benachrichtigungsstruktur für Ticket-/Materialanfragen-Ereignisse. Wie bei Chat/Tickets ein
+ * flaches, normalisiertes Modell mit stabiler ID — für Supabase später eine eigene `notifications`-Tabelle
+ * mit Realtime-Subscription auf `targetUserId`/`targetRole`, ohne dass sich an der UI etwas ändern müsste.
+ */
+export type NotificationType =
+  | 'material_new'
+  | 'material_approved'
+  | 'material_rejected'
+  | 'material_ordered'
+  | 'material_delivered'
+  | 'ticket_urgent'
+  | 'ticket_overdue'
+  | 'ticket_assigned';
+
+export type NotificationTargetRole = 'admin_manager' | 'mitarbeiter';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  targetRole: NotificationTargetRole;
+  targetUserId: string | null; // gesetzt für mitarbeiter-spezifische Benachrichtigungen ("nur eigene sehen")
+  linkedMaterialRequestId: string | null;
+  linkedTicketId: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface AppData {
   employees: Employee[];
   customers: Customer[];
@@ -357,6 +526,10 @@ export interface AppData {
   customFieldDefs: CustomFieldDef[];
   chats: Chat[];
   messages: ChatMessage[];
+  tickets: Ticket[];
+  materialRequests: MaterialRequest[];
+  materials: Material[];
+  notifications: AppNotification[];
   settings: Settings;
   permissions: PermissionsMap;
 }

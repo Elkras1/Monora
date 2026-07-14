@@ -3,6 +3,7 @@ import type {
   Absence,
   AbsenceStatus,
   AppData,
+  AppNotification,
   ChatMessage,
   Customer,
   CustomerIssue,
@@ -11,10 +12,19 @@ import type {
   EmployeeDocumentMeta,
   FilterState,
   IssueSeverity,
+  Material,
+  MaterialRequest,
+  MaterialRequestItem,
+  MaterialRequestStatus,
   MessageAttachmentMeta,
+  NotificationType,
   Service,
   Shift,
   ShiftStatus,
+  Ticket,
+  TicketAttachmentMeta,
+  TicketPriority,
+  TicketStatus,
   TimeCorrection,
   TimeEntry,
   ViewId,
@@ -40,7 +50,9 @@ export type ModalType =
   | 'service'
   | 'meAbsence'
   | 'meCorrection'
-  | 'meProfile';
+  | 'meProfile'
+  | 'ticket'
+  | 'materialRequest';
 
 export interface ModalState {
   type: ModalType;
@@ -69,6 +81,8 @@ export interface UIState {
   panelTimeEntryId: string | null;
   panelLiveStatusId: string | null;
   panelMyShiftId: string | null;
+  panelTicketId: string | null;
+  panelMaterialRequestId: string | null;
 }
 
 export interface AppState extends AppData, UIState {}
@@ -124,6 +138,69 @@ function migrateData(data: AppData): AppData {
   if (data.permissions.mitarbeiter.custom_fields_manage === undefined) data.permissions.mitarbeiter.custom_fields_manage = false;
   if (!data.chats) data.chats = [];
   if (!data.messages) data.messages = [];
+  if (!data.tickets) data.tickets = [];
+  if (!data.materialRequests) data.materialRequests = [];
+  if (!data.materials) data.materials = [];
+  if (!data.notifications) data.notifications = [];
+  const MATERIAL_STATUS_MIGRATION: Record<string, MaterialRequestStatus> = {
+    entwurf: 'eingereicht',
+    eingereicht: 'eingereicht',
+    in_pruefung: 'in_bearbeitung',
+    genehmigt: 'in_bearbeitung',
+    bestellt: 'in_bearbeitung',
+    in_bearbeitung: 'in_bearbeitung',
+    geliefert: 'erledigt',
+    erledigt: 'erledigt',
+    abgelehnt: 'abgelehnt',
+  };
+  data.materialRequests.forEach((m) => {
+    const anyM = m as any;
+    if (anyM.createdByEmployeeId === undefined) anyM.createdByEmployeeId = m.employeeId ?? 'system';
+    if (anyM.assigneeId === undefined) anyM.assigneeId = null;
+    // Sehr alte Materialanfragen (vor "items[]"): genau ein Artikel als flache Felder auf der Anfrage selbst.
+    if (!Array.isArray(anyM.items)) {
+      anyM.items = anyM.materialName ? [{ id: uid(), materialName: anyM.materialName, quantity: anyM.quantity ?? 1 }] : [];
+      delete anyM.materialName;
+      delete anyM.quantity;
+      delete anyM.unit;
+    }
+    // Ältere "items[]"-Generation (materialName/unit statt materialId/customMaterialName) auf das neue,
+    // schlankere Positionsformat ohne Einheit normalisieren.
+    anyM.items = anyM.items.map((it: any) =>
+      it.materialName !== undefined || it.unit !== undefined
+        ? { id: it.id ?? uid(), customMaterialName: it.materialName ?? 'Artikel', quantity: it.quantity ?? 1 }
+        : { id: it.id ?? uid(), materialId: it.materialId ?? null, customMaterialName: it.customMaterialName ?? null, quantity: it.quantity ?? 1 }
+    );
+    if (!Array.isArray(anyM.photos)) {
+      anyM.photos = anyM.photo ? [anyM.photo] : [];
+      delete anyM.photo;
+    }
+    if (anyM.completedAt === undefined) anyM.completedAt = null;
+    if (anyM.completedBy === undefined) anyM.completedBy = null;
+    m.status = MATERIAL_STATUS_MIGRATION[m.status as string] ?? 'eingereicht';
+  });
+  if (data.permissions.manager.tickets_view_own === undefined) {
+    data.permissions.manager.tickets_view_own = false;
+    data.permissions.manager.tickets_view_all = true;
+    data.permissions.manager.tickets_create = true;
+    data.permissions.manager.tickets_edit = true;
+    data.permissions.manager.tickets_assign = true;
+    data.permissions.manager.tickets_status_update = true;
+    data.permissions.manager.tickets_calendar_view = true;
+    data.permissions.manager.material_request = false;
+    data.permissions.manager.material_manage = true;
+  }
+  if (data.permissions.mitarbeiter.tickets_view_own === undefined) {
+    data.permissions.mitarbeiter.tickets_view_own = true;
+    data.permissions.mitarbeiter.tickets_view_all = false;
+    data.permissions.mitarbeiter.tickets_create = false;
+    data.permissions.mitarbeiter.tickets_edit = false;
+    data.permissions.mitarbeiter.tickets_assign = false;
+    data.permissions.mitarbeiter.tickets_status_update = true;
+    data.permissions.mitarbeiter.tickets_calendar_view = false;
+    data.permissions.mitarbeiter.material_request = true;
+    data.permissions.mitarbeiter.material_manage = false;
+  }
   return data;
 }
 
@@ -159,6 +236,8 @@ function loadInitialState(): AppState {
     panelTimeEntryId: null,
     panelLiveStatusId: null,
     panelMyShiftId: null,
+    panelTicketId: null,
+    panelMaterialRequestId: null,
   };
 }
 
@@ -167,6 +246,44 @@ function logChange(entry: TimeEntry, text: string, by: string): TimeEntry {
     ...entry,
     changeLog: [...entry.changeLog, { ts: new Date().toISOString(), text, by }],
   };
+}
+
+function pushNotif(list: AppNotification[], n: Omit<AppNotification, 'id' | 'createdAt' | 'read'>): AppNotification[] {
+  return [...list, { ...n, id: uid(), read: false, createdAt: new Date().toISOString() }];
+}
+
+const MATERIAL_STATUS_NOTIF: Partial<Record<MaterialRequestStatus, { type: NotificationType; title: string; message?: string }>> = {
+  in_bearbeitung: { type: 'material_ordered', title: 'Materialbestellung in Bearbeitung' },
+  erledigt: { type: 'material_delivered', title: 'Materialbestellung erledigt', message: 'Deine Materialbestellung wurde erledigt.' },
+  abgelehnt: { type: 'material_rejected', title: 'Materialbestellung abgelehnt' },
+};
+
+/** Kurze Zusammenfassung der Positionen für Benachrichtigungstexte, z. B. "4× WC-Papier, 2× Müllsäcke". */
+function summarizeItems(items: MaterialRequestItem[], materials: Material[]): string {
+  const text = items
+    .map((i) => `${i.quantity}× ${i.customMaterialName || materials.find((m) => m.id === i.materialId)?.name || 'Artikel'}`)
+    .join(', ');
+  return text.length > 70 ? `${text.slice(0, 67)}…` : text;
+}
+
+function materialStatusNotifications(
+  notifications: AppNotification[],
+  req: MaterialRequest,
+  newStatus: MaterialRequestStatus,
+  materials: Material[]
+): AppNotification[] {
+  if (!req.employeeId || newStatus === req.status) return notifications;
+  const cfg = MATERIAL_STATUS_NOTIF[newStatus];
+  if (!cfg) return notifications;
+  return pushNotif(notifications, {
+    type: cfg.type,
+    title: cfg.title,
+    message: cfg.message ?? summarizeItems(req.items, materials),
+    targetRole: 'mitarbeiter',
+    targetUserId: req.employeeId,
+    linkedMaterialRequestId: req.id,
+    linkedTicketId: null,
+  });
 }
 
 interface AppContextValue {
@@ -199,6 +316,10 @@ interface AppContextValue {
     closeLiveStatusPanel: () => void;
     openMyShiftPanel: (id: string) => void;
     closeMyShiftPanel: () => void;
+    openTicketPanel: (id: string) => void;
+    closeTicketPanel: () => void;
+    openMaterialRequestPanel: (id: string) => void;
+    closeMaterialRequestPanel: () => void;
     // employees
     saveEmployee: (
       data: Omit<Employee, 'id' | 'customerIds' | 'password'> & { customerIds: string[]; password?: string },
@@ -221,10 +342,12 @@ interface AppContextValue {
     moveShift: (id: string, newDate: string) => void;
     moveShiftTo: (id: string, newDate: string, newEmployeeId: string | null) => void;
     // absences
-    saveAbsence: (data: Omit<Absence, 'id' | 'status'>) => void;
+    saveAbsence: (data: Omit<Absence, 'id'>) => void;
     setAbsStatus: (id: string, status: AbsenceStatus) => void;
     deleteAbsence: (id: string) => void;
     moveAbsence: (id: string, newStart: string) => void;
+    moveAbsenceTo: (id: string, newStart: string, newEmployeeId: string) => void;
+    resizeAbsence: (id: string, edge: 'start' | 'end', newDate: string) => void;
     cancelMyAbsence: (id: string) => void;
     saveMeAbsence: (data: Omit<Absence, 'id' | 'employeeId' | 'status'>) => void;
     // time entries
@@ -250,6 +373,10 @@ interface AppContextValue {
     // services (Leistungen)
     saveService: (data: Omit<Service, 'id' | 'active'>, id?: string | null) => void;
     toggleServiceActive: (id: string) => void;
+    // Artikel (Materialbestellung)
+    saveMaterial: (data: Omit<Material, 'id' | 'active'>, id?: string | null) => void;
+    toggleMaterialActive: (id: string) => void;
+    deleteMaterial: (id: string) => void;
     // customers
     saveCustomer: (data: Omit<Customer, 'id' | 'tasks' | 'issues'> & Partial<Pick<Customer, 'tasks' | 'issues'>>, id?: string | null) => void;
     deleteCustomer: (id: string) => void;
@@ -277,6 +404,41 @@ interface AppContextValue {
       replyToId?: string | null;
     }) => void;
     markChatRead: (chatId: string, readerId: string) => void;
+    // Tickets (Aufgaben/Kundentickets)
+    createTicket: (
+      data: Omit<
+        Ticket,
+        'id' | 'ticketNumber' | 'comments' | 'attachments' | 'activityLog' | 'createdAt' | 'updatedAt' | 'createdBy' | 'materialRequestId'
+      >
+    ) => void;
+    updateTicket: (id: string, patch: Partial<Ticket>) => void;
+    deleteTicket: (id: string) => void;
+    setTicketStatus: (id: string, status: TicketStatus) => void;
+    assignTicket: (id: string, assignedEmployeeId: string | null, assignedManagerId: string | null) => void;
+    moveTicketDate: (id: string, newDueDate: string, newDueTime?: string | null) => void;
+    addTicketComment: (id: string, text: string) => void;
+    addTicketAttachment: (id: string, meta: TicketAttachmentMeta) => void;
+    // Materialanfragen
+    createMaterialRequest: (
+      data: Omit<
+        MaterialRequest,
+        'id' | 'status' | 'linkedTicketId' | 'createdAt' | 'updatedAt' | 'createdByEmployeeId' | 'assigneeId' | 'completedAt' | 'completedBy'
+      >
+    ) => void;
+    createMaterialRequestAdmin: (
+      data: Omit<MaterialRequest, 'id' | 'linkedTicketId' | 'createdAt' | 'updatedAt' | 'createdByEmployeeId' | 'completedAt' | 'completedBy'>
+    ) => void;
+    updateMaterialRequest: (id: string, patch: Partial<MaterialRequest>) => void;
+    setMaterialRequestStatus: (id: string, status: MaterialRequestStatus) => void;
+    completeMaterialRequest: (id: string) => void;
+    withdrawMaterialRequest: (id: string) => void;
+    deleteMaterialRequest: (id: string) => void;
+    convertMaterialRequestToTicket: (
+      id: string,
+      extra: { assignedEmployeeId?: string | null; assignedManagerId?: string | null; dueDate?: string | null; priority?: TicketPriority }
+    ) => void;
+    // Benachrichtigungen
+    markNotificationRead: (id: string) => void;
   };
 }
 
@@ -301,6 +463,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         customFieldDefs: state.customFieldDefs,
         chats: state.chats,
         messages: state.messages,
+        tickets: state.tickets,
+        materialRequests: state.materialRequests,
+        materials: state.materials,
+        notifications: state.notifications,
         settings: state.settings,
         permissions: state.permissions,
       };
@@ -336,6 +502,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           customFieldDefs: incoming.customFieldDefs,
           chats: incoming.chats,
           messages: incoming.messages,
+          tickets: incoming.tickets,
+          materialRequests: incoming.materialRequests,
+          materials: incoming.materials,
+          notifications: incoming.notifications,
           settings: incoming.settings,
           permissions: incoming.permissions,
         }));
@@ -345,6 +515,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Überfällige Tickets erkennen: einmal beim Laden und danach in einem groben Intervall, damit ein
+  // Ticket auch dann als überfällig gemeldet wird, wenn einfach nur das Datum verstreicht (ohne dass
+  // jemand aktiv etwas an dem Ticket ändert). Pro Ticket entsteht dabei höchstens eine Benachrichtigung.
+  useEffect(() => {
+    const checkOverdue = () => {
+      const todayIso = isoDate(new Date());
+      setState((s) => {
+        const overdue = s.tickets.filter(
+          (t) =>
+            t.dueDate &&
+            t.dueDate < todayIso &&
+            t.status !== 'erledigt' &&
+            t.status !== 'abgeschlossen' &&
+            !s.notifications.some((n) => n.type === 'ticket_overdue' && n.linkedTicketId === t.id)
+        );
+        if (!overdue.length) return s;
+        let notifications = s.notifications;
+        overdue.forEach((t) => {
+          notifications = pushNotif(notifications, {
+            type: 'ticket_overdue',
+            title: 'Ticket überfällig',
+            message: `${t.ticketNumber} · ${t.title}`,
+            targetRole: 'admin_manager',
+            targetUserId: null,
+            linkedMaterialRequestId: null,
+            linkedTicketId: t.id,
+          });
+        });
+        return { ...s, notifications };
+      });
+    };
+    checkOverdue();
+    const interval = setInterval(checkOverdue, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const toast = useCallback((message: string) => {
@@ -381,6 +587,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             panelTimeEntryId: null,
             panelLiveStatusId: null,
             panelMyShiftId: null,
+            panelTicketId: null,
+            panelMaterialRequestId: null,
           };
         });
       },
@@ -395,6 +603,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           panelTimeEntryId: null,
           panelLiveStatusId: null,
           panelMyShiftId: null,
+          panelTicketId: null,
+          panelMaterialRequestId: null,
         }));
       },
       setView: (view) => setState((s) => ({ ...s, view, sidebarOpen: false })),
@@ -423,6 +633,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       closeLiveStatusPanel: () => setState((s) => ({ ...s, panelLiveStatusId: null })),
       openMyShiftPanel: (id) => setState((s) => ({ ...s, panelMyShiftId: id })),
       closeMyShiftPanel: () => setState((s) => ({ ...s, panelMyShiftId: null })),
+      openTicketPanel: (id) =>
+        setState((s) => ({
+          ...s,
+          panelTicketId: id,
+          notifications: s.notifications.map((n) => (n.linkedTicketId === id && !n.read ? { ...n, read: true } : n)),
+        })),
+      closeTicketPanel: () => setState((s) => ({ ...s, panelTicketId: null })),
+      openMaterialRequestPanel: (id) =>
+        setState((s) => ({
+          ...s,
+          panelMaterialRequestId: id,
+          notifications: s.notifications.map((n) => (n.linkedMaterialRequestId === id && !n.read ? { ...n, read: true } : n)),
+        })),
+      closeMaterialRequestPanel: () => setState((s) => ({ ...s, panelMaterialRequestId: null })),
 
       saveEmployee: (data, id) => {
         setState((s) => {
@@ -560,7 +784,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       saveAbsence: (data) => {
-        setState((s) => ({ ...s, absences: [...s.absences, { id: uid(), ...data, status: 'beantragt' }] }));
+        setState((s) => ({ ...s, absences: [...s.absences, { id: uid(), ...data }] }));
         toast('Antrag erfasst.');
       },
       setAbsStatus: (id, status) => {
@@ -581,6 +805,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }),
         }));
         toast('Abwesenheit verschoben.');
+      },
+      moveAbsenceTo: (id, newStart, newEmployeeId) => {
+        setState((s) => ({
+          ...s,
+          absences: s.absences.map((a) => {
+            if (a.id !== id) return a;
+            const lengthDays = Math.round((new Date(a.end).getTime() - new Date(a.start).getTime()) / 86400000);
+            const newEnd = isoDate(addDays(new Date(newStart), lengthDays));
+            return { ...a, start: newStart, end: newEnd, employeeId: newEmployeeId };
+          }),
+        }));
+        toast('Abwesenheit verschoben.');
+      },
+      resizeAbsence: (id, edge, newDate) => {
+        setState((s) => ({
+          ...s,
+          absences: s.absences.map((a) => {
+            if (a.id !== id) return a;
+            return edge === 'start' ? { ...a, start: newDate } : { ...a, end: newDate };
+          }),
+        }));
+        toast('Zeitraum angepasst.');
       },
       cancelMyAbsence: (id) => {
         setState((s) => ({ ...s, absences: s.absences.filter((a) => a.id !== id) }));
@@ -772,6 +1018,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => toast(nowActive ? 'Leistung aktiviert.' : 'Leistung deaktiviert.'), 0);
       },
 
+      saveMaterial: (data, id) => {
+        setState((s) => {
+          if (id) {
+            return { ...s, materials: s.materials.map((mat) => (mat.id === id ? { ...mat, ...data } : mat)) };
+          }
+          return { ...s, materials: [...s.materials, { id: uid(), active: true, ...data }] };
+        });
+        toast(id ? 'Artikel aktualisiert.' : 'Artikel angelegt.');
+      },
+      toggleMaterialActive: (id) => {
+        let nowActive = true;
+        setState((s) => ({
+          ...s,
+          materials: s.materials.map((mat) => {
+            if (mat.id !== id) return mat;
+            nowActive = !mat.active;
+            return { ...mat, active: nowActive };
+          }),
+        }));
+        setTimeout(() => toast(nowActive ? 'Artikel aktiviert.' : 'Artikel deaktiviert.'), 0);
+      },
+      deleteMaterial: (id) => {
+        setState((s) => {
+          const inUse = s.materialRequests.some((m) => m.items.some((it) => it.materialId === id));
+          if (inUse) {
+            setTimeout(() => toast('Artikel wird noch in Bestellungen verwendet – zuerst deaktivieren.'), 0);
+            return s;
+          }
+          setTimeout(() => toast('Artikel gelöscht.'), 0);
+          return { ...s, materials: s.materials.filter((mat) => mat.id !== id) };
+        });
+      },
+
       saveCustomer: (data, id) => {
         setState((s) => {
           if (id) {
@@ -931,6 +1210,340 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           messages: s.messages.map((m) => (m.chatId === chatId && m.recipientId === readerId && !m.read ? { ...m, read: true } : m)),
         }));
       },
+
+      createTicket: (data) => {
+        const now = new Date().toISOString();
+        setState((s) => {
+          const by = currentUser(s, s.currentUserId)?.name || 'System';
+          const ticket: Ticket = {
+            ...data,
+            id: uid(),
+            ticketNumber: `T-${String(s.tickets.length + 1).padStart(4, '0')}`,
+            materialRequestId: null,
+            comments: [],
+            attachments: [],
+            activityLog: [{ id: uid(), ts: now, text: 'Ticket erstellt', by }],
+            createdBy: by,
+            createdAt: now,
+            updatedAt: now,
+          };
+          let notifications = s.notifications;
+          if (ticket.priority === 'dringend') {
+            const cust = s.customers.find((c) => c.id === ticket.customerId);
+            notifications = pushNotif(notifications, {
+              type: 'ticket_urgent',
+              title: 'Dringendes Ticket erstellt',
+              message: `${ticket.ticketNumber} · ${ticket.title}${cust ? ' · ' + cust.name : ''}`,
+              targetRole: 'admin_manager',
+              targetUserId: null,
+              linkedMaterialRequestId: null,
+              linkedTicketId: ticket.id,
+            });
+          }
+          return { ...s, tickets: [...s.tickets, ticket], notifications };
+        });
+        toast('Ticket erstellt.');
+      },
+      updateTicket: (id, patch) => {
+        setState((s) => {
+          const by = currentUser(s, s.currentUserId)?.name || 'System';
+          const now = new Date().toISOString();
+          return {
+            ...s,
+            tickets: s.tickets.map((t) =>
+              t.id === id
+                ? { ...t, ...patch, activityLog: [...t.activityLog, { id: uid(), ts: now, text: 'Ticket bearbeitet', by }], updatedAt: now }
+                : t
+            ),
+          };
+        });
+        toast('Ticket aktualisiert.');
+      },
+      deleteTicket: (id) => {
+        setState((s) => ({
+          ...s,
+          tickets: s.tickets.filter((t) => t.id !== id),
+          panelTicketId: s.panelTicketId === id ? null : s.panelTicketId,
+        }));
+        toast('Ticket gelöscht.');
+      },
+      setTicketStatus: (id, status) => {
+        setState((s) => {
+          const by = currentUser(s, s.currentUserId)?.name || 'System';
+          const now = new Date().toISOString();
+          return {
+            ...s,
+            tickets: s.tickets.map((t) => {
+              if (t.id !== id) return t;
+              const text = status === 'abgeschlossen' ? 'Ticket abgeschlossen' : `Status geändert zu "${TICKET_STATUS_TEXT[status]}"`;
+              return { ...t, status, activityLog: [...t.activityLog, { id: uid(), ts: now, text, by }], updatedAt: now };
+            }),
+          };
+        });
+        toast('Status aktualisiert.');
+      },
+      assignTicket: (id, assignedEmployeeId, assignedManagerId) => {
+        setState((s) => {
+          const by = currentUser(s, s.currentUserId)?.name || 'System';
+          const now = new Date().toISOString();
+          const existing = s.tickets.find((t) => t.id === id);
+          let notifications = s.notifications;
+          if (existing && assignedEmployeeId && assignedEmployeeId !== existing.assignedEmployeeId) {
+            const cust = s.customers.find((c) => c.id === existing.customerId);
+            notifications = pushNotif(notifications, {
+              type: 'ticket_assigned',
+              title: 'Neues Ticket zugewiesen',
+              message: `${existing.ticketNumber} · ${existing.title}${cust ? ' · ' + cust.name : ''}`,
+              targetRole: 'mitarbeiter',
+              targetUserId: assignedEmployeeId,
+              linkedMaterialRequestId: null,
+              linkedTicketId: id,
+            });
+          }
+          return {
+            ...s,
+            tickets: s.tickets.map((t) =>
+              t.id === id
+                ? {
+                    ...t,
+                    assignedEmployeeId,
+                    assignedManagerId,
+                    activityLog: [...t.activityLog, { id: uid(), ts: now, text: 'Mitarbeiter zugewiesen', by }],
+                    updatedAt: now,
+                  }
+                : t
+            ),
+            notifications,
+          };
+        });
+        toast('Zuweisung gespeichert.');
+      },
+      moveTicketDate: (id, newDueDate, newDueTime) => {
+        setState((s) => {
+          const by = currentUser(s, s.currentUserId)?.name || 'System';
+          const now = new Date().toISOString();
+          return {
+            ...s,
+            tickets: s.tickets.map((t) =>
+              t.id === id
+                ? {
+                    ...t,
+                    dueDate: newDueDate,
+                    dueTime: newDueTime !== undefined ? newDueTime : t.dueTime,
+                    activityLog: [...t.activityLog, { id: uid(), ts: now, text: 'Datum geändert', by }],
+                    updatedAt: now,
+                  }
+                : t
+            ),
+          };
+        });
+        toast('Termin verschoben.');
+      },
+      addTicketComment: (id, text) => {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        setState((s) => {
+          const me = currentUser(s, s.currentUserId);
+          const by = me?.name || 'System';
+          const now = new Date().toISOString();
+          return {
+            ...s,
+            tickets: s.tickets.map((t) =>
+              t.id === id
+                ? {
+                    ...t,
+                    comments: [...t.comments, { id: uid(), authorId: me?.id ?? '', authorName: by, text: trimmed, createdAt: now }],
+                    activityLog: [...t.activityLog, { id: uid(), ts: now, text: 'Kommentar hinzugefügt', by }],
+                    updatedAt: now,
+                  }
+                : t
+            ),
+          };
+        });
+      },
+      addTicketAttachment: (id, meta) => {
+        setState((s) => {
+          const by = currentUser(s, s.currentUserId)?.name || 'System';
+          const now = new Date().toISOString();
+          return {
+            ...s,
+            tickets: s.tickets.map((t) =>
+              t.id === id
+                ? {
+                    ...t,
+                    attachments: [...t.attachments, meta],
+                    activityLog: [...t.activityLog, { id: uid(), ts: now, text: `Anhang hinzugefügt: ${meta.fileName}`, by }],
+                    updatedAt: now,
+                  }
+                : t
+            ),
+          };
+        });
+      },
+
+      createMaterialRequest: (data) => {
+        const now = new Date().toISOString();
+        setState((s) => {
+          const id = uid();
+          const requester = currentUser(s, data.employeeId ?? s.currentUserId);
+          const requesterName = requester?.name ?? 'Unbekannt';
+          const cust = s.customers.find((c) => c.id === data.locationId);
+          const notifications = pushNotif(s.notifications, {
+            type: 'material_new',
+            title: `Neue Materialanfrage von ${requesterName}`,
+            message: `${requesterName} · ${cust ? cust.name : 'Kein Objekt'} · ${summarizeItems(data.items, s.materials)}`,
+            targetRole: 'admin_manager',
+            targetUserId: null,
+            linkedMaterialRequestId: id,
+            linkedTicketId: null,
+          });
+          return {
+            ...s,
+            materialRequests: [
+              ...s.materialRequests,
+              {
+                ...data,
+                id,
+                createdByEmployeeId: data.employeeId ?? s.currentUserId ?? 'unknown',
+                assigneeId: null,
+                status: 'eingereicht',
+                completedAt: null,
+                completedBy: null,
+                linkedTicketId: null,
+                createdAt: now,
+                updatedAt: now,
+              },
+            ],
+            notifications,
+          };
+        });
+        toast('Bestellung gesendet.');
+      },
+      createMaterialRequestAdmin: (data) => {
+        const now = new Date().toISOString();
+        setState((s) => ({
+          ...s,
+          materialRequests: [
+            ...s.materialRequests,
+            {
+              ...data,
+              id: uid(),
+              createdByEmployeeId: s.currentUserId ?? 'unknown',
+              completedAt: null,
+              completedBy: null,
+              linkedTicketId: null,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+        }));
+        toast('Materialbestellung erstellt.');
+      },
+      updateMaterialRequest: (id, patch) => {
+        setState((s) => {
+          const req = s.materialRequests.find((m) => m.id === id);
+          const notifications = req && patch.status ? materialStatusNotifications(s.notifications, req, patch.status, s.materials) : s.notifications;
+          return {
+            ...s,
+            materialRequests: s.materialRequests.map((m) => (m.id === id ? { ...m, ...patch, updatedAt: new Date().toISOString() } : m)),
+            notifications,
+          };
+        });
+        toast('Anfrage aktualisiert.');
+      },
+      setMaterialRequestStatus: (id, status) => {
+        setState((s) => {
+          const req = s.materialRequests.find((m) => m.id === id);
+          const notifications = req ? materialStatusNotifications(s.notifications, req, status, s.materials) : s.notifications;
+          return {
+            ...s,
+            materialRequests: s.materialRequests.map((m) => (m.id === id ? { ...m, status, updatedAt: new Date().toISOString() } : m)),
+            notifications,
+          };
+        });
+        toast('Status aktualisiert.');
+      },
+      completeMaterialRequest: (id) => {
+        setState((s) => {
+          const req = s.materialRequests.find((m) => m.id === id);
+          if (!req) return s;
+          const by = currentUser(s, s.currentUserId)?.name || 'System';
+          const now = new Date().toISOString();
+          const notifications = materialStatusNotifications(s.notifications, req, 'erledigt', s.materials);
+          return {
+            ...s,
+            materialRequests: s.materialRequests.map((m) =>
+              m.id === id ? { ...m, status: 'erledigt', completedAt: now, completedBy: by, updatedAt: now } : m
+            ),
+            notifications,
+          };
+        });
+        toast('Bestellung als erledigt markiert.');
+      },
+      withdrawMaterialRequest: (id) => {
+        setState((s) => ({
+          ...s,
+          materialRequests: s.materialRequests.filter((m) => m.id !== id || m.status !== 'eingereicht'),
+        }));
+        toast('Anfrage zurückgezogen.');
+      },
+      deleteMaterialRequest: (id) => {
+        setState((s) => ({
+          ...s,
+          materialRequests: s.materialRequests.filter((m) => m.id !== id),
+          panelMaterialRequestId: s.panelMaterialRequestId === id ? null : s.panelMaterialRequestId,
+        }));
+        toast('Bestellung gelöscht.');
+      },
+      markNotificationRead: (id) => {
+        setState((s) => ({ ...s, notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) }));
+      },
+      convertMaterialRequestToTicket: (id, extra) => {
+        setState((s) => {
+          const req = s.materialRequests.find((m) => m.id === id);
+          if (!req) return s;
+          const by = currentUser(s, s.currentUserId)?.name || 'System';
+          const now = new Date().toISOString();
+          const itemSummary = summarizeItems(req.items, s.materials);
+          const firstName = req.items[0] ? req.items[0].customMaterialName || s.materials.find((m) => m.id === req.items[0].materialId)?.name : undefined;
+          const ticket: Ticket = {
+            id: uid(),
+            ticketNumber: `T-${String(s.tickets.length + 1).padStart(4, '0')}`,
+            type: 'material',
+            title: `Material: ${firstName ?? 'Bestellung'}${req.items.length > 1 ? ` +${req.items.length - 1}` : ''}`,
+            description: `${itemSummary}${req.comment ? ` — ${req.comment}` : ''}`,
+            customerId: req.locationId,
+            locationId: req.locationId,
+            assignedEmployeeId: extra.assignedEmployeeId ?? req.employeeId,
+            assignedManagerId: extra.assignedManagerId ?? null,
+            priority: extra.priority ?? req.priority ?? 'normal',
+            status: 'neu',
+            startDate: isoDate(new Date()),
+            dueDate: extra.dueDate ?? req.requestedDate ?? null,
+            dueTime: null,
+            category: null,
+            note: '',
+            materialRequestId: req.id,
+            comments: [],
+            attachments: req.photos,
+            activityLog: [
+              { id: uid(), ts: now, text: 'Ticket erstellt', by },
+              { id: uid(), ts: now, text: 'Material bestellt', by },
+            ],
+            createdBy: by,
+            createdAt: now,
+            updatedAt: now,
+          };
+          return {
+            ...s,
+            tickets: [...s.tickets, ticket],
+            materialRequests: s.materialRequests.map((m) =>
+              m.id === id ? { ...m, status: 'in_bearbeitung', linkedTicketId: ticket.id, updatedAt: now } : m
+            ),
+          };
+        });
+        toast('Als Ticket übernommen.');
+      },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [toast]
@@ -944,6 +1557,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 function statusLabel(s: string): string {
   return ({ offen: 'Offen', bestätigt: 'Bestätigt', korrigiert: 'Korrigiert' } as Record<string, string>)[s] || s;
 }
+
+const TICKET_STATUS_TEXT: Record<TicketStatus, string> = {
+  neu: 'Neu',
+  geplant: 'Geplant',
+  in_bearbeitung: 'In Bearbeitung',
+  wartet_rueckmeldung: 'Wartet auf Rückmeldung',
+  erledigt: 'Erledigt',
+  abgeschlossen: 'Abgeschlossen',
+};
 
 export function useApp(): AppContextValue {
   const ctx = useContext(AppContext);

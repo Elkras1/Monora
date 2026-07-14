@@ -2,9 +2,11 @@ import React from 'react';
 import { Icon } from '../icons/Icon';
 import { Avatar } from '../ui/Avatar';
 import { UserMenu } from './UserMenu';
+import { NotificationBell } from './NotificationBell';
 import { useApp, useCurrentRole, useCurrentUser } from '../../state/AppContext';
 import { navConfigFor, groupNavItems } from '../../state/nav';
 import { getUnreadTotalFor } from '../../state/chat';
+import { unreadNotificationCountFor } from '../../state/notifications';
 import { roleLabel } from '../../data/permissions';
 import type { ViewId } from '../../types';
 
@@ -15,6 +17,7 @@ export function TopNav() {
   const nav = navConfigFor(role, state);
   if (!user) return null;
   const unreadMessages = getUnreadTotalFor(state, user.id);
+  const unreadNotifs = unreadNotificationCountFor(state, role, user.id);
 
   const items = groupNavItems(nav);
   const activeGroup = items.find((item) => item.groupViews?.includes(state.view));
@@ -40,6 +43,9 @@ export function TopNav() {
                 {(item.view === 'messages' || item.groupViews?.includes('messages')) && unreadMessages > 0 ? (
                   <span className="nav-unread-badge">{unreadMessages}</span>
                 ) : null}
+                {(item.view === 'tickets' || item.groupViews?.includes('tickets')) && unreadNotifs > 0 ? (
+                  <span className="nav-unread-badge">{unreadNotifs}</span>
+                ) : null}
               </button>
             );
           })}
@@ -50,6 +56,7 @@ export function TopNav() {
               <span className="geo-dot" /> Geofencing aktiv
             </div>
           ) : null}
+          <NotificationBell />
           <button
             className="user-chip"
             onClick={(e) => {

@@ -64,6 +64,72 @@ export function shiftStatusTint(status: string): string {
   return 'var(--surface-alt)';
 }
 
+// Tickets: Status- und Prioritäts-Badges/-Farben
+const TICKET_STATUS_MAP: Record<string, [BadgeVariant, string]> = {
+  neu: ['grey', 'Neu'],
+  geplant: ['blue', 'Geplant'],
+  in_bearbeitung: ['amber', 'In Bearbeitung'],
+  wartet_rueckmeldung: ['amber', 'Wartet auf Rückmeldung'],
+  erledigt: ['mint', 'Erledigt'],
+  abgeschlossen: ['green', 'Abgeschlossen'],
+};
+
+const TICKET_PRIORITY_MAP: Record<string, [BadgeVariant, string]> = {
+  niedrig: ['grey', 'Niedrig'],
+  normal: ['blue', 'Normal'],
+  hoch: ['amber', 'Hoch'],
+  dringend: ['red', 'Dringend'],
+};
+
+export function ticketStatusLabel(status: string): string {
+  return TICKET_STATUS_MAP[status]?.[1] || status;
+}
+
+export function ticketPriorityLabel(priority: string): string {
+  return TICKET_PRIORITY_MAP[priority]?.[1] || priority;
+}
+
+/** Kalenderfarbe: Neu=Grau, Geplant=Blau, In Bearbeitung=Orange, Erledigt/Abgeschlossen=Grün — dringende
+ * Tickets werden unabhängig vom Status rot hervorgehoben (siehe Ticket-Kalender). */
+export function ticketStatusColor(status: string): string {
+  if (status === 'geplant') return 'var(--primary)';
+  if (status === 'in_bearbeitung') return 'var(--orange)';
+  if (status === 'wartet_rueckmeldung') return 'var(--amber)';
+  if (status === 'erledigt' || status === 'abgeschlossen') return 'var(--green)';
+  return 'var(--ink-faint)';
+}
+
+export function ticketCalendarColor(status: string, priority: string): string {
+  if (priority === 'dringend' && status !== 'erledigt' && status !== 'abgeschlossen') return 'var(--red)';
+  return ticketStatusColor(status);
+}
+
+export function TicketStatusBadge({ status }: { status: string }) {
+  const [variant, label] = TICKET_STATUS_MAP[status] || ['grey', status];
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+export function TicketPriorityBadge({ priority }: { priority: string }) {
+  const [variant, label] = TICKET_PRIORITY_MAP[priority] || ['grey', priority];
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+const MATERIAL_STATUS_MAP: Record<string, [BadgeVariant, string]> = {
+  eingereicht: ['amber', 'Eingereicht'],
+  in_bearbeitung: ['blue', 'In Bearbeitung'],
+  erledigt: ['mint', 'Erledigt'],
+  abgelehnt: ['red', 'Abgelehnt'],
+};
+
+export function materialStatusLabel(status: string): string {
+  return MATERIAL_STATUS_MAP[status]?.[1] || status;
+}
+
+export function MaterialStatusBadge({ status }: { status: string }) {
+  const [variant, label] = MATERIAL_STATUS_MAP[status] || ['grey', status];
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
 const ISSUE_MAP: Record<string, [BadgeVariant, string]> = {
   offen: ['red', 'Offen'],
   'in Bearbeitung': ['amber', 'In Bearbeitung'],

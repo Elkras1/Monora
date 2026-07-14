@@ -4,8 +4,11 @@ import type {
   Customer,
   CustomerIssue,
   Employee,
+  Material,
+  MaterialRequest,
   Shift,
   SystemRole,
+  Ticket,
   TimeEntry,
 } from '../types';
 import { uid } from '../utils/format';
@@ -477,6 +480,190 @@ export function seedData(): AppData {
     changeLog: [],
   });
 
+  function mkTicket(o: {
+    type: Ticket['type'];
+    title: string;
+    description: string;
+    customerId: string | null;
+    assignedEmployeeId: string | null;
+    assignedManagerId: string | null;
+    priority: Ticket['priority'];
+    status: Ticket['status'];
+    dueOffset: number | null;
+    category: Ticket['category'] | null;
+    createdBy: string;
+    num: number;
+  }): Ticket {
+    const createdAt = isoDate(addDays(today, -3 - o.num));
+    return {
+      id: uid(),
+      ticketNumber: `T-${String(o.num).padStart(4, '0')}`,
+      type: o.type,
+      title: o.title,
+      description: o.description,
+      customerId: o.customerId,
+      locationId: o.customerId,
+      assignedEmployeeId: o.assignedEmployeeId,
+      assignedManagerId: o.assignedManagerId,
+      priority: o.priority,
+      status: o.status,
+      startDate: `${createdAt}T00:00:00`.slice(0, 10),
+      dueDate: o.dueOffset === null ? null : isoDate(addDays(today, o.dueOffset)),
+      dueTime: null,
+      category: o.category,
+      note: '',
+      materialRequestId: null,
+      comments: [],
+      attachments: [],
+      activityLog: [{ id: uid(), ts: `${createdAt}T09:00:00`, text: 'Ticket erstellt', by: o.createdBy }],
+      createdBy: o.createdBy,
+      createdAt: `${createdAt}T09:00:00`,
+      updatedAt: `${createdAt}T09:00:00`,
+    };
+  }
+
+  const tickets: Ticket[] = [
+    mkTicket({
+      type: 'aufgabe',
+      title: 'Fensterreinigung Eingangsbereich nachbessern',
+      description: 'Kunde bemängelt Schlieren an den Eingangsfenstern nach der letzten Reinigung.',
+      customerId: c1.id,
+      assignedEmployeeId: e2.id,
+      assignedManagerId: eManager.id,
+      priority: 'hoch',
+      status: 'in_bearbeitung',
+      dueOffset: 1,
+      category: 'Reinigung nachbessern',
+      createdBy: eManager.name,
+      num: 1,
+    }),
+    mkTicket({
+      type: 'aufgabe',
+      title: 'Qualitätskontrolle Küche',
+      description: 'Monatliche Qualitätskontrolle gemäss Vertrag durchführen und Protokoll erfassen.',
+      customerId: c2.id,
+      assignedEmployeeId: e4.id,
+      assignedManagerId: eManager.id,
+      priority: 'normal',
+      status: 'geplant',
+      dueOffset: 3,
+      category: 'Qualitätskontrolle',
+      createdBy: eManager.name,
+      num: 2,
+    }),
+    mkTicket({
+      type: 'aufgabe',
+      title: 'Wasserschaden Lagerraum melden',
+      description: 'Kunde meldet Feuchtigkeit im Lagerraum, bitte umgehend prüfen und Rückmeldung geben.',
+      customerId: c3.id,
+      assignedEmployeeId: null,
+      assignedManagerId: eManager.id,
+      priority: 'dringend',
+      status: 'neu',
+      dueOffset: 0,
+      category: 'Reparatur / Schaden',
+      createdBy: eAdmin.name,
+      num: 3,
+    }),
+    mkTicket({
+      type: 'aufgabe',
+      title: 'Sonderreinigung nach Anlass',
+      description: 'Grossanlass am Wochenende, Sonderreinigung im Anschluss einplanen.',
+      customerId: c1.id,
+      assignedEmployeeId: e8.id,
+      assignedManagerId: eManager.id,
+      priority: 'normal',
+      status: 'abgeschlossen',
+      dueOffset: -5,
+      category: 'Sonderreinigung',
+      createdBy: eManager.name,
+      num: 4,
+    }),
+  ];
+
+  function mkMaterial(name: string): Material {
+    return { id: uid(), name, active: true };
+  }
+  const materials: Material[] = [
+    mkMaterial('WC-Papier'),
+    mkMaterial('Sanitärreiniger'),
+    mkMaterial('Glasreiniger'),
+    mkMaterial('Müllsäcke'),
+    mkMaterial('Handschuhe'),
+    mkMaterial('Mikrofasertücher'),
+    mkMaterial('Mop'),
+    mkMaterial('Seife'),
+  ];
+  const [matWcPapier, , , , matHandschuhe, matMikrofaser] = materials;
+
+  const matReq1Id = uid();
+  const materialRequests: MaterialRequest[] = [
+    {
+      id: matReq1Id,
+      employeeId: eStaff.id,
+      createdByEmployeeId: eStaff.id,
+      assigneeId: null,
+      locationId: c1.id,
+      items: [
+        { id: uid(), materialId: matMikrofaser.id, quantity: 20 },
+        { id: uid(), materialId: matWcPapier.id, quantity: 4 },
+      ],
+      photos: [],
+      status: 'eingereicht',
+      completedAt: null,
+      completedBy: null,
+      linkedTicketId: null,
+      createdAt: isoDate(addDays(today, -1)) + 'T08:30:00',
+      updatedAt: isoDate(addDays(today, -1)) + 'T08:30:00',
+    },
+    {
+      id: uid(),
+      employeeId: e2.id,
+      createdByEmployeeId: e2.id,
+      assigneeId: eManager.id,
+      locationId: c1.id,
+      items: [
+        { id: uid(), materialId: matHandschuhe.id, quantity: 5 },
+        { id: uid(), customMaterialName: 'Batterien für Dosiergerät', quantity: 2 },
+      ],
+      photos: [],
+      status: 'in_bearbeitung',
+      completedAt: null,
+      completedBy: null,
+      linkedTicketId: null,
+      createdAt: isoDate(addDays(today, -2)) + 'T07:15:00',
+      updatedAt: isoDate(addDays(today, -1)) + 'T10:00:00',
+    },
+  ];
+
+  const urgentTicket = tickets[2];
+  const notifications: AppData['notifications'] = [
+    {
+      id: uid(),
+      type: 'material_new',
+      title: 'Neue Materialanfrage von ' + eStaff.name,
+      message: `${eStaff.name} · ${c1.name} · 20× Mikrofasertücher, 4× WC-Papier`,
+      targetRole: 'admin_manager',
+      targetUserId: null,
+      linkedMaterialRequestId: matReq1Id,
+      linkedTicketId: null,
+      read: false,
+      createdAt: isoDate(addDays(today, -1)) + 'T08:30:00',
+    },
+    {
+      id: uid(),
+      type: 'ticket_urgent',
+      title: 'Dringendes Ticket erstellt',
+      message: `${urgentTicket.ticketNumber} · ${urgentTicket.title}`,
+      targetRole: 'admin_manager',
+      targetUserId: null,
+      linkedMaterialRequestId: null,
+      linkedTicketId: urgentTicket.id,
+      read: false,
+      createdAt: urgentTicket.createdAt,
+    },
+  ];
+
   return {
     employees,
     customers,
@@ -488,6 +675,10 @@ export function seedData(): AppData {
     customFieldDefs: [],
     chats: [],
     messages: [],
+    tickets,
+    materialRequests,
+    materials,
+    notifications,
     settings: {
       companyName: 'Alpen Gastro AG',
       weeklyHours: 42,

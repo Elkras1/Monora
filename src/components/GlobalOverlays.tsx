@@ -10,11 +10,15 @@ import { ServiceModal } from './ServiceModal';
 import { MeAbsenceModal } from './MeAbsenceModal';
 import { MeCorrectionModal } from './MeCorrectionModal';
 import { MeProfileModal } from './MeProfileModal';
+import { TicketModal } from './TicketModal';
+import { MaterialRequestModal } from './MaterialRequestModal';
 import { ShiftPanel } from './ShiftPanel';
 import { LocationPanel } from './LocationPanel';
 import { TimeEntryPanel } from './TimeEntryPanel';
 import { LiveStatusPanel } from './LiveStatusPanel';
 import { MyShiftPanel } from './MyShiftPanel';
+import { TicketPanel } from './TicketPanel';
+import { MaterialRequestPanel } from './MaterialRequestPanel';
 
 export function GlobalOverlays() {
   const { state } = useApp();
@@ -26,18 +30,22 @@ export function GlobalOverlays() {
       {modal?.type === 'clockout' ? <ClockOutModal payload={modal.payload} /> : null}
       {modal?.type === 'shift' ? <ShiftModal payload={modal.payload} /> : null}
       {modal?.type === 'employee' ? <EmployeeModal payload={modal.payload} /> : null}
-      {modal?.type === 'absence' ? <AbsenceModal /> : null}
+      {modal?.type === 'absence' ? <AbsenceModal payload={modal.payload} /> : null}
       {modal?.type === 'customer' ? <CustomerModal payload={modal.payload} /> : null}
       {modal?.type === 'service' ? <ServiceModal payload={modal.payload} /> : null}
       {modal?.type === 'meAbsence' ? <MeAbsenceModal /> : null}
       {modal?.type === 'meCorrection' ? <MeCorrectionModal payload={modal.payload} /> : null}
       {modal?.type === 'meProfile' ? <MeProfileModal /> : null}
+      {modal?.type === 'ticket' ? <TicketModal payload={modal.payload} /> : null}
+      {modal?.type === 'materialRequest' ? <MaterialRequestModal payload={modal.payload} /> : null}
 
       {state.panelShiftId ? <ShiftPanel /> : null}
       {state.panelLocationId ? <LocationPanel /> : null}
       {state.panelTimeEntryId ? <TimeEntryPanel /> : null}
       {state.panelLiveStatusId ? <LiveStatusPanel /> : null}
       {state.panelMyShiftId ? <MyShiftPanel /> : null}
+      {state.panelTicketId ? <TicketPanel /> : null}
+      {state.panelMaterialRequestId ? <MaterialRequestPanel /> : null}
     </>
   );
 }

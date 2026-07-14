@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { Modal } from './ui/Overlay';
-import { useApp } from '../state/AppContext';
-import type { AbsenceType } from '../types';
+import { useApp, useHasPerm } from '../state/AppContext';
+import type { AbsenceStatus, AbsenceType } from '../types';
 import { isoDate } from '../utils/date';
 
-export function AbsenceModal() {
+export function AbsenceModal({ payload }: { payload?: { employeeId?: string; date?: string } }) {
   const { state, actions } = useApp();
-  const [employeeId, setEmployeeId] = useState(state.employees[0]?.id ?? '');
+  const hasPerm = useHasPerm();
+  const canSetStatus = hasPerm('absence_approve');
+  const [employeeId, setEmployeeId] = useState(payload?.employeeId ?? state.employees[0]?.id ?? '');
   const [type, setType] = useState<AbsenceType>('Urlaub');
-  const [start, setStart] = useState(isoDate(new Date()));
-  const [end, setEnd] = useState(isoDate(new Date()));
+  const [start, setStart] = useState(payload?.date ?? isoDate(new Date()));
+  const [end, setEnd] = useState(payload?.date ?? isoDate(new Date()));
   const [note, setNote] = useState('');
+  const [status, setStatus] = useState<AbsenceStatus>('beantragt');
 
   const save = () => {
-    actions.saveAbsence({ employeeId, type, start, end, note });
+    actions.saveAbsence({ employeeId, type, start, end, note, status: canSetStatus ? status : 'beantragt' });
     actions.closeModal();
   };
 
@@ -66,6 +69,16 @@ export function AbsenceModal() {
         <label>Notiz</label>
         <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
+      {canSetStatus ? (
+        <div className="field">
+          <label>Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value as AbsenceStatus)}>
+            <option value="beantragt">Ausstehend</option>
+            <option value="genehmigt">Genehmigt</option>
+            <option value="abgelehnt">Abgelehnt</option>
+          </select>
+        </div>
+      ) : null}
     </Modal>
   );
 }

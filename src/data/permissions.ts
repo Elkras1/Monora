@@ -74,6 +74,21 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { id: 'reports_export', label: 'Berichte exportieren' },
     ],
   },
+  {
+    id: 'tickets',
+    label: 'Tickets',
+    perms: [
+      { id: 'tickets_view_own', label: 'Eigene/zugewiesene Tickets anzeigen' },
+      { id: 'tickets_view_all', label: 'Alle Tickets anzeigen' },
+      { id: 'tickets_create', label: 'Tickets erstellen' },
+      { id: 'tickets_edit', label: 'Tickets bearbeiten' },
+      { id: 'tickets_assign', label: 'Tickets zuweisen' },
+      { id: 'tickets_status_update', label: 'Ticketstatus aktualisieren (eigene/zugewiesene)' },
+      { id: 'tickets_calendar_view', label: 'Ticket-Kalender anzeigen' },
+      { id: 'material_request', label: 'Materialanfragen erstellen' },
+      { id: 'material_manage', label: 'Materialanfragen bearbeiten/genehmigen' },
+    ],
+  },
 ];
 
 export const DEFAULT_PERMISSIONS: PermissionsMap = {
@@ -115,6 +130,15 @@ export const DEFAULT_PERMISSIONS: PermissionsMap = {
     reports_view: false,
     reports_time_view: false,
     reports_export: false,
+    tickets_view_own: false,
+    tickets_view_all: true,
+    tickets_create: true,
+    tickets_edit: true,
+    tickets_assign: true,
+    tickets_status_update: true,
+    tickets_calendar_view: true,
+    material_request: false,
+    material_manage: true,
   },
   mitarbeiter: {
     schedule_view: true,
@@ -154,6 +178,15 @@ export const DEFAULT_PERMISSIONS: PermissionsMap = {
     reports_view: false,
     reports_time_view: false,
     reports_export: false,
+    tickets_view_own: true,
+    tickets_view_all: false,
+    tickets_create: false,
+    tickets_edit: false,
+    tickets_assign: false,
+    tickets_status_update: true,
+    tickets_calendar_view: false,
+    material_request: true,
+    material_manage: false,
   },
 };
 

@@ -3,6 +3,7 @@ import { Icon } from '../icons/Icon';
 import { useApp, useCurrentRole, useCurrentUser } from '../../state/AppContext';
 import { navConfigFor, groupNavItems } from '../../state/nav';
 import { getUnreadTotalFor } from '../../state/chat';
+import { unreadNotificationCountFor } from '../../state/notifications';
 import { useClock } from '../../hooks/useClock';
 import { pad } from '../../utils/date';
 
@@ -13,6 +14,7 @@ export function Sidebar() {
   const nav = navConfigFor(role, state);
   const now = useClock();
   const unreadMessages = getUnreadTotalFor(state, user?.id);
+  const unreadNotifs = unreadNotificationCountFor(state, role, user?.id ?? null);
   const items = groupNavItems(nav);
 
   return (
@@ -46,6 +48,7 @@ export function Sidebar() {
                     <Icon name={child.icon} />
                     <span>{child.label}</span>
                     {v === 'messages' && unreadMessages > 0 ? <span className="nav-unread-badge">{unreadMessages}</span> : null}
+                    {v === 'tickets' && unreadNotifs > 0 ? <span className="nav-unread-badge">{unreadNotifs}</span> : null}
                   </button>
                 );
               })}
@@ -59,6 +62,9 @@ export function Sidebar() {
               <Icon name={item.icon} />
               <span>{item.label}</span>
               {item.view === 'messages' && unreadMessages > 0 ? <span className="nav-unread-badge">{unreadMessages}</span> : null}
+              {item.view === 'tickets' && unreadNotifs > 0 ? (
+                <span className="nav-unread-badge">{unreadNotifs}</span>
+              ) : null}
             </button>
           )
         )}

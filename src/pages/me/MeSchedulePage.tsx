@@ -4,8 +4,9 @@ import { getCust } from '../../state/selectors';
 import { MeShiftRow } from '../../components/MeShiftRow';
 import { StatusBadge } from '../../components/ui/Badge';
 import { Empty } from '../../components/ui/Empty';
+import { Drawer } from '../../components/ui/Overlay';
 import { Icon } from '../../components/icons/Icon';
-import { addDays, buildMonthWeeks, isoDate, mondayOf, WEEKDAYS } from '../../utils/date';
+import { addDays, buildMonthWeeks, fmtDate, isoDate, mondayOf, WEEKDAYS } from '../../utils/date';
 import { colorFor } from '../../utils/format';
 
 const TABS = [
@@ -32,6 +33,7 @@ export function MeSchedulePage() {
     return d;
   });
   const monthWeeks = useMemo(() => buildMonthWeeks(monthCursor), [monthCursor]);
+  const [dayListIso, setDayListIso] = useState<string | null>(null);
 
   return (
     <>
@@ -97,22 +99,30 @@ export function MeSchedulePage() {
                 const shown = dayShifts.slice(0, 2);
                 const more = dayShifts.length - shown.length;
                 return (
-                  <div key={di} className={`abs-cal-day ${dayShifts.length ? 'has-abs' : ''} ${iso === todayIso ? 'is-today' : ''}`}>
+                  <div key={di} className={`abs-cal-day me-month-day ${dayShifts.length ? 'has-abs' : ''} ${iso === todayIso ? 'is-today' : ''}`}>
                     <div className="abs-cal-day-num">{day.getDate()}</div>
                     {dayShifts.length ? (
-                      <div className="abs-cal-bars">
+                      <div className="me-month-chips">
                         {shown.map((s) => {
                           const c = getCust(state, s.customerId);
+                          const accent = c ? colorFor(c.id) : '#8A9A97';
                           return (
                             <div
                               key={s.id}
-                              className="abs-cal-bar"
-                              style={{ background: c ? colorFor(c.id) : 'var(--ink-faint)', cursor: 'pointer' }}
+                              className="me-month-chip"
+                              style={{ background: `${accent}1f`, borderLeftColor: accent }}
                               onClick={() => actions.openMyShiftPanel(s.id)}
-                            />
+                            >
+                              <span className="me-month-chip-time">{s.start}</span>
+                              <span className="me-month-chip-obj">{c ? c.name : '–'}</span>
+                            </div>
                           );
                         })}
-                        {more > 0 ? <div className="abs-cal-more">+{more}</div> : null}
+                        {more > 0 ? (
+                          <button className="me-month-more" onClick={() => setDayListIso(iso)}>
+                            +{more} weitere
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -121,6 +131,19 @@ export function MeSchedulePage() {
             </div>
           ))}
         </>
+      ) : null}
+
+      {dayListIso ? (
+        <Drawer title={fmtDate(new Date(dayListIso))} onClose={() => setDayListIso(null)}>
+          <div onClick={() => setDayListIso(null)}>
+            {mine
+              .filter((s) => s.date === dayListIso)
+              .sort((a, b) => a.start.localeCompare(b.start))
+              .map((s) => (
+                <MeShiftRow key={s.id} shift={s} />
+              ))}
+          </div>
+        </Drawer>
       ) : null}
 
       {tab === 'list'
