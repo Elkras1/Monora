@@ -7,3 +7,8 @@ export function haversine(lat1: number, lon1: number, lat2: number, lon2: number
     Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+/** Kurze, lesbare Distanzangabe für die automatische Objekterkennung, z. B. "120 m" oder "1.2 km". */
+export function formatDistance(meters: number): string {
+  return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`;
+}

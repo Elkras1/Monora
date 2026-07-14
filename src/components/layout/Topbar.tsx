@@ -24,7 +24,10 @@ export function Topbar() {
             <Icon name="menu" />
           </button>
         ) : null}
-        <div>
+        <div
+          onClick={isStaff ? () => actions.setView('me-start') : undefined}
+          style={isStaff ? { cursor: 'pointer' } : undefined}
+        >
           <h1>{title}</h1>
           <div className="sub">{sub}</div>
         </div>

@@ -147,6 +147,15 @@ a{color:inherit;}
 .user-menu-item:hover{background:var(--surface-alt);}
 .user-menu-item.active{background:var(--primary-tint);}
 
+/* Mitarbeiter: Drei-Striche-Menü (Bottom-Navigation) */
+.me-more-list{display:flex;flex-direction:column;gap:2px;}
+.me-more-list .user-menu-item{padding:11px 8px;}
+.me-more-item-icon{
+  display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;flex:none;
+  background:var(--primary-tint);color:var(--primary-dark);
+}
+.me-more-item-icon svg{width:15px;height:15px;}
+
 /* Benachrichtigungs-Glocke (Tickets/Materialanfragen) — für alle Rollen im Topbar/TopNav */
 .notif-bell-wrap{position:relative;}
 .notif-bell-btn{position:relative;}
@@ -207,10 +216,10 @@ a{color:inherit;}
     display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--surface);
     border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.06);z-index:60;padding:4px 2px calc(4px + env(safe-area-inset-bottom));
   }
-  .mtab{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px;border:none;background:none;color:var(--ink-faint);font-size:10px;font-weight:700;}
-  .mtab svg{width:19px;height:19px;}
+  .mtab{position:relative;flex:1;display:flex;align-items:center;justify-content:center;padding:12px 2px;border:none;background:none;color:var(--ink-faint);min-height:52px;}
+  .mtab svg{width:23px;height:23px;}
   .mtab.active{color:var(--primary);}
-  .mtab.active::before{content:'';position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--primary);}
+  .mtab.active::before{content:'';position:absolute;top:0;left:26%;right:26%;height:3px;border-radius:0 0 3px 3px;background:var(--primary);}
 }
 
 /* Cards / grid */
@@ -461,6 +470,9 @@ tbody tr:hover{background:var(--surface-alt);}
   gap:16px;padding:6px 12px 10px;
   min-height:calc(100vh - 190px);min-height:calc(100dvh - 190px);
 }
+/* Zustand "nicht eingestempelt": Inhalt unten verankert statt zentriert — der START-Kreis steht im
+   unteren Bereich der Seite, mit klarem Abstand zur Bottom-Navigation (siehe .content-Padding). */
+.stampclock-page.is-idle{justify-content:flex-end;gap:22px;padding-bottom:28px;}
 .stampclock-card{
   width:100%;max-width:350px;background:var(--surface);border:1px solid var(--line);
   border-radius:32px;padding:26px 22px 24px;box-shadow:0 22px 44px -20px rgba(11,30,61,.25), var(--shadow);
@@ -484,23 +496,36 @@ tbody tr:hover{background:var(--surface-alt);}
 .stampclock-status.is-pause .dot{background:var(--amber);}
 .stampclock-timer{font-family:'IBM Plex Mono',monospace;font-size:40px;font-weight:700;color:var(--ink);letter-spacing:.01em;margin:2px 0;}
 .stampclock-timer.is-pause{color:#93670A;}
-.stampclock-sub-timer{font-size:12px;color:var(--ink-faint);font-weight:600;margin-top:-4px;}
-.stampclock-sub-timer b{color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;}
-.stampclock-object-label{font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;}
 .stampclock-object{font-family:'Space Grotesk';font-size:16px;font-weight:700;color:var(--ink);}
 
-/* Zustand "nicht eingestempelt": nur Objekt-Auswahl + grosser Start-Button, sonst nichts */
-.stampclock-idle-select-wrap{width:100%;max-width:290px;}
-.stampclock-idle-select{
-  width:100%;appearance:none;-webkit-appearance:none;-moz-appearance:none;
-  border:1.5px solid var(--line);background:var(--surface);border-radius:16px;
-  padding:15px 38px 15px 18px;font-family:'Space Grotesk';font-size:16px;font-weight:700;color:var(--ink);
-  text-align:center;box-shadow:var(--shadow);min-height:52px;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 9l6 6 6-6' stroke='%238A96AD' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-  background-repeat:no-repeat;background-position:right 14px center;background-size:15px;
+/* Zustand "nicht eingestempelt": automatische Objekterkennung statt Dropdown */
+.stampclock-object-zone{width:100%;display:flex;flex-direction:column;align-items:center;min-height:24px;}
+
+.stampclock-locate-block{
+  display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center;
+  color:var(--ink-soft);font-size:13px;font-weight:600;padding:18px 16px;
+  background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+  width:100%;max-width:300px;
 }
-.stampclock-idle-select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
-.stampclock-idle-select.is-empty{color:var(--ink-faint);font-weight:600;font-family:'Inter';font-size:15px;}
+.stampclock-locate-block svg{width:24px;height:24px;color:var(--ink-faint);}
+
+.stampclock-selected-object{text-align:center;}
+.stampclock-selected-object .name{font-family:'Space Grotesk';font-size:18px;font-weight:800;color:var(--ink);}
+.stampclock-change-object{display:block;margin:5px auto 0;background:none;border:none;color:var(--primary);font-size:11.5px;font-weight:700;text-decoration:underline;padding:4px;}
+
+.stampclock-picker{width:100%;max-width:340px;}
+.stampclock-picker-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;text-align:center;}
+.stampclock-picker-list{display:flex;flex-direction:column;gap:8px;max-height:38vh;overflow-y:auto;}
+.stampclock-picker-item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:56px;
+  padding:11px 14px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);
+  box-shadow:var(--shadow);text-align:left;
+}
+.stampclock-picker-item:active{border-color:var(--primary);background:var(--primary-tint);}
+.stampclock-picker-item-main{min-width:0;}
+.stampclock-picker-item-main .n{font-weight:700;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.stampclock-picker-item-main .a{font-size:11px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.stampclock-picker-item-dist{flex:none;font-size:11.5px;font-weight:700;color:var(--primary-dark);background:var(--primary-tint);padding:4px 9px;border-radius:999px;}
 
 .stampclock-btn-zone{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:8px;}
 .stampclock-round-btn{
@@ -512,10 +537,10 @@ tbody tr:hover{background:var(--surface-alt);}
 .stampclock-round-btn:active{transform:scale(.94);box-shadow:0 8px 18px -8px rgba(0,0,0,.3);}
 .stampclock-round-btn:disabled{background:var(--surface-alt) !important;color:var(--ink-faint);box-shadow:none;cursor:not-allowed;}
 .stampclock-round-btn.is-start{
-  width:136px;height:136px;font-size:15px;gap:6px;
-  background:linear-gradient(160deg,#34D399,#16A34A);box-shadow:0 18px 34px -12px rgba(22,163,74,.55);
+  width:160px;height:160px;font-size:16px;gap:7px;
+  background:linear-gradient(160deg,#34D399,#16A34A);box-shadow:0 20px 38px -12px rgba(22,163,74,.55);
 }
-.stampclock-round-btn.is-start svg{width:26px;height:26px;}
+.stampclock-round-btn.is-start svg{width:28px;height:28px;}
 .stampclock-round-btn.is-start:hover{background:linear-gradient(160deg,#2FCB90,#128A3E);}
 .stampclock-round-btn.is-pause,.stampclock-round-btn.is-resume,.stampclock-round-btn.is-stop{width:110px;height:110px;font-size:11.5px;}
 .stampclock-round-btn.is-pause svg,.stampclock-round-btn.is-resume svg,.stampclock-round-btn.is-stop svg{width:22px;height:22px;}
@@ -535,11 +560,13 @@ tbody tr:hover{background:var(--surface-alt);}
 @media (max-width:400px){
   .stampclock-card{padding:22px 16px 20px;border-radius:26px;}
   .stampclock-timer{font-size:33px;}
-  .stampclock-round-btn.is-start{width:118px;height:118px;font-size:13px;}
+  .stampclock-round-btn.is-start{width:144px;height:144px;font-size:14px;}
   .stampclock-round-btn.is-pause,.stampclock-round-btn.is-resume,.stampclock-round-btn.is-stop{width:96px;height:96px;font-size:10.5px;}
   .stampclock-btn-zone{gap:14px;}
 }
 @media (max-height:700px){
+  .stampclock-page.is-idle{gap:14px;padding-bottom:10px;}
+  .stampclock-round-btn.is-start{width:134px;height:134px;font-size:13px;}
   .stampclock-page{gap:10px;padding-top:2px;padding-bottom:2px;}
   .stampclock-card{padding:18px 16px;gap:6px;}
   .stampclock-icon-badge{width:38px;height:38px;}
@@ -843,6 +870,14 @@ tbody tr:hover{background:var(--surface-alt);}
 .me-shift-row:last-child{margin-bottom:0;}
 .me-shift-row:hover{box-shadow:var(--shadow);}
 
+/* Meine Stunden: reduzierte Karte ohne Status — nur Datum, Objekt, Zeit, Gesamtzeit */
+.me-hours-row{padding:14px 16px;}
+.me-hours-row-date{font-weight:700;font-size:14px;font-family:'Space Grotesk';color:var(--ink);}
+.me-hours-row-cust{font-size:13px;color:var(--ink-soft);margin-top:2px;}
+.me-hours-row-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);}
+.me-hours-row-foot .mono{font-size:12.5px;color:var(--ink-soft);font-weight:600;}
+.me-hours-row-total{font-size:13.5px;font-weight:800;color:var(--primary-dark);}
+
 .toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:var(--shadow);z-index:200;display:flex;align-items:center;gap:8px;}
 .toast svg{width:15px;height:15px;color:var(--accent);}
 
@@ -1055,8 +1090,8 @@ tbody tr:hover{background:var(--surface-alt);}
   .tab{padding:10px 14px;font-size:13px;}
   .tabs{width:100%;}
   .tabs .tab{flex:1;text-align:center;}
-  .mtab{padding:8px 2px;min-height:52px;justify-content:center;}
-  .mtab svg{width:21px;height:21px;}
+  .mtab{padding:12px 2px;min-height:52px;justify-content:center;}
+  .mtab svg{width:23px;height:23px;}
   .close-x{width:40px;height:40px;}
   .close-x svg{width:15px;height:15px;}
 

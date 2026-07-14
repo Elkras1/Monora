@@ -1,13 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp, useActingEmployeeId, useHasPerm } from '../../state/AppContext';
 import { eligibleCustomersFor, getCust, getEmp, openEntryFor } from '../../state/selectors';
 import { useClock } from '../../hooks/useClock';
 import { useGeolocation } from '../../hooks/useGeolocation';
-import { haversine } from '../../utils/geo';
+import { haversine, formatDistance } from '../../utils/geo';
 import { formatDurationClock, isoDate } from '../../utils/date';
 import { Icon } from '../../components/icons/Icon';
+import type { Customer } from '../../types';
 
 type CheckError = { kind: 'out-of-range'; distance: number; radius: number } | { kind: 'no-location' };
+type NearbyCustomer = Customer & { distance: number };
 
 /**
  * Mitarbeiter-Zeiterfassung: moderne, runde Stempeluhr-Karte (Objekt, Status, laufende Zeit,
@@ -19,6 +21,12 @@ type CheckError = { kind: 'out-of-range'; distance: number; radius: number } | {
  * (`confirmClockIn`/`confirmClockOut`) — die eigentliche Zeit-/Geofencing-Logik bleibt unverändert,
  * nur der Dialog davor entfällt. ClockInModal/ClockOutModal bleiben als Dateien bestehen, da sie
  * weiterhin vom Admin/Manager-„Live-Status"-Stempelwidget (StampWidget) genutzt werden.
+ *
+ * Objektauswahl: statt einer dauerhaft sichtbaren Dropdown-Liste sucht die Seite beim Öffnen (und
+ * erneut nach jedem Stopp) automatisch per Geolocation nach erreichbaren Objekten aus dem für den
+ * Mitarbeiter zulässigen Pool (`eligibleCustomersFor` — unverändert). Genau ein Treffer wird
+ * automatisch übernommen, bei mehreren Treffern muss kurz ausgewählt werden, ohne Treffer bzw. ohne
+ * Standortfreigabe wird START blockiert.
  */
 export function MeTimePage() {
   const { state, actions } = useApp();
@@ -32,22 +40,45 @@ export function MeTimePage() {
   const canClock = hasPerm('time_clock');
 
   const pool = eligibleCustomersFor(state, emp);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(pool[0]?.id ?? '');
 
   const { status, fix, locate } = useGeolocation();
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [pendingAction, setPendingAction] = useState<'start' | 'stop' | null>(null);
   const [checkingCustomerId, setCheckingCustomerId] = useState<string | null>(null);
   const [checkError, setCheckError] = useState<CheckError | null>(null);
 
-  // Nach einem abgeschlossenen Stopp (isOn wechselt von true auf false) die Objekt-Auswahl zurücksetzen,
-  // damit für die nächste Schicht bewusst neu ausgewählt werden muss.
+  // Beim Öffnen der (noch nicht laufenden) Zeiterfassung sofort im Hintergrund den Standort prüfen,
+  // um passende Objekte in der Nähe zu finden.
+  useEffect(() => {
+    if (!isOn && canClock) locate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const nearby: NearbyCustomer[] = useMemo(() => {
+    if (!fix) return [];
+    return pool
+      .map((c) => ({ ...c, distance: haversine(fix.lat, fix.lng, c.lat, c.lng) }))
+      .filter((c) => !c.geofenceEnabled || c.distance <= c.radius)
+      .sort((a, b) => a.distance - b.distance);
+  }, [fix, pool]);
+
+  // Genau ein Treffer: automatisch übernehmen, ohne dass der Mitarbeiter etwas auswählen muss.
+  useEffect(() => {
+    if (nearby.length === 1 && !selectedCustomerId) setSelectedCustomerId(nearby[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nearby]);
+
+  // Nach einem abgeschlossenen Stopp (isOn wechselt von true auf false) die Objekt-Auswahl zurücksetzen
+  // und den Standort neu prüfen, damit für die nächste Schicht wieder frisch erkannt wird.
   const wasOnRef = useRef(isOn);
   useEffect(() => {
     if (wasOnRef.current && !isOn) {
       setSelectedCustomerId('');
       setCheckError(null);
+      locate();
     }
     wasOnRef.current = isOn;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOn]);
 
   // Reagiert auf das Ergebnis der Hintergrund-Standortprüfung, sobald `useGeolocation` von
@@ -146,26 +177,60 @@ export function MeTimePage() {
   }
 
   if (!isOn) {
+    const selected = nearby.find((c) => c.id === selectedCustomerId) ?? pool.find((c) => c.id === selectedCustomerId);
+    const showPicker = nearby.length > 1 && !selectedCustomerId;
+    const locating = status === 'idle' || status === 'locating';
+
     return (
-      <div className="stampclock-page">
-        <div className="stampclock-idle-select-wrap">
-          <select
-            className={`stampclock-idle-select ${selectedCustomerId ? '' : 'is-empty'}`}
-            value={selectedCustomerId}
-            disabled={pendingAction === 'start'}
-            onChange={(e) => {
-              setSelectedCustomerId(e.target.value);
-              setCheckError(null);
-            }}
-          >
-            <option value="">Bitte Objekt auswählen</option>
-            {pool.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+      <div className="stampclock-page is-idle">
+        <div className="stampclock-object-zone">
+          {locating && !nearby.length ? (
+            <div className="stampclock-checking">
+              <Icon name="location" /> Standort wird geprüft …
+            </div>
+          ) : status === 'error' ? (
+            <div className="stampclock-locate-block">
+              <Icon name="close" />
+              <div>Standortzugriff erforderlich.</div>
+              <button className="btn btn-outline btn-sm" onClick={() => locate()}>
+                Standort erneut prüfen
+              </button>
+            </div>
+          ) : status === 'success' && nearby.length === 0 ? (
+            <div className="stampclock-locate-block">
+              <Icon name="location" />
+              <div>Kein Einsatzort in deiner Nähe gefunden.</div>
+              <button className="btn btn-outline btn-sm" onClick={() => locate()}>
+                Standort erneut prüfen
+              </button>
+            </div>
+          ) : showPicker ? (
+            <div className="stampclock-picker">
+              <div className="stampclock-picker-title">Objekt wählen</div>
+              <div className="stampclock-picker-list">
+                {nearby.map((c) => (
+                  <button key={c.id} className="stampclock-picker-item" onClick={() => setSelectedCustomerId(c.id)}>
+                    <div className="stampclock-picker-item-main">
+                      <div className="n">{c.name}</div>
+                      <div className="a">{c.address}</div>
+                    </div>
+                    <div className="stampclock-picker-item-dist">{formatDistance(c.distance)}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : selected ? (
+            <div className="stampclock-selected-object">
+              <div className="name">{selected.name}</div>
+              {nearby.length > 1 ? (
+                <button className="stampclock-change-object" onClick={() => setSelectedCustomerId('')}>
+                  Objekt ändern
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
+
         <button className="stampclock-round-btn is-start" onClick={handleStart} disabled={!selectedCustomerId || pendingAction === 'start'}>
           <Icon name="clock" />
           Start
@@ -198,12 +263,6 @@ export function MeTimePage() {
           {onPause ? 'Pause' : 'Arbeitszeit läuft'}
         </div>
         <div className={`stampclock-timer ${onPause ? 'is-pause' : ''}`}>{formatDurationClock(onPause ? pauseMs : workedMs)}</div>
-        {onPause ? (
-          <div className="stampclock-sub-timer">
-            Arbeitszeit bisher: <b>{formatDurationClock(workedMs)}</b>
-          </div>
-        ) : null}
-        <div className="stampclock-object-label">Objekt</div>
         <div className="stampclock-object">{cust ? cust.name : '–'}</div>
         <div className="stampclock-btn-zone">
           {onPause ? (

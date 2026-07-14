@@ -1,7 +1,6 @@
 import React from 'react';
 import { useApp } from '../../state/AppContext';
 import { getCust } from '../../state/selectors';
-import { StatusBadge } from '../../components/ui/Badge';
 import { Empty } from '../../components/ui/Empty';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { fmtDate, fmtTime, mondayOf } from '../../utils/date';
@@ -12,9 +11,18 @@ const FILTER_TABS = [
   { id: 'all', label: 'Alle' },
 ] as const;
 
+function fmtHoursMin(totalMinutes: number): string {
+  const total = Math.round(totalMinutes);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${h} h ${m} min`;
+}
+
 /**
  * „Meine Stunden“: reine Anzeige der eigenen gespeicherten Arbeitszeiten.
  * Nur lesend – kein Bearbeiten, Bestätigen oder Löschen für Mitarbeiter.
+ * Bewusst ohne Status (offen/bestätigt/korrigiert) — das ist Sache von Admin/Manager, Mitarbeiter
+ * sehen hier nur Datum, Objekt, Zeit und Gesamtzeit.
  */
 export function MeHoursPage() {
   const { state, actions } = useApp();
@@ -38,8 +46,6 @@ export function MeHoursPage() {
 
   const weekHours = hoursSince(weekStart);
   const monthHours = hoursSince(monthStart);
-  const openCount = mine.filter((t) => t.status === 'offen').length;
-  const confirmedCount = mine.filter((t) => t.status === 'bestätigt').length;
 
   const filtered = mine.filter((t) => {
     if (filter === 'week') return new Date(t.clockIn) >= weekStart;
@@ -49,7 +55,7 @@ export function MeHoursPage() {
 
   return (
     <>
-      <div className="grid cols-4" style={{ marginBottom: 16 }}>
+      <div className="grid cols-2" style={{ marginBottom: 16 }}>
         <KpiCard icon="hourglass" label="Diese Woche" value={`${weekHours.toFixed(1)} h`} bg="var(--amber-tint)" fg="#93670A" />
         <KpiCard
           icon="hourglass"
@@ -58,8 +64,6 @@ export function MeHoursPage() {
           bg="var(--primary-tint)"
           fg="var(--primary-dark)"
         />
-        <KpiCard icon="clock" label="Offen" value={openCount} bg="var(--surface-alt)" fg="var(--ink-soft)" />
-        <KpiCard icon="check" label="Bestätigt" value={confirmedCount} bg="#E3F3FE" fg="var(--accent-dark)" />
       </div>
 
       <div className="tabs" style={{ marginBottom: 16 }}>
@@ -74,7 +78,7 @@ export function MeHoursPage() {
         ))}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {filtered.length ? (
           filtered.map((t) => {
             const c = getCust(state, t.customerId);
@@ -82,29 +86,14 @@ export function MeHoursPage() {
             const outD = t.clockOut ? new Date(t.clockOut) : null;
             const dur = outD ? (outD.getTime() - inD.getTime()) / 60000 - (t.pauseMinutes || 0) : null;
             return (
-              <div key={t.id} className="card" style={{ padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontWeight: 700, fontSize: 15, fontFamily: "'Space Grotesk'" }}>{fmtDate(inD)}</span>
-                  <StatusBadge status={t.status} />
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>{c ? c.name : '–'}</div>
-                <div className="detail-grid">
-                  <div>
-                    <span className="dl">Startzeit</span>
-                    <span className="dv mono">{fmtTime(inD)}</span>
-                  </div>
-                  <div>
-                    <span className="dl">Endzeit</span>
-                    <span className="dv mono">{outD ? fmtTime(outD) : 'läuft…'}</span>
-                  </div>
-                  <div>
-                    <span className="dl">Pause</span>
-                    <span className="dv">{t.pauseMinutes || 0} Min.</span>
-                  </div>
-                  <div>
-                    <span className="dl">Gesamtzeit</span>
-                    <span className="dv">{dur !== null ? `${Math.round(dur)} Min.` : '–'}</span>
-                  </div>
+              <div key={t.id} className="card me-hours-row">
+                <div className="me-hours-row-date">{fmtDate(inD)}</div>
+                <div className="me-hours-row-cust">{c ? c.name : '–'}</div>
+                <div className="me-hours-row-foot">
+                  <span className="mono">
+                    {fmtTime(inD)} – {outD ? fmtTime(outD) : 'läuft…'}
+                  </span>
+                  <span className="me-hours-row-total">{dur !== null ? fmtHoursMin(dur) : '–'}</span>
                 </div>
               </div>
             );
