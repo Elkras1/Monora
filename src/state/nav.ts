@@ -125,7 +125,7 @@ export const VIEW_META: Record<ViewId, [string, string]> = {
   'tickets-calendar': ['Ticket-Kalender', 'Tickets terminieren und per Drag & Drop einplanen'],
   'me-start': ['Start', 'Dein persönlicher Überblick für heute'],
   'me-schedule': ['Mein Dienstplan', 'Deine Schichten auf einen Blick'],
-  'me-time': ['Zeiterfassung', 'Starte, pausiere und beende deine Arbeitszeit'],
+  'me-time': ['Stempeluhr', 'Starte, pausiere und beende deine Arbeitszeit'],
   'me-hours': ['Meine Stunden', 'Deine gespeicherten Arbeitszeiten im Überblick'],
   'me-absence': ['Abwesenheiten', 'Deine Anträge und ihr Status'],
   'me-profile': ['Profil', 'Deine persönlichen Angaben'],

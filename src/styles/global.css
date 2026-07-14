@@ -116,6 +116,12 @@ a{color:inherit;}
 }
 .topbar h1{font-size:19px;}
 .topbar .sub{color:var(--ink-soft);font-size:12.5px;margin-top:2px;}
+
+/* Mitarbeiter: bewusst ruhiger Header — nur eine grosse Überschrift, sonst nichts (kein Untertitel,
+   kein Benutzer, keine Icons). Eigene Klasse statt Änderungen an .topbar/.topbar h1, damit der
+   Admin-/Manager-Header unangetastet bleibt. */
+.topbar.topbar-staff{justify-content:flex-start;padding-top:max(22px, env(safe-area-inset-top));padding-bottom:18px;}
+.topbar-staff h1{font-size:27px;font-weight:800;letter-spacing:-.015em;}
 .geo-pill{
   display:flex;align-items:center;gap:7px;background:var(--primary-tint);color:var(--primary-dark);
   padding:7px 12px;border-radius:999px;font-size:12.5px;font-weight:600;

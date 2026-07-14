@@ -11,34 +11,39 @@ export function Topbar() {
   const { state, actions } = useApp();
   const role = useCurrentRole();
   const user = useCurrentUser();
-  const isStaff = role === 'mitarbeiter';
   const [title, sub] = VIEW_META[state.view] ?? ['', ''];
 
   if (!user) return null;
 
+  // Mitarbeiter: bewusst ruhiger Header — nur der Seitentitel, keine zweite Zeile, kein Benutzername/
+  // keine Rolle, keine Icons. Der Titel bleibt (unsichtbar) antippbar zurück zur Startseite, da das
+  // sonst auf dem Handy keine erreichbare Funktion mehr wäre — reine Darstellung, keine neue Funktion.
+  if (role === 'mitarbeiter') {
+    return (
+      <div className="topbar topbar-staff">
+        <h1 onClick={() => actions.setView('me-start')} style={{ cursor: 'pointer' }}>
+          {title}
+        </h1>
+      </div>
+    );
+  }
+
   return (
     <div className="topbar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {!isStaff ? (
-          <button className="icon-btn mobile-toggle" onClick={() => actions.toggleSidebar()}>
-            <Icon name="menu" />
-          </button>
-        ) : null}
-        <div
-          onClick={isStaff ? () => actions.setView('me-start') : undefined}
-          style={isStaff ? { cursor: 'pointer' } : undefined}
-        >
+        <button className="icon-btn mobile-toggle" onClick={() => actions.toggleSidebar()}>
+          <Icon name="menu" />
+        </button>
+        <div>
           <h1>{title}</h1>
           <div className="sub">{sub}</div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
-        {!isStaff ? (
-          <div className="geo-pill">
-            <span className="geo-dot" /> Geofencing aktiv
-          </div>
-        ) : null}
-        {!isStaff ? <NotificationBell /> : null}
+        <div className="geo-pill">
+          <span className="geo-dot" /> Geofencing aktiv
+        </div>
+        <NotificationBell />
         <button
           className="user-chip"
           onClick={(e) => {
