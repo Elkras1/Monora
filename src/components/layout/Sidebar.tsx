@@ -20,11 +20,9 @@ export function Sidebar() {
   return (
     <div className={`sidebar ${state.sidebarOpen ? 'open' : ''}`}>
       <div className="brand">
-        <div className="brand-mark">
-          <Icon name="droplet" />
-        </div>
+        <div className="brand-mark">P</div>
         <div>
-          <div className="brand-name">Monora</div>
+          <div className="brand-name">Planico</div>
           <div className="brand-sub">Facility Workforce</div>
         </div>
       </div>

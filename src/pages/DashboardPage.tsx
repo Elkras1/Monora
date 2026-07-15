@@ -8,6 +8,7 @@ import { Empty } from '../components/ui/Empty';
 import { Icon } from '../components/icons/Icon';
 import { StampWidget } from '../components/StampWidget';
 import { DashboardSettingsModal } from '../components/DashboardSettingsModal';
+import { LiveStatusListModal } from '../components/LiveStatusListModal';
 import { DASHBOARD_MODULES } from '../state/dashboardModules';
 import { useDashboardPrefs } from '../hooks/useDashboardPrefs';
 import { colorFor, initials, summarizeMaterialItems } from '../utils/format';
@@ -34,6 +35,7 @@ export function DashboardPage() {
   const [editMode, setEditMode] = useState(false);
   const [moreExpanded, setMoreExpanded] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [liveListOpen, setLiveListOpen] = useState<'active' | 'pause' | null>(null);
 
   const activeNow = state.timeEntries.filter((t) => !t.clockOut);
   const activeEmployees = state.employees.filter((e) => e.status === 'aktiv');
@@ -127,7 +129,7 @@ export function DashboardPage() {
             bg="#E3F3FE"
             fg="var(--accent-dark)"
             delta={activeNow.length ? 'Live eingestempelt' : 'Niemand aktiv'}
-            onClick={() => actions.setView('clock')}
+            onClick={() => setLiveListOpen('active')}
           />
         );
       case 'kpi-pause':
@@ -139,7 +141,7 @@ export function DashboardPage() {
             bg="var(--amber-tint)"
             fg="#93670A"
             delta={onPauseCount ? 'Pausiert aktuell' : 'Niemand pausiert'}
-            onClick={() => actions.setView('clock')}
+            onClick={() => setLiveListOpen('pause')}
           />
         );
       case 'kpi-open-entries':
@@ -868,6 +870,8 @@ export function DashboardPage() {
       {settingsOpen ? (
         <DashboardSettingsModal prefs={prefs} onSave={savePrefs} onReset={resetPrefs} onClose={() => setSettingsOpen(false)} />
       ) : null}
+
+      {liveListOpen ? <LiveStatusListModal kind={liveListOpen} onClose={() => setLiveListOpen(null)} /> : null}
     </>
   );
 }

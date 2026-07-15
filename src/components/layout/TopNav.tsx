@@ -19,56 +19,66 @@ export function TopNav() {
   const unreadMessages = getUnreadTotalFor(state, user.id);
   const unreadNotifs = unreadNotificationCountFor(state, role, user.id);
 
-  const items = groupNavItems(nav);
+  // Chat steht nicht mehr zwischen den normalen Menüpunkten, sondern als eigenes Icon rechts (siehe unten) —
+  // hier deshalb aus der Hauptnavigation herausgefiltert, ohne `navConfigFor`/`groupNavItems` selbst zu
+  // verändern (die bleiben unverändert für die mobile mitarbeiter Ansicht sowie die admin/manager-Sidebar).
+  const items = groupNavItems(nav).filter((item) => item.view !== 'messages');
   const activeGroup = items.find((item) => item.groupViews?.includes(state.view));
 
   return (
     <>
       <div className="topnav">
         <button className="topnav-brand" onClick={() => actions.setView(nav[0]?.view ?? 'dashboard')}>
-          <div className="brand-mark">
-            <Icon name="droplet" />
-          </div>
-          <span className="topnav-brand-name">Monora</span>
+          <div className="brand-mark">P</div>
+          <span className="topnav-brand-name">Planico</span>
         </button>
-        <nav className="topnav-links">
+        <nav className="topnav-links" aria-label="Hauptnavigation">
           {items.map((item) => {
             const active = item.view ? state.view === item.view : !!item.groupViews?.includes(state.view);
             const targetView: ViewId = item.view ?? (item.groupViews as ViewId[])[0];
             const onClick = () => actions.setView(targetView);
             return (
-              <button key={item.key} className={`topnav-link ${active ? 'active' : ''}`} onClick={onClick} title={item.label}>
+              <button
+                key={item.key}
+                className={`topnav-link ${active ? 'active' : ''}`}
+                onClick={onClick}
+                aria-label={item.label}
+                aria-current={active ? 'page' : undefined}
+                data-tooltip={item.label}
+                title={item.label}
+              >
                 <Icon name={item.icon} />
-                <span>{item.label}</span>
-                {(item.view === 'messages' || item.groupViews?.includes('messages')) && unreadMessages > 0 ? (
-                  <span className="nav-unread-badge">{unreadMessages}</span>
-                ) : null}
                 {(item.view === 'tickets' || item.groupViews?.includes('tickets')) && unreadNotifs > 0 ? (
-                  <span className="nav-unread-badge">{unreadNotifs}</span>
+                  <span className="topnav-link-badge">{unreadNotifs > 9 ? '9+' : unreadNotifs}</span>
                 ) : null}
               </button>
             );
           })}
         </nav>
         <div className="topnav-right">
-          {role !== 'mitarbeiter' ? (
-            <div className="geo-pill">
-              <span className="geo-dot" /> Geofencing aktiv
-            </div>
-          ) : null}
-          {role !== 'mitarbeiter' ? <NotificationBell /> : null}
+          <button
+            className="icon-btn"
+            onClick={() => actions.setView('messages')}
+            aria-label="Chat"
+            aria-current={state.view === 'messages' ? 'page' : undefined}
+            data-tooltip="Chat"
+            title="Chat"
+          >
+            <Icon name="message" />
+            {unreadMessages > 0 ? <span className="topnav-link-badge">{unreadMessages > 9 ? '9+' : unreadMessages}</span> : null}
+          </button>
+          <NotificationBell />
           <button
             className="user-chip"
             onClick={(e) => {
               e.stopPropagation();
               actions.toggleUserMenu();
             }}
+            aria-label={`Profilmenü — ${user.name}, ${roleLabel(role)}`}
+            data-tooltip={`${user.name} · ${roleLabel(role)}`}
+            title={`${user.name} · ${roleLabel(role)}`}
           >
             <Avatar id={user.id} name={user.name} photoUrl={user.photoUrl} size={30} fontSize={12} />
-            <div className="user-chip-txt">
-              <div className="n">{user.name.split(' ')[0]}</div>
-              <div className="r">{roleLabel(role)}</div>
-            </div>
           </button>
           {state.userMenuOpen ? <UserMenu /> : null}
         </div>

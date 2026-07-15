@@ -14,12 +14,10 @@ export function LoginPage() {
     <div className="login-screen">
       <div className="login-card">
         <div className="login-brand">
-          <div className="brand-mark">
-            <Icon name="droplet" />
-          </div>
+          <div className="brand-mark">P</div>
           <div>
             <div className="brand-name" style={{ color: 'var(--ink)' }}>
-              Monora
+              Planico
             </div>
             <div className="brand-sub" style={{ color: 'var(--ink-faint)' }}>
               Facility Workforce

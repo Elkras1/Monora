@@ -426,7 +426,7 @@ export interface Ticket {
   title: string;
   description: string;
   customerId: string | null;
-  locationId: string | null; // in Monora = derselbe Kunde/Standort wie customerId (kein separates Location-Entity)
+  locationId: string | null; // in Planico = derselbe Kunde/Standort wie customerId (kein separates Location-Entity)
   assignedEmployeeId: string | null;
   assignedManagerId: string | null;
   priority: TicketPriority;

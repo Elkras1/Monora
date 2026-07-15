@@ -55,7 +55,9 @@ export function NotificationBell() {
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        title="Benachrichtigungen"
+        aria-label="Meldungen"
+        data-tooltip="Meldungen"
+        title="Meldungen"
       >
         <Icon name="alert" />
         {unread > 0 ? <span className="notif-bell-badge">{unread > 9 ? '9+' : unread}</span> : null}

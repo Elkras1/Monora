@@ -1,4 +1,4 @@
-# Monora – Zeiterfassung & Facility Workforce
+# Planico – Zeiterfassung & Facility Workforce
 
 React + TypeScript + Vite Prototyp für Reinigungsfirmen: Dienstplan, Mitarbeiterverwaltung,
 Zeiterfassung mit echtem GPS-Geofencing, Abwesenheiten, Standorte/Kunden, Berichte und
