@@ -9,6 +9,7 @@ import { Icon } from '../components/icons/Icon';
 import { StampWidget } from '../components/StampWidget';
 import { DashboardSettingsModal } from '../components/DashboardSettingsModal';
 import { LiveStatusListModal } from '../components/LiveStatusListModal';
+import { MaterialRequestsOverviewModal } from '../components/MaterialRequestsOverviewModal';
 import { DASHBOARD_MODULES } from '../state/dashboardModules';
 import { useDashboardPrefs } from '../hooks/useDashboardPrefs';
 import { colorFor, initials, summarizeMaterialItems } from '../utils/format';
@@ -36,6 +37,7 @@ export function DashboardPage() {
   const [moreExpanded, setMoreExpanded] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [liveListOpen, setLiveListOpen] = useState<'active' | 'pause' | null>(null);
+  const [matOverviewOpen, setMatOverviewOpen] = useState(false);
 
   const activeNow = state.timeEntries.filter((t) => !t.clockOut);
   const activeEmployees = state.employees.filter((e) => e.status === 'aktiv');
@@ -246,7 +248,7 @@ export function DashboardPage() {
                   </span>
                 ) : null}
               </h3>
-              <button className="muted-link" onClick={() => actions.setView('tickets-material')}>
+              <button className="muted-link" onClick={() => setMatOverviewOpen(true)}>
                 Alle anzeigen →
               </button>
             </div>
@@ -867,6 +869,7 @@ export function DashboardPage() {
       ) : null}
 
       {liveListOpen ? <LiveStatusListModal kind={liveListOpen} onClose={() => setLiveListOpen(null)} /> : null}
+      {matOverviewOpen ? <MaterialRequestsOverviewModal onClose={() => setMatOverviewOpen(false)} /> : null}
     </>
   );
 }
