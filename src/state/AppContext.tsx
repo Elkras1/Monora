@@ -51,6 +51,7 @@ export type ModalType =
   | 'meAbsence'
   | 'meCorrection'
   | 'meProfile'
+  | 'meChangePassword'
   | 'ticket'
   | 'materialRequest';
 
@@ -64,12 +65,28 @@ export interface ToastItem {
   message: string;
 }
 
+/**
+ * Demo-Passwort-Reset-Token (Prototyp only): rein clientseitig, lebt nur im Speicher dieser Browser-
+ * Sitzung (kein Persistieren in localStorage). `employeeId` ist absichtlich `null`, wenn die eingegebene
+ * E-Mail zu keinem Konto passt — die UI zeigt in beiden Fällen dieselbe neutrale Meldung, damit nicht
+ * erkennbar ist, ob ein Konto existiert (siehe requestPasswordReset/resetPassword unten).
+ * Bei einer echten Supabase-Auth-Anbindung entfällt das komplett zugunsten von
+ * supabase.auth.resetPasswordForEmail()/updateUser() mit serverseitig signierten Tokens.
+ */
+export interface PasswordResetToken {
+  token: string;
+  employeeId: string | null;
+  email: string;
+}
+
 export interface UIState {
   view: ViewId;
   loggedIn: boolean;
   currentUserId: string | null;
   currentEmployeeId: string | null;
   loginError: string;
+  authView: 'login' | 'forgot' | 'reset';
+  passwordResetToken: PasswordResetToken | null;
   weekOffset: number;
   filter: FilterState;
   sidebarOpen: boolean;
@@ -93,12 +110,16 @@ function migrateData(data: AppData): AppData {
     if (c.geofenceEnabled === undefined) c.geofenceEnabled = true;
   });
   data.employees.forEach((e) => {
+    // PROTOTYP-HINWEIS: Passwörter liegen hier bewusst einfach als Klartext-Feld im zentralen State/
+    // localStorage, es gibt keine Hash-/Salt-Bildung. Das ist NICHT produktionstauglich und dient nur
+    // der Demo. Bei einer echten Supabase-Auth-Anbindung entfällt dieses Feld vollständig — Passwörter
+    // würden dann ausschliesslich serverseitig von Supabase gehasht verwaltet, niemals im Client-State.
     if (e.password === undefined) e.password = 'demo1234';
     // Login lief früher über den Namen; die drei Demo-Konten bekommen jetzt feste E-Mail-Logins,
-    // auch wenn in localStorage noch die alte automatisch generierte Adresse hinterlegt ist.
-    if (e.name === 'Laura Keller' && e.systemRole === 'admin') e.email = 'admin@monora.ch';
-    if (e.name === 'Marco Baumann' && e.systemRole === 'manager') e.email = 'manager@monora.ch';
-    if (e.name === 'Luca Meier' && e.systemRole === 'mitarbeiter') e.email = 'mitarbeiter@monora.ch';
+    // auch wenn in localStorage noch eine ältere Demo-Domain hinterlegt ist.
+    if (e.name === 'Laura Keller' && e.systemRole === 'admin') e.email = 'admin@planico.ch';
+    if (e.name === 'Marco Baumann' && e.systemRole === 'manager') e.email = 'manager@planico.ch';
+    if (e.name === 'Luca Meier' && e.systemRole === 'mitarbeiter') e.email = 'mitarbeiter@planico.ch';
   });
   data.timeEntries.forEach((t) => {
     const anyT = t as any;
@@ -225,6 +246,8 @@ function loadInitialState(): AppState {
     currentUserId: admin?.id ?? data.employees[0]?.id ?? null,
     currentEmployeeId: data.employees[0]?.id ?? null,
     loginError: '',
+    authView: 'login',
+    passwordResetToken: null,
     weekOffset: 0,
     filter: {},
     sidebarOpen: false,
@@ -294,6 +317,14 @@ interface AppContextValue {
     // auth / nav
     attemptLogin: (email: string, password: string) => void;
     logout: () => void;
+    setAuthView: (view: 'login' | 'forgot' | 'reset') => void;
+    // Passwort zurücksetzen (Prototyp-Simulation, siehe PasswordResetToken-Kommentar oben)
+    requestPasswordReset: (email: string) => void;
+    resetPassword: (newPassword: string) => void;
+    // Mitarbeiter ändert das eigene Passwort im Profil (nur das eigene, siehe MeProfilePage)
+    changeMyPassword: (currentPassword: string, newPassword: string) => boolean;
+    // Admin/Manager: bestehendes Passwort ungültig machen, Mitarbeiter muss sich per "Passwort vergessen" neu setzen
+    invalidateEmployeePassword: (employeeId: string) => void;
     setView: (view: ViewId) => void;
     toggleSidebar: () => void;
     setSidebarOpen: (open: boolean) => void;
@@ -566,6 +597,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const actions = useMemo<AppContextValue['actions']>(
     () => ({
+      // PROTOTYP-HINWEIS: Login vergleicht das eingegebene Passwort direkt mit dem im State/localStorage
+      // abgelegten Klartext-Passwort. Das ist nur für die Demo tragbar. Bei einer echten Backend-Anbindung
+      // ersetzt supabase.auth.signInWithPassword({email, password}) diese gesamte Funktion — die Rolle
+      // käme dann weiterhin aus der employees-Tabelle, verknüpft über die Supabase-User-ID.
       attemptLogin: (email, password) => {
         setState((s) => {
           const query = email.trim().toLowerCase();
@@ -581,6 +616,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             sidebarOpen: false,
             userMenuOpen: false,
             loginError: '',
+            authView: 'login',
+            passwordResetToken: null,
             modal: null,
             panelShiftId: null,
             panelLocationId: null,
@@ -597,6 +634,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...s,
           loggedIn: false,
           userMenuOpen: false,
+          authView: 'login',
+          passwordResetToken: null,
           modal: null,
           panelShiftId: null,
           panelLocationId: null,
@@ -606,6 +645,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           panelTicketId: null,
           panelMaterialRequestId: null,
         }));
+      },
+      setAuthView: (view) => setState((s) => ({ ...s, authView: view, loginError: '' })),
+      // Prototyp-Simulation von supabase.auth.resetPasswordForEmail(): zeigt bewusst IMMER dieselbe
+      // neutrale Erfolgsmeldung (siehe LoginPage), unabhängig davon, ob die E-Mail zu einem Konto passt —
+      // nur so lässt sich am Client nicht ablesen, ob ein Konto existiert. Das Token lebt nur im UI-State
+      // dieser Sitzung (nicht in AppData/localStorage) und dient hier nur der Demo-Kurzstrecke
+      // "Passwort jetzt zurücksetzen", weil in diesem Prototyp keine E-Mail wirklich verschickt wird.
+      // TODO (Supabase Auth): diese ganze Funktion durch
+      //   await supabase.auth.resetPasswordForEmail(email, { redirectTo: 'https://app.planico.ch/reset-password' })
+      // ersetzen — Supabase verschickt dann selbst eine echte E-Mail mit einem signierten Link, und
+      // passwordResetToken/resetPassword unten entfallen zugunsten von supabase.auth.updateUser({password}),
+      // aufgerufen auf der Seite, die der echte Link öffnet.
+      requestPasswordReset: (email) => {
+        setState((s) => {
+          const query = email.trim().toLowerCase();
+          const emp = s.employees.find((e) => (e.status === 'aktiv' || e.status === 'eingeladen') && e.email.trim().toLowerCase() === query);
+          return { ...s, passwordResetToken: { token: uid(), employeeId: emp?.id ?? null, email: query } };
+        });
+      },
+      resetPassword: (newPassword) => {
+        setState((s) => {
+          const tok = s.passwordResetToken;
+          if (!tok || !tok.employeeId) {
+            return { ...s, passwordResetToken: null, authView: 'login' };
+          }
+          return {
+            ...s,
+            employees: s.employees.map((e) => (e.id === tok.employeeId ? { ...e, password: newPassword, status: 'aktiv' } : e)),
+            passwordResetToken: null,
+            authView: 'login',
+          };
+        });
+        // Bewusst dieselbe Erfolgsmeldung, egal ob wirklich ein Konto betroffen war (siehe oben).
+        setTimeout(() => toast('Dein Passwort wurde geändert.'), 0);
+      },
+      changeMyPassword: (currentPassword, newPassword) => {
+        let ok = false;
+        setState((s) => {
+          const me = s.employees.find((e) => e.id === s.currentUserId);
+          if (!me || me.password !== currentPassword) return s;
+          ok = true;
+          return { ...s, employees: s.employees.map((e) => (e.id === me.id ? { ...e, password: newPassword } : e)) };
+        });
+        toast(ok ? 'Passwort geändert.' : 'Aktuelles Passwort ist nicht korrekt.');
+        return ok;
+      },
+      invalidateEmployeePassword: (employeeId) => {
+        setState((s) => ({
+          ...s,
+          employees: s.employees.map((e) => (e.id === employeeId ? { ...e, password: uid() } : e)),
+        }));
+        toast('Passwort wurde ungültig gemacht — Mitarbeiter kann sich über „Passwort vergessen" neu anmelden.');
       },
       setView: (view) => setState((s) => ({ ...s, view, sidebarOpen: false })),
       toggleSidebar: () => setState((s) => ({ ...s, sidebarOpen: !s.sidebarOpen })),

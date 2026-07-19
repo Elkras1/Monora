@@ -246,9 +246,9 @@ export function seedData(): AppData {
   const e7 = makeEmployee('Aleksandar Popović', 'Koch', [c3.id], '2290');
   const e8 = makeEmployee('Tanja Egger', 'Housekeeping', [c1.id, c2.id], '7743');
   const e9 = makeEmployee('David Meier', 'Barkeeper', [c4.id, c1.id], '9012');
-  const eAdmin = makeEmployee('Laura Keller', 'Administrator', [], '0001', 'admin', 'admin@monora.ch');
-  const eManager = makeEmployee('Marco Baumann', 'Manager Service', [c1.id, c2.id], '0002', 'manager', 'manager@monora.ch');
-  const eStaff = makeEmployee('Luca Meier', 'Service Mitarbeiter', [c1.id], '0003', 'mitarbeiter', 'mitarbeiter@monora.ch');
+  const eAdmin = makeEmployee('Laura Keller', 'Administrator', [], '0001', 'admin', 'admin@planico.ch');
+  const eManager = makeEmployee('Marco Baumann', 'Manager Service', [c1.id, c2.id], '0002', 'manager', 'manager@planico.ch');
+  const eStaff = makeEmployee('Luca Meier', 'Service Mitarbeiter', [c1.id], '0003', 'mitarbeiter', 'mitarbeiter@planico.ch');
   const employees = [e1, e2, e3, e4, e5, e6, e7, e8, e9, eAdmin, eManager, eStaff];
 
   const monday = mondayOf(today);

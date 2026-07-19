@@ -20,11 +20,8 @@ export function Sidebar() {
   return (
     <div className={`sidebar ${state.sidebarOpen ? 'open' : ''}`}>
       <div className="brand">
-        <div className="brand-mark">P</div>
-        <div>
-          <div className="brand-name">Planico</div>
-          <div className="brand-sub">Facility Workforce</div>
-        </div>
+        <img src="/planico-logo-white.svg" alt="Planico" className="brand-mark" />
+        <div className="brand-sub">Facility Workforce</div>
       </div>
       <nav className="nav">
         {items.map((item) =>

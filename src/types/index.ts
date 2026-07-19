@@ -58,8 +58,11 @@ export interface Employee {
   email: string;
   phone: string;
   status: EmployeeStatus;
-  pin: string;
-  password: string; // login password (separate from the operational "pin" used for Zeiterfassung)
+  // Alte, nicht mehr verwendete Zeiterfassungs-PIN — optional statt entfernt, damit bestehende
+  // localStorage-Daten weiterhin fehlerfrei laden (siehe migrateData). Wird in Admin-UI (Anlegen/
+  // Bearbeiten/Übersicht) nicht mehr angezeigt oder abgefragt; Login läuft ausschliesslich über E-Mail + Passwort.
+  pin?: string;
+  password: string; // login password (separate from der alten, nicht mehr genutzten "pin")
   startDate: string; // ISO date
   customerIds: string[];
   photoUrl?: string; // resized data-URL, self-uploaded profile picture (localStorage only)
@@ -297,12 +300,16 @@ export interface FilterState {
   evalDateFrom?: string;
   evalDateTo?: string;
   evalStatus?: string;
-  evalGroupBy?: 'none' | 'employee' | 'service' | 'customer' | 'day' | 'week' | 'month';
+  evalGroupBy?: 'none' | 'employee' | 'service' | 'customer' | 'day';
+  evalSortDir?: 'asc' | 'desc';
   schedStandort?: string;
   schedEmp?: string;
-  schedView?: 'week' | 'month' | 'employee' | 'list';
+  schedRole?: string;
+  schedSearch?: string;
+  schedView?: 'day' | 'week' | 'month' | 'employee' | 'list';
   schedRangeFrom?: string;
   schedRangeTo?: string;
+  schedMoreFilters?: boolean;
   empSearch?: string;
   absStatus?: string;
   absView?: 'month' | 'year' | 'list';

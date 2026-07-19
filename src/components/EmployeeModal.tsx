@@ -2,10 +2,13 @@ import React, { useRef, useState } from 'react';
 import { Modal } from './ui/Overlay';
 import { Icon } from './icons/Icon';
 import { Empty } from './ui/Empty';
+import { PasswordField, PasswordStrengthMeter } from './ui/PasswordField';
 import { useApp, useCurrentUser, useHasPerm, useIsAdmin } from '../state/AppContext';
 import type { CustomFieldDef, CustomFieldType, Employee, EmployeeDocumentType, EmployeeStatus, EmploymentType, SystemRole } from '../types';
 import { fmtDate, isoDate } from '../utils/date';
 import { uid } from '../utils/format';
+import { passwordRequirementsMet } from '../utils/password';
+import { sendInvite as sendInviteEmail, type InviteEmail } from '../services/inviteService';
 import { deleteDocBlob, getDocBlob, MAX_DOC_SIZE_BYTES, saveDocBlob } from '../utils/docStore';
 
 const ROLE_OPTIONS = [
@@ -89,7 +92,11 @@ export function EmployeeModal({ payload }: { payload?: Employee }) {
   const [phone, setPhone] = useState(editing?.phone ?? '');
   const [systemRole, setSystemRole] = useState<SystemRole>(editing?.systemRole ?? 'mitarbeiter');
   const [status, setStatus] = useState<EmployeeStatus>(editing?.status ?? 'aktiv');
-  const [pin, setPin] = useState(editing?.pin ?? String(Math.floor(1000 + Math.random() * 8999)));
+  // Zugang (nur beim Anlegen — Passwort danach über "Passwort vergessen" bzw. das eigene Profil ändern)
+  const [passwordMode, setPasswordMode] = useState<'invite' | 'admin'>('invite');
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [invitePreview, setInvitePreview] = useState<InviteEmail | null>(null);
   const [startDate, setStartDate] = useState(editing?.startDate ?? isoDate(new Date()));
   const [customerIds, setCustomerIds] = useState<string[]>(editing?.customerIds ?? []);
   const [serviceIds, setServiceIds] = useState<string[]>(editing?.serviceIds ?? []);
@@ -172,6 +179,29 @@ export function EmployeeModal({ payload }: { payload?: Employee }) {
       toast('Bitte eine gültige E-Mail-Adresse angeben.');
       return;
     }
+    // Zugang wird nur beim erstmaligen Anlegen festgelegt — beim Bearbeiten bleibt das bestehende
+    // Passwort unverändert (siehe saveEmployee: "password" wird nur mitgeschickt, wenn hier gesetzt).
+    let initialPassword: string | undefined;
+    let effectiveStatus = status;
+    if (!editing) {
+      if (passwordMode === 'admin') {
+        if (!passwordRequirementsMet(password)) {
+          toast('Passwort muss mind. 8 Zeichen, einen Buchstaben und eine Zahl enthalten.');
+          return;
+        }
+        if (password !== password2) {
+          toast('Die Passwörter stimmen nicht überein.');
+          return;
+        }
+        initialPassword = password;
+      } else {
+        // Variante B: Mitarbeiter legt das Passwort selbst fest. Für den Prototyp bekommt das Konto ein
+        // zufälliges, niemandem bekanntes Platzhalter-Passwort und den Status "eingeladen" — der
+        // Mitarbeiter aktiviert sein Konto über "Passwort vergessen" mit seiner E-Mail (siehe LoginPage).
+        initialPassword = `${uid()}${uid()}`;
+        effectiveStatus = 'eingeladen';
+      }
+    }
     const name = `${firstName.trim()} ${lastName.trim()}`.trim();
     actions.saveEmployee(
       {
@@ -179,11 +209,11 @@ export function EmployeeModal({ payload }: { payload?: Employee }) {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         role,
-        status,
+        status: effectiveStatus,
         email: email.trim(),
         phone,
         systemRole: isAdmin ? systemRole : editing?.systemRole ?? 'mitarbeiter',
-        pin,
+        ...(initialPassword ? { password: initialPassword } : {}),
         startDate,
         customerIds,
         serviceIds,
@@ -206,6 +236,12 @@ export function EmployeeModal({ payload }: { payload?: Employee }) {
       },
       editing?.id ?? null
     );
+    if (!editing && passwordMode === 'invite') {
+      // Einladungs-E-Mail über den eigenen Invite-Service simulieren (siehe services/inviteService.ts) —
+      // Modal bleibt offen, damit der Admin die simulierte E-Mail als Vorschau sieht.
+      sendInviteEmail(firstName.trim(), email.trim()).then(setInvitePreview);
+      return;
+    }
     actions.closeModal();
   };
 
@@ -279,11 +315,12 @@ export function EmployeeModal({ payload }: { payload?: Employee }) {
       footer={
         <>
           <button className="btn btn-ghost" onClick={() => actions.closeModal()}>
-            Schliessen
+            {invitePreview ? 'Fertig' : 'Schliessen'}
           </button>
-          {canEditGeneral ? (
+          {canEditGeneral && !invitePreview ? (
             <button className="btn btn-primary" onClick={save}>
-              <Icon name="check" /> {editing ? 'Speichern' : 'Anlegen'}
+              <Icon name={!editing && passwordMode === 'invite' ? 'send' : 'check'} />{' '}
+              {editing ? 'Speichern' : passwordMode === 'invite' ? 'Einladung senden' : 'Anlegen'}
             </button>
           ) : null}
         </>
@@ -324,6 +361,73 @@ export function EmployeeModal({ payload }: { payload?: Employee }) {
               <input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!canEditGeneral} />
             </div>
           </div>
+          {!editing ? (
+            <div className="settings-section" style={{ background: 'var(--surface-alt)', borderRadius: 10, padding: 12, marginBottom: 13 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', marginBottom: 8 }}>Zugang</label>
+              {invitePreview ? (
+                <div className="invite-preview">
+                  <div className="ok-box" style={{ marginBottom: 10 }}>
+                    <Icon name="check" /> Einladung erstellt und E-Mail-Versand simuliert.
+                  </div>
+                  <div className="invite-preview-mail">
+                    <div>
+                      <span className="dl">An</span> {invitePreview.to}
+                    </div>
+                    <div>
+                      <span className="dl">Betreff</span> {invitePreview.subject}
+                    </div>
+                    <pre>{invitePreview.body}</pre>
+                  </div>
+                  <div className="hint" style={{ marginTop: 8 }}>
+                    Prototyp-Hinweis: kein echter E-Mail-Versand — der Mitarbeiter kann sich stattdessen direkt über „Passwort vergessen" mit dieser
+                    E-Mail-Adresse ein Passwort setzen.
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: passwordMode === 'admin' ? 12 : 0 }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                      <input type="radio" checked={passwordMode === 'invite'} onChange={() => setPasswordMode('invite')} style={{ marginTop: 3 }} />
+                      <span>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>
+                          Mitarbeiter soll Passwort selbst festlegen <span className="badge badge-blue">Empfohlen</span>
+                        </div>
+                        <div className="hint">Es wird eine Einladungs-E-Mail simuliert; der Mitarbeiter setzt sein Passwort beim ersten Anmelden selbst.</div>
+                      </span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                      <input type="radio" checked={passwordMode === 'admin'} onChange={() => setPasswordMode('admin')} style={{ marginTop: 3 }} />
+                      <span>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>Initiales Passwort festlegen</div>
+                        <div className="hint">Du vergibst direkt ein Passwort für den ersten Login.</div>
+                      </span>
+                    </label>
+                  </div>
+                  {passwordMode === 'admin' ? (
+                    <div className="field-row" style={{ marginBottom: 0 }}>
+                      <PasswordField label="Initiales Passwort" value={password} onChange={setPassword} autoComplete="new-password" />
+                      <PasswordField label="Passwort bestätigen" value={password2} onChange={setPassword2} autoComplete="new-password" />
+                    </div>
+                  ) : null}
+                  {passwordMode === 'admin' ? <PasswordStrengthMeter password={password} /> : null}
+                </>
+              )}
+            </div>
+          ) : isAdmin ? (
+            <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => editing && actions.invalidateEmployeePassword(editing.id)}
+              >
+                <Icon name="bolt" /> Neuen Reset-Link auslösen
+              </button>
+              <span className="hint" style={{ margin: 0 }}>
+                Das aktuelle Passwort wird ungültig — der Mitarbeiter setzt über „Passwort vergessen" ein neues.
+              </span>
+            </div>
+          ) : null}
+
           <div className="field-row">
             <div className="field">
               <label>Berechtigung / Rolle</label>
@@ -343,19 +447,13 @@ export function EmployeeModal({ payload }: { payload?: Employee }) {
               </select>
             </div>
           </div>
-          <div className="field-row">
-            <div className="field">
-              <label>Jobbezeichnung</label>
-              <select value={role} onChange={(e) => setRole(e.target.value)} disabled={!canEditGeneral}>
-                {ROLE_OPTIONS.map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>PIN (Zeiterfassung)</label>
-              <input value={pin} onChange={(e) => setPin(e.target.value)} disabled={!canEditGeneral} />
-            </div>
+          <div className="field" style={{ maxWidth: 320 }}>
+            <label>Jobbezeichnung</label>
+            <select value={role} onChange={(e) => setRole(e.target.value)} disabled={!canEditGeneral}>
+              {ROLE_OPTIONS.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label>Eintrittsdatum</label>

@@ -6,19 +6,19 @@ import { StatusBadge } from './ui/Badge';
 import { Empty } from './ui/Empty';
 import { Icon } from './icons/Icon';
 import { colorFor, initials } from '../utils/format';
-import { fmtDate, isoDate, mondayOf } from '../utils/date';
+import { fmtDate, isoDate } from '../utils/date';
 import { buildExportRows, downloadFile, printRowsAsPdf, rowsToCsv } from '../utils/export';
 import type { TimeEntry } from '../types';
 
 const GROUP_OPTIONS = [
   { id: 'none', label: 'Keine Gruppierung' },
   { id: 'employee', label: 'Mitarbeiter' },
-  { id: 'service', label: 'Leistung' },
   { id: 'customer', label: 'Standort' },
-  { id: 'day', label: 'Tag' },
-  { id: 'week', label: 'Woche' },
-  { id: 'month', label: 'Monat' },
+  { id: 'service', label: 'Leistung' },
+  { id: 'day', label: 'Datum' },
 ] as const;
+
+const TABLE_COLS = 9;
 
 /** Nur abgeschlossene Einträge tragen zu Dauer-Summen bei – noch laufende Einträge haben keine feste Dauer und bleiben bei 0 (sie erscheinen aber in der Liste). Einzige Quelle für alle Dauer-Berechnungen (Zeilen, Kennzahlen, Total), damit nirgends doppelt oder abweichend gerechnet wird. */
 function durationMinutes(t: TimeEntry): number {
@@ -41,11 +41,19 @@ function fmtTimeRange(inD: Date, outD: Date | null): string {
   return `${start} – ${end}`;
 }
 
+interface GroupSection {
+  key: string;
+  label: string;
+  entries: TimeEntry[];
+  hours: number;
+}
+
 export function TimeEvaluation() {
   const { state, actions, toast } = useApp();
   const hasPerm = useHasPerm();
   const f = state.filter;
   const canExport = hasPerm('time_export');
+  const canConfirm = hasPerm('time_confirm');
 
   const now = new Date();
   const monthStart = isoDate(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -53,6 +61,7 @@ export function TimeEvaluation() {
   const dateFrom = f.evalDateFrom || monthStart;
   const dateTo = f.evalDateTo || monthEnd;
   const groupBy = f.evalGroupBy ?? 'none';
+  const sortDir = f.evalSortDir ?? 'asc';
 
   const entries = useMemo(() => {
     return state.timeEntries
@@ -71,14 +80,20 @@ export function TimeEvaluation() {
         if (f.evalStatus && f.evalStatus !== 'alle' && t.status !== f.evalStatus) return false;
         return true;
       })
-      .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
-  }, [state.timeEntries, dateFrom, dateTo, f.evalEmp, f.evalService, f.evalCust, f.evalStatus]);
+      .sort((a, b) =>
+        sortDir === 'asc'
+          ? new Date(a.clockIn).getTime() - new Date(b.clockIn).getTime()
+          : new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()
+      );
+  }, [state.timeEntries, dateFrom, dateTo, f.evalEmp, f.evalService, f.evalCust, f.evalStatus, sortDir]);
 
   const totalHours = entries.reduce((s, t) => s + durationHours(t), 0);
   const confirmedHours = entries.filter((t) => t.status === 'bestätigt').reduce((s, t) => s + durationHours(t), 0);
   const openHours = entries.filter((t) => t.status === 'offen').reduce((s, t) => s + durationHours(t), 0);
+  // Weiterhin berechnet (nur nicht mehr als eigene Dashboard-Kennzahl angezeigt, siehe Kennzahlen-Bereich unten).
   const correctedHours = entries.filter((t) => t.status === 'korrigiert').reduce((s, t) => s + durationHours(t), 0);
   const totalPauseMin = entries.reduce((s, t) => s + (t.pauseMinutes || 0), 0);
+  const employeeCount = new Set(entries.map((t) => t.employeeId)).size;
   // Totalzeile am Tabellenende: exakt dieselben gefilterten Einträge und dieselbe Dauer-Funktion wie
   // oben und pro Zeile – nur einmal am Ende gerundet, damit sich keine Minuten-Rundungsfehler aufsummieren.
   const totalMinutesAll = entries.reduce((s, t) => s + durationMinutes(t), 0);
@@ -93,26 +108,24 @@ export function TimeEvaluation() {
         return getCust(state, t.customerId)?.name ?? '–';
       case 'day':
         return fmtDate(new Date(t.clockIn));
-      case 'week':
-        return `KW ab ${fmtDate(mondayOf(new Date(t.clockIn)))}`;
-      case 'month':
-        return new Date(t.clockIn).toLocaleDateString('de-CH', { month: 'long', year: 'numeric' });
       default:
         return '';
     }
   }
 
-  const groups = useMemo(() => {
-    if (groupBy === 'none') return [];
-    const map = new Map<string, { label: string; hours: number; count: number }>();
+  // Reihenfolge der Gruppen = erstes Auftreten in den (bereits chronologisch sortierten) Einträgen —
+  // bei Gruppierung nach Datum ergibt das automatisch eine chronologische Gruppenreihenfolge.
+  const sections: GroupSection[] | null = useMemo(() => {
+    if (groupBy === 'none') return null;
+    const map = new Map<string, GroupSection>();
     entries.forEach((t) => {
       const label = groupLabelFor(t);
-      const cur = map.get(label) ?? { label, hours: 0, count: 0 };
+      const cur = map.get(label) ?? { key: label, label, entries: [], hours: 0 };
+      cur.entries.push(t);
       cur.hours += durationHours(t);
-      cur.count += 1;
       map.set(label, cur);
     });
-    return [...map.values()].sort((a, b) => b.hours - a.hours);
+    return [...map.values()];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, groupBy]);
 
@@ -140,6 +153,29 @@ export function TimeEvaluation() {
       return;
     }
     toast('PDF-Druckansicht geöffnet – im Druckdialog „Als PDF speichern“ wählen.');
+  };
+
+  const confirm = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    actions.quickSetStatus(id, 'bestätigt');
+  };
+
+  const actionCell = (t: TimeEntry) => {
+    if (t.status === 'bestätigt') {
+      return (
+        <span className="eval-confirmed-badge">
+          <Icon name="check" /> Bestätigt
+        </span>
+      );
+    }
+    if (canConfirm && t.clockOut) {
+      return (
+        <button className="btn btn-accent btn-sm" onClick={(e) => confirm(e, t.id)}>
+          <Icon name="check" /> Bestätigen
+        </button>
+      );
+    }
+    return null;
   };
 
   return (
@@ -197,114 +233,84 @@ export function TimeEvaluation() {
         ) : null}
       </div>
 
-      <div className="grid cols-3" style={{ marginBottom: 16 }}>
+      <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <KpiCard icon="hourglass" label="Gesamtstunden" value={`${totalHours.toFixed(2)} h`} bg="var(--surface-alt)" fg="var(--ink-soft)" />
+        <KpiCard icon="users2" label="Mitarbeitende" value={employeeCount} bg="#E3EDF7" fg="#2A6FA8" />
         <KpiCard icon="check" label="Bestätigte Stunden" value={`${confirmedHours.toFixed(2)} h`} bg="var(--primary-tint)" fg="var(--primary-dark)" />
-        <KpiCard icon="clock" label="Offene Stunden" value={`${openHours.toFixed(2)} h`} bg="var(--amber-tint)" fg="#93670A" />
-        <KpiCard icon="edit" label="Korrigierte Stunden" value={`${correctedHours.toFixed(2)} h`} bg="#E3EDF7" fg="#2A6FA8" />
-        <KpiCard icon="fileText" label="Zeiteinträge" value={entries.length} bg="var(--surface-alt)" fg="var(--ink-soft)" />
-        <KpiCard icon="pause" label="Gesamtpausenzeit" value={`${Math.round(totalPauseMin)} min`} bg="var(--surface-alt)" fg="var(--ink-soft)" />
+        <KpiCard icon="clock" label="Unbestätigte Stunden" value={`${openHours.toFixed(2)} h`} bg="var(--amber-tint)" fg="#93670A" />
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-head">
-          <h3>Gruppierung</h3>
-          <select value={groupBy} onChange={(e) => actions.setFilter({ evalGroupBy: e.target.value as typeof groupBy })}>
-            {GROUP_OPTIONS.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.label}
-              </option>
-            ))}
+      <div className="toolbar" style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="hint" style={{ margin: 0 }}>
+              Gruppieren nach
+            </span>
+            <select value={groupBy} onChange={(e) => actions.setFilter({ evalGroupBy: e.target.value as typeof groupBy })}>
+              {GROUP_OPTIONS.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <select value={sortDir} onChange={(e) => actions.setFilter({ evalSortDir: e.target.value as typeof sortDir })}>
+            <option value="asc">↑ Älteste zuerst</option>
+            <option value="desc">↓ Neueste zuerst</option>
           </select>
         </div>
-        {groupBy === 'none' ? (
-          <div className="hint">Wähle eine Gruppierung, um Summen z. B. je Leistung oder Mitarbeiter zu sehen.</div>
-        ) : groups.length ? (
-          groups.map((g) => (
-            <div
-              key={g.label}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--line)' }}
-            >
-              <span style={{ fontWeight: 600, fontSize: 12.8 }}>{g.label}</span>
-              <span className="mono" style={{ fontWeight: 700 }}>
-                {g.hours.toFixed(2)} h <span className="hint">({g.count} Einträge)</span>
-              </span>
-            </div>
-          ))
-        ) : (
-          <Empty icon="hourglass" text="Keine Daten für diese Gruppierung." />
-        )}
+        <span className="hint">{entries.length} Einträge</span>
       </div>
 
       <div className="card">
-        <div className="card-head">
-          <h3>Zeiteinträge</h3>
-          <span className="hint">{entries.length} Einträge</span>
-        </div>
-
         <div className="table-wrap eval-table-desktop">
           <table>
             <thead>
               <tr>
                 <th>Datum</th>
                 <th>Mitarbeiter</th>
+                <th>Standort</th>
                 <th>Leistung</th>
-                <th>Standort / Objekt</th>
                 <th>Zeit</th>
+                <th>Gesamtzeit</th>
                 <th>Pause</th>
-                <th style={{ textAlign: 'right' }}>Gesamtzeit</th>
                 <th>Status</th>
+                <th>Aktion</th>
               </tr>
             </thead>
             <tbody>
-              {entries.length ? (
-                entries.map((t) => {
-                  const e = getEmp(state, t.employeeId);
-                  const c = getCust(state, t.customerId);
-                  const svc = getService(state, t.serviceId);
-                  const inD = new Date(t.clockIn);
-                  const outD = t.clockOut ? new Date(t.clockOut) : null;
-                  return (
-                    <tr key={t.id} onClick={() => actions.openTimeEntryPanel(t.id)} style={{ cursor: 'pointer' }}>
-                      <td>{fmtDate(inD)}</td>
-                      <td>
-                        <div className="person">
-                          <div className="avatar" style={{ background: e ? colorFor(e.id) : 'var(--ink-faint)' }}>
-                            {e ? initials(e.name) : '?'}
-                          </div>
-                          <span>{e ? e.name : '–'}</span>
-                        </div>
-                      </td>
-                      <td>{svc ? svc.name : <span className="hint">Keine Leistung zugewiesen</span>}</td>
-                      <td>{c ? c.name : '–'}</td>
-                      <td className="mono">{fmtTimeRange(inD, outD)}</td>
-                      <td className="mono">{t.pauseMinutes || 0} min</td>
-                      <td className="eval-duration-cell">
-                        <span className={`eval-duration-badge ${outD ? '' : 'is-muted'}`}>{outD ? fmtHM(durationMinutes(t)) : 'läuft…'}</span>
-                      </td>
-                      <td>
-                        <StatusBadge status={t.status} />
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
+              {!entries.length ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={TABLE_COLS}>
                     <Empty icon="hourglass" text="Keine Zeiteinträge für diese Filter." />
                   </td>
                 </tr>
+              ) : (
+                (sections
+                  ? sections.flatMap((sec) => [
+                      <tr key={`h-${sec.key}`} className="eval-group-row">
+                        <td colSpan={TABLE_COLS}>
+                          <span className="eval-group-label">{sec.label}</span>
+                          <span className="eval-group-meta">
+                            {sec.entries.length} Einträge · {sec.hours.toFixed(2)} h
+                          </span>
+                        </td>
+                      </tr>,
+                      ...sec.entries.map((t) => renderRow(t)),
+                    ])
+                  : entries.map((t) => renderRow(t)))
               )}
             </tbody>
             {entries.length ? (
               <tfoot>
                 <tr className="eval-total-row">
                   <td colSpan={5}>Total</td>
-                  <td className="mono">{Math.round(totalPauseMin)} min</td>
                   <td className="eval-duration-cell">
                     <span className="eval-duration-badge">{fmtHM(totalMinutesAll)}</span>
                   </td>
+                  <td className="mono">{Math.round(totalPauseMin)} min</td>
                   <td className="hint">{entries.length} Einträge</td>
+                  <td />
                 </tr>
               </tfoot>
             ) : null}
@@ -312,50 +318,101 @@ export function TimeEvaluation() {
         </div>
 
         <div className="eval-table-mobile">
-          {entries.length ? (
+          {!entries.length ? (
+            <Empty icon="hourglass" text="Keine Zeiteinträge für diese Filter." />
+          ) : (
             <>
-              {entries.map((t) => {
-                const e = getEmp(state, t.employeeId);
-                const c = getCust(state, t.customerId);
-                const svc = getService(state, t.serviceId);
-                const inD = new Date(t.clockIn);
-                const outD = t.clockOut ? new Date(t.clockOut) : null;
-                return (
-                  <div key={t.id} className="eval-card" onClick={() => actions.openTimeEntryPanel(t.id)}>
-                    <div className="eval-card-top">
-                      <div className="person">
-                        <div className="avatar" style={{ background: e ? colorFor(e.id) : 'var(--ink-faint)' }}>
-                          {e ? initials(e.name) : '?'}
-                        </div>
-                        <div>
-                          <div className="name">{e ? e.name : '–'}</div>
-                          <div className="eval-card-meta">{fmtDate(inD)}</div>
-                        </div>
-                      </div>
-                      <StatusBadge status={t.status} />
-                    </div>
-                    <div className="eval-card-meta">{svc ? svc.name : 'Keine Leistung zugewiesen'}</div>
-                    <div className="eval-card-meta">{c ? c.name : '–'}</div>
-                    <div className="eval-card-foot">
-                      <div>
-                        <div className="eval-card-time mono">{fmtTimeRange(inD, outD)}</div>
-                        <div className="eval-card-meta">Pause {t.pauseMinutes || 0} min</div>
-                      </div>
-                      <span className={`eval-duration-badge ${outD ? '' : 'is-muted'}`}>{outD ? fmtHM(durationMinutes(t)) : 'läuft…'}</span>
-                    </div>
-                  </div>
-                );
-              })}
+              {sections
+                ? sections.flatMap((sec) => [
+                    <div key={`h-${sec.key}`} className="eval-group-row-mobile">
+                      <span className="eval-group-label">{sec.label}</span>
+                      <span className="eval-group-meta">
+                        {sec.entries.length} Einträge · {sec.hours.toFixed(2)} h
+                      </span>
+                    </div>,
+                    ...sec.entries.map((t) => renderCard(t)),
+                  ])
+                : entries.map((t) => renderCard(t))}
               <div className="eval-total-card">
-                <span className="label">Total ({entries.length} Einträge · {Math.round(totalPauseMin)} min Pause)</span>
+                <span className="label">
+                  Total ({entries.length} Einträge · {Math.round(totalPauseMin)} min Pause)
+                </span>
                 <span className="value">{fmtHM(totalMinutesAll)}</span>
               </div>
             </>
-          ) : (
-            <Empty icon="hourglass" text="Keine Zeiteinträge für diese Filter." />
           )}
         </div>
       </div>
     </>
   );
+
+  function renderRow(t: TimeEntry) {
+    const e = getEmp(state, t.employeeId);
+    const c = getCust(state, t.customerId);
+    const svc = getService(state, t.serviceId);
+    const inD = new Date(t.clockIn);
+    const outD = t.clockOut ? new Date(t.clockOut) : null;
+    return (
+      <tr key={t.id} onClick={() => actions.openTimeEntryPanel(t.id)} style={{ cursor: 'pointer' }}>
+        <td>{fmtDate(inD)}</td>
+        <td>
+          <div className="person">
+            <div className="avatar" style={{ background: e ? colorFor(e.id) : 'var(--ink-faint)' }}>
+              {e ? initials(e.name) : '?'}
+            </div>
+            <span>{e ? e.name : '–'}</span>
+          </div>
+        </td>
+        <td>{c ? c.name : '–'}</td>
+        <td>{svc ? svc.name : <span className="hint">Keine Leistung zugewiesen</span>}</td>
+        <td className="mono">{fmtTimeRange(inD, outD)}</td>
+        <td className="eval-duration-cell">
+          <span className={`eval-duration-badge ${outD ? '' : 'is-muted'}`}>{outD ? fmtHM(durationMinutes(t)) : 'läuft…'}</span>
+        </td>
+        <td className="mono">{t.pauseMinutes || 0} min</td>
+        <td>
+          <StatusBadge status={t.status} />
+        </td>
+        <td onClick={(e) => e.stopPropagation()}>{actionCell(t)}</td>
+      </tr>
+    );
+  }
+
+  function renderCard(t: TimeEntry) {
+    const e = getEmp(state, t.employeeId);
+    const c = getCust(state, t.customerId);
+    const svc = getService(state, t.serviceId);
+    const inD = new Date(t.clockIn);
+    const outD = t.clockOut ? new Date(t.clockOut) : null;
+    return (
+      <div key={t.id} className="eval-card" onClick={() => actions.openTimeEntryPanel(t.id)}>
+        <div className="eval-card-top">
+          <div className="person">
+            <div className="avatar" style={{ background: e ? colorFor(e.id) : 'var(--ink-faint)' }}>
+              {e ? initials(e.name) : '?'}
+            </div>
+            <div>
+              <div className="name">{e ? e.name : '–'}</div>
+              <div className="eval-card-meta">{fmtDate(inD)}</div>
+            </div>
+          </div>
+          <StatusBadge status={t.status} />
+        </div>
+        <div className="eval-card-meta">{svc ? svc.name : 'Keine Leistung zugewiesen'}</div>
+        <div className="eval-card-meta">{c ? c.name : '–'}</div>
+        <div className="eval-card-foot">
+          <div>
+            <div className="eval-card-time mono">{fmtTimeRange(inD, outD)}</div>
+            <div className="eval-card-meta">Pause {t.pauseMinutes || 0} min</div>
+          </div>
+          <span className={`eval-duration-badge ${outD ? '' : 'is-muted'}`}>{outD ? fmtHM(durationMinutes(t)) : 'läuft…'}</span>
+        </div>
+        {t.status === 'bestätigt' || (canConfirm && t.clockOut) ? (
+          <div className="eval-card-action" onClick={(e) => e.stopPropagation()}>
+            {actionCell(t)}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 }

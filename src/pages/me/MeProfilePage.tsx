@@ -79,6 +79,15 @@ export function MeProfilePage() {
           </div>
         </div>
       </div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-head">
+          <h3>Passwort ändern</h3>
+        </div>
+        <div className="hint" style={{ marginBottom: 12 }}>Du kannst hier nur dein eigenes Passwort ändern.</div>
+        <button className="btn btn-outline" onClick={() => actions.openModal('meChangePassword')}>
+          <Icon name="edit" /> Passwort ändern
+        </button>
+      </div>
       <div className="hint">Nur vom Administrator freigegebene Felder können hier bearbeitet werden.</div>
     </>
   );

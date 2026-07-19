@@ -49,7 +49,6 @@ export function EmployeesPage() {
                   <>
                     <th>Kontakt</th>
                     <th>Standorte</th>
-                    <th>PIN</th>
                   </>
                 ) : null}
                 <th>Status</th>
@@ -100,7 +99,6 @@ export function EmployeesPage() {
                             <span className="hint">keine</span>
                           )}
                         </td>
-                        <td className="mono">{e.pin}</td>
                       </>
                     ) : null}
                     <td>

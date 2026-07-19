@@ -29,8 +29,7 @@ export function TopNav() {
     <>
       <div className="topnav">
         <button className="topnav-brand" onClick={() => actions.setView(nav[0]?.view ?? 'dashboard')}>
-          <div className="brand-mark">P</div>
-          <span className="topnav-brand-name">Planico</span>
+          <img src="/planico-logo-white.svg" alt="Planico" className="brand-mark" />
         </button>
         <nav className="topnav-links" aria-label="Hauptnavigation">
           {items.map((item) => {

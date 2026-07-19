@@ -10,6 +10,7 @@ import { ServiceModal } from './ServiceModal';
 import { MeAbsenceModal } from './MeAbsenceModal';
 import { MeCorrectionModal } from './MeCorrectionModal';
 import { MeProfileModal } from './MeProfileModal';
+import { MeChangePasswordModal } from './MeChangePasswordModal';
 import { TicketModal } from './TicketModal';
 import { MaterialRequestModal } from './MaterialRequestModal';
 import { ShiftPanel } from './ShiftPanel';
@@ -36,6 +37,7 @@ export function GlobalOverlays() {
       {modal?.type === 'meAbsence' ? <MeAbsenceModal /> : null}
       {modal?.type === 'meCorrection' ? <MeCorrectionModal payload={modal.payload} /> : null}
       {modal?.type === 'meProfile' ? <MeProfileModal /> : null}
+      {modal?.type === 'meChangePassword' ? <MeChangePasswordModal /> : null}
       {modal?.type === 'ticket' ? <TicketModal payload={modal.payload} /> : null}
       {modal?.type === 'materialRequest' ? <MaterialRequestModal payload={modal.payload} /> : null}
 

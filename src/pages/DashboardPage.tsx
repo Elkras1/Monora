@@ -252,19 +252,14 @@ export function DashboardPage() {
             </div>
             {newestMaterialRequests.length ? (
               newestMaterialRequests.map((m) => {
-                const emp = getEmp(state, m.employeeId);
                 const cust = getCust(state, m.locationId);
                 return (
                   <div key={m.id} className="dash-mat-row">
                     <div className="dash-mat-info" onClick={() => actions.openMaterialRequestPanel(m.id)}>
                       <div style={{ minWidth: 0 }}>
                         <div className="name">{cust ? cust.name : 'Kein Objekt'}</div>
-                        <div className="meta">{summarizeMaterialItems(m.items, state.materials, 50)}</div>
-                        <div className="meta" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                          <div className="avatar" style={{ background: emp ? colorFor(emp.id) : 'var(--ink-faint)', width: 18, height: 18, fontSize: 9 }}>
-                            {emp ? initials(emp.name) : '?'}
-                          </div>
-                          {emp ? emp.name : 'Kein Mitarbeiter'}
+                        <div className="meta">
+                          {m.items.length} Artikel · {summarizeMaterialItems(m.items, state.materials, 50)}
                         </div>
                       </div>
                     </div>
