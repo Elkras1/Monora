@@ -23,8 +23,9 @@ export function DashboardSettingsModal({
   const isVisible = (id: string) => prefs.main.includes(id) || prefs.more.includes(id);
 
   const toggle = (id: string, checked: boolean) => {
-    let { main, more } = prefs;
+    let { main, more, hidden } = prefs;
     if (checked) {
+      hidden = hidden.filter((x) => x !== id);
       if (!main.includes(id) && !more.includes(id)) {
         if (DEFAULT_MAIN_MODULES.includes(id)) main = [...main, id];
         else more = [...more, id];
@@ -32,8 +33,9 @@ export function DashboardSettingsModal({
     } else {
       main = main.filter((x) => x !== id);
       more = more.filter((x) => x !== id);
+      hidden = hidden.includes(id) ? hidden : [...hidden, id];
     }
-    onSave({ main, more });
+    onSave({ main, more, hidden });
   };
 
   return (

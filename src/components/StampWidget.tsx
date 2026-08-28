@@ -5,75 +5,64 @@ import { eligibleCustomersFor, getCust, getEmp, openEntryFor } from '../state/se
 import { useClock } from '../hooks/useClock';
 import { fmtTime, formatDurationClock, pad } from '../utils/date';
 
-/** Admin/Manager Stempeluhr – zeigt den gewählten Mitarbeiter und erlaubt manuelles Ein-/Ausstempeln. */
+/** Admin/Manager Stempeluhr – zeigt den gewählten Mitarbeiter und erlaubt manuelles Ein-/Ausstempeln.
+ * Bewusst ohne tickende Live-Uhr/Sekundenanzeige — Admin/Manager brauchen hier nur Status und Aktion,
+ * keine dekorative Zeitanzeige (siehe .stampclock-* für die Mitarbeiter-Stempeluhr, die ihre laufende
+ * Zeit weiterhin anzeigt). */
 export function StampWidget({ compact }: { compact?: boolean }) {
   const { state, actions } = useApp();
-  const now = useClock();
   const emp = getEmp(state, state.currentEmployeeId);
   const open = emp ? openEntryFor(state, emp.id) : undefined;
   const isOn = !!open;
 
   return (
-    <div className="stamp-widget">
-      <div className="dial-wrap">
-        {isOn ? (
-          <>
-            <div className="dial-pulse" />
-            <div className="dial-pulse d2" />
-            <div className="dial-pulse d3" />
-          </>
-        ) : null}
-        <div className="dial-ring" />
-        <div className={`dial-core ${isOn ? '' : 'off'}`}>
-          <div className="time mono">
-            {pad(now.getHours())}:{pad(now.getMinutes())}:{pad(now.getSeconds())}
-          </div>
-          <div className="lbl">{isOn ? 'Eingestempelt' : 'Bereit'}</div>
+    <div className="stamp-card">
+      <div className="stamp-card-head">
+        <div className={`stampclock-icon-badge ${isOn ? 'is-live' : ''}`}>
+          <Icon name="clock" />
         </div>
+        <div className="stamp-card-who">
+          <div className="who">Angemeldet als</div>
+          <h3>{emp ? emp.name : 'Kein Mitarbeiter'}</h3>
+        </div>
+        <span className={`badge ${isOn ? 'badge-green' : 'badge-grey'}`}>
+          <span className="badge-dot" />
+          {isOn ? 'Im Einsatz' : 'Nicht eingestempelt'}
+        </span>
       </div>
-      <div className="stamp-info">
-        <div className="who">Angemeldet als</div>
-        <h2>{emp ? emp.name : 'Kein Mitarbeiter'}</h2>
-        {!compact ? (
-          <div className="field" style={{ maxWidth: 260 }}>
-            <select value={state.currentEmployeeId ?? ''} onChange={(e) => actions.setCurrentEmployeeId(e.target.value)}>
-              {state.employees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
+      {!compact ? (
+        <div className="field" style={{ maxWidth: 260, marginTop: 12 }}>
+          <select value={state.currentEmployeeId ?? ''} onChange={(e) => actions.setCurrentEmployeeId(e.target.value)}>
+            {state.employees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+      {isOn && open ? (
         <div className="stamp-meta">
           <div>
-            Status
-            <b>{isOn ? 'Im Einsatz' : 'Nicht eingestempelt'}</b>
+            Seit
+            <b>{fmtTime(new Date(open.clockIn))}</b>
           </div>
-          {isOn && open ? (
-            <>
-              <div>
-                Seit
-                <b>{fmtTime(new Date(open.clockIn))}</b>
-              </div>
-              <div>
-                Standort
-                <b>{getCust(state, open.customerId)?.name || '–'}</b>
-              </div>
-            </>
-          ) : null}
+          <div>
+            Standort
+            <b>{getCust(state, open.customerId)?.name || '–'}</b>
+          </div>
         </div>
-        <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
-          {isOn ? (
-            <button className="btn btn-danger" onClick={() => actions.openModal('clockout')}>
-              <Icon name="close" /> Ausstempeln
-            </button>
-          ) : (
-            <button className="btn btn-accent" onClick={() => actions.openModal('clockin')}>
-              <Icon name="pin" /> Einstempeln
-            </button>
-          )}
-        </div>
+      ) : null}
+      <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+        {isOn ? (
+          <button className="btn btn-danger" onClick={() => actions.openModal('clockout')}>
+            <Icon name="close" /> Ausstempeln
+          </button>
+        ) : (
+          <button className="btn btn-accent" onClick={() => actions.openModal('clockin')}>
+            <Icon name="pin" /> Einstempeln
+          </button>
+        )}
       </div>
     </div>
   );

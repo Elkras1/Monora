@@ -72,7 +72,7 @@ export function MeSchedulePage() {
             const dayShifts = mine.filter((s) => s.date === iso).sort((a, b) => a.start.localeCompare(b.start));
             return (
               <div key={iso} style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", fontSize: 13, marginBottom: 6, color: iso === todayIso ? 'var(--primary-dark)' : 'var(--ink)' }}>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: iso === todayIso ? 'var(--primary-dark)' : 'var(--ink)' }}>
                   {WEEKDAYS[(d.getDay() + 6) % 7]}, {d.getDate()}.{d.getMonth() + 1}.{iso === todayIso ? ' · Heute' : ''}
                 </div>
                 {dayShifts.length ? dayShifts.map((s) => <MeShiftRow key={s.id} shift={s} />) : <div className="cal-empty-hint">Keine Schicht</div>}
@@ -87,7 +87,7 @@ export function MeSchedulePage() {
             <button className="icon-btn" onClick={() => goToMonth(-1)}>
               <Icon name="chevL" />
             </button>
-            <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", minWidth: 160, textAlign: 'center', fontSize: 14 }}>
+            <div style={{ fontWeight: 700, minWidth: 160, textAlign: 'center', fontSize: 14 }}>
               {monthCursor.toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}
             </div>
             <button className="icon-btn" onClick={() => goToMonth(1)}>
@@ -153,7 +153,7 @@ export function MeSchedulePage() {
               const dayShifts = sorted.filter((s) => s.date === iso);
               return (
                 <div key={iso} style={{ marginBottom: 14 }}>
-                  <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", fontSize: 13, marginBottom: 6, color: iso === todayIso ? 'var(--primary-dark)' : 'var(--ink)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: iso === todayIso ? 'var(--primary-dark)' : 'var(--ink)' }}>
                     {WEEKDAYS[(d.getDay() + 6) % 7]}, {d.getDate()}.{d.getMonth() + 1}.{d.getFullYear()}
                     {iso === todayIso ? ' · Heute' : ''}
                   </div>

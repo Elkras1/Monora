@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useApp, useHasPerm } from '../state/AppContext';
-import { computeConflictIds, getCust, getEmp, shiftDisplayStatus } from '../state/selectors';
+import { absencesOnDate, computeConflictIds, getCust, getEmp, shiftDisplayStatus } from '../state/selectors';
 import { Icon } from '../components/icons/Icon';
 import { ScheduleMatrix } from '../components/ScheduleMatrix';
 import { Drawer } from '../components/ui/Overlay';
@@ -64,6 +64,8 @@ export function SchedulePage() {
   );
   const conflictIds = computeConflictIds(state.shifts);
   const customerName = (id: string) => getCust(state, id)?.name ?? '–';
+  // Zeigt eine genehmigte Abwesenheit im Dienstplan an (auch bei Teilausfall) — blockiert Zellen dabei bewusst nicht.
+  const absenceFor = (employeeId: string, iso: string) => absencesOnDate(state, employeeId, iso)[0];
 
   // Übernimmt die aktuell gesetzten Filter (Mitarbeiter/Objekt) in den "Neue Schicht"-Dialog.
   const newShiftPayload = (date?: string, employeeId?: string | null) => ({
@@ -266,7 +268,7 @@ export function SchedulePage() {
               <button className="icon-btn" onClick={() => setDayCursor((d) => addDays(d, -1))}>
                 <Icon name="chevL" />
               </button>
-              <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", minWidth: 170, textAlign: 'center', fontSize: 13.5 }}>
+              <div style={{ fontWeight: 700, minWidth: 170, textAlign: 'center', fontSize: 13.5 }}>
                 {WEEKDAYS[(dayCursor.getDay() + 6) % 7]}, {fmtDate(dayCursor)}
               </div>
               <button className="icon-btn" onClick={() => setDayCursor((d) => addDays(d, 1))}>
@@ -285,7 +287,7 @@ export function SchedulePage() {
                 <button className="icon-btn" onClick={() => actions.setWeekOffset((p) => p - 1)}>
                   <Icon name="chevL" />
                 </button>
-                <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", minWidth: 150, textAlign: 'center', fontSize: 13.5 }}>
+                <div style={{ fontWeight: 700, minWidth: 150, textAlign: 'center', fontSize: 13.5 }}>
                   {fmtDate(weekStart)} – {fmtDate(addDays(weekStart, 6))}
                 </div>
                 <button className="icon-btn" onClick={() => actions.setWeekOffset((p) => p + 1)}>
@@ -305,7 +307,7 @@ export function SchedulePage() {
               <button className="icon-btn" onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
                 <Icon name="chevL" />
               </button>
-              <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", minWidth: 160, textAlign: 'center', fontSize: 14 }}>
+              <div style={{ fontWeight: 700, minWidth: 160, textAlign: 'center', fontSize: 14 }}>
                 {monthCursor.toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}
               </div>
               <button className="icon-btn" onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>
@@ -372,6 +374,7 @@ export function SchedulePage() {
               onCellCreate={onCellCreate}
               onOpenShift={(id) => actions.openShiftPanel(id)}
               onMove={onMove}
+              absenceFor={absenceFor}
             />
           ) : null}
 
@@ -390,6 +393,7 @@ export function SchedulePage() {
               onCellCreate={onCellCreate}
               onOpenShift={(id) => actions.openShiftPanel(id)}
               onMove={onMove}
+              absenceFor={absenceFor}
             />
           ) : null}
 
@@ -410,6 +414,7 @@ export function SchedulePage() {
                   onCellCreate={onCellCreate}
                   onOpenShift={(id) => actions.openShiftPanel(id)}
                   onMove={onMove}
+                  absenceFor={absenceFor}
                 />
               </div>
 
@@ -508,6 +513,7 @@ export function SchedulePage() {
               onCellCreate={onCellCreate}
               onOpenShift={(id) => actions.openShiftPanel(id)}
               onMove={onMove}
+              absenceFor={absenceFor}
             />
           ) : null}
 

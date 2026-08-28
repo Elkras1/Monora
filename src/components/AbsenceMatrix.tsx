@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Drawer } from './ui/Overlay';
 import { Icon } from './icons/Icon';
-import { AbsenceTypeBadge, StatusBadge, absenceTypeColor, absenceTypeLabel } from './ui/Badge';
+import { AbsenceTypeBadge, StatusBadge, absenceCompactLabel, absenceTypeColor, absenceTypeLabel } from './ui/Badge';
 import { useApp } from '../state/AppContext';
 import { Empty } from './ui/Empty';
+import { getAbsencePercentage } from '../state/selectors';
 import type { Absence, Employee } from '../types';
 import { fmtDate, isoDate, pad, WEEKDAYS } from '../utils/date';
 import { colorFor, initials } from '../utils/format';
@@ -150,7 +151,7 @@ export function AbsenceMatrix({
             <button className="icon-btn" onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
               <Icon name="chevL" />
             </button>
-            <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", minWidth: 150, textAlign: 'center', fontSize: 14 }}>
+            <div style={{ fontWeight: 700, minWidth: 150, textAlign: 'center', fontSize: 14 }}>
               {monthCursor.toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}
             </div>
             <button className="icon-btn" onClick={() => setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>
@@ -162,7 +163,7 @@ export function AbsenceMatrix({
             <button className="icon-btn" onClick={() => setYearCursor((y) => y - 1)}>
               <Icon name="chevL" />
             </button>
-            <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", minWidth: 70, textAlign: 'center', fontSize: 14 }}>{yearCursor}</div>
+            <div style={{ fontWeight: 700, minWidth: 70, textAlign: 'center', fontSize: 14 }}>{yearCursor}</div>
             <button className="icon-btn" onClick={() => setYearCursor((y) => y + 1)}>
               <Icon name="chevR" />
             </button>
@@ -247,6 +248,7 @@ export function AbsenceMatrix({
                           const left = (startIdx / totalDays) * 100;
                           const width = ((endIdx - startIdx + 1) / totalDays) * 100;
                           const days = Math.round((new Date(a.end).getTime() - new Date(a.start).getTime()) / 86400000) + 1;
+                          const percent = getAbsencePercentage(a);
                           return (
                             <div
                               key={a.id}
@@ -255,7 +257,7 @@ export function AbsenceMatrix({
                               draggable={canManage}
                               onDragStart={(e) => onBarDragStart(e, a.id, 'move')}
                               onClick={() => setSelectedAbsenceId(a.id)}
-                              title={`${absenceTypeLabel(a.type)} · ${fmtDate(new Date(a.start))} – ${fmtDate(new Date(a.end))}`}
+                              title={`${absenceCompactLabel(a.type, percent)} · ${fmtDate(new Date(a.start))} – ${fmtDate(new Date(a.end))}`}
                             >
                               {canManage ? (
                                 <span
@@ -265,7 +267,7 @@ export function AbsenceMatrix({
                                 />
                               ) : null}
                               <span className="abs-matrix-bar-label">
-                                {absenceTypeLabel(a.type)}
+                                {absenceCompactLabel(a.type, percent)}
                                 {width > 9 ? ` · ${days}T` : ''}
                               </span>
                               {canManage ? (
@@ -336,7 +338,7 @@ export function AbsenceMatrix({
                                   className="abs-matrix-year-bar"
                                   style={{ left: `${left}%`, width: `${width}%`, top: 4 + lane * 17, background: absenceTypeColor(a.type) }}
                                   onClick={() => setSelectedAbsenceId(a.id)}
-                                  title={`${absenceTypeLabel(a.type)} · ${fmtDate(new Date(a.start))} – ${fmtDate(new Date(a.end))}`}
+                                  title={`${absenceCompactLabel(a.type, getAbsencePercentage(a))} · ${fmtDate(new Date(a.start))} – ${fmtDate(new Date(a.end))}`}
                                 />
                               );
                             })}
@@ -384,6 +386,10 @@ export function AbsenceMatrix({
               <span className="dl">Ende</span>
               <span className="dv mono">{fmtDate(new Date(selectedAbsence.end))}</span>
             </div>
+            <div>
+              <span className="dl">Ausfall</span>
+              <span className="dv">{getAbsencePercentage(selectedAbsence)}%</span>
+            </div>
             <div style={{ gridColumn: '1/-1' }}>
               <span className="dl">Notiz</span>
               <span className="dv">{selectedAbsence.note || '–'}</span>
@@ -401,6 +407,16 @@ export function AbsenceMatrix({
                   </button>
                 </>
               ) : null}
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  const id = selectedAbsence.id;
+                  setSelectedAbsenceId(null);
+                  actions.openModal('absence', { absenceId: id });
+                }}
+              >
+                <Icon name="edit" /> Bearbeiten
+              </button>
               <button
                 className="btn btn-danger btn-sm"
                 onClick={() => {

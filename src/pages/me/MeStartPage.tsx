@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp, useCurrentUser, useHasPerm } from '../../state/AppContext';
-import { openEntryFor } from '../../state/selectors';
+import { getAbsencePercentage, openEntryFor } from '../../state/selectors';
 import { MeShiftRow } from '../../components/MeShiftRow';
 import { AbsenceTypeBadge, MaterialStatusBadge, StatusBadge } from '../../components/ui/Badge';
 import { Empty } from '../../components/ui/Empty';
@@ -107,19 +107,23 @@ export function MeStartPage() {
           <h3>Meine Abwesenheitsanträge</h3>
         </div>
         {myAbsences.length ? (
-          myAbsences.map((a) => (
-            <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--line)' }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 12.8 }}>
-                  <AbsenceTypeBadge type={a.type} />
+          myAbsences.map((a) => {
+            const percent = getAbsencePercentage(a);
+            return (
+              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--line)' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 12.8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <AbsenceTypeBadge type={a.type} />
+                    {percent < 100 ? <span className="hint" style={{ fontWeight: 700 }}>{percent}%</span> : null}
+                  </div>
+                  <div className="hint">
+                    {fmtDate(new Date(a.start))} – {fmtDate(new Date(a.end))}
+                  </div>
                 </div>
-                <div className="hint">
-                  {fmtDate(new Date(a.start))} – {fmtDate(new Date(a.end))}
-                </div>
+                <StatusBadge status={a.status} />
               </div>
-              <StatusBadge status={a.status} />
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="hint">Keine Anträge vorhanden.</div>
         )}

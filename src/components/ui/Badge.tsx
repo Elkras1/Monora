@@ -39,12 +39,39 @@ export function absenceTypeLabel(type: string): string {
   return ABS_TYPE_LABELS[type] || type;
 }
 
+// Kurzform für enge Kalender-/Dienstplanzellen, z.B. "Krank 50%" statt "Krankheit · 50%".
+const ABS_TYPE_SHORT_LABELS: Record<string, string> = {
+  Urlaub: 'Ferien',
+  Krankheit: 'Krank',
+  Unfall: 'Unfall',
+  Unbezahlt: 'Unbezahlt',
+  Sonstiges: 'Sonstiges',
+};
+
+export function absenceTypeShortLabel(type: string): string {
+  return ABS_TYPE_SHORT_LABELS[type] || type;
+}
+
+/** Kompakte Beschriftung für Kalender/Dienstplan: Typ (+ Ausfallgrad, sofern < 100 %). Bei 100 % bewusst
+ * ohne "100%"-Zusatz, damit die Ansicht übersichtlich bleibt. */
+export function absenceCompactLabel(type: string, percentage: number): string {
+  return percentage < 100 ? `${absenceTypeShortLabel(type)} ${percentage}%` : absenceTypeShortLabel(type);
+}
+
 /** Raw CSS color (not a badge) for the absence calendar's day markers/bars. */
 export function absenceTypeColor(type: string): string {
   const variant = absenceTypeVariant(type);
   if (variant === 'red') return 'var(--red)';
   if (variant === 'amber') return 'var(--amber)';
   return 'var(--ink-faint)';
+}
+
+/** Leichter Tint-Hintergrund passend zu absenceTypeColor, z.B. für Ausfall-Chips im Dienstplan. */
+export function absenceTypeTint(type: string): string {
+  const variant = absenceTypeVariant(type);
+  if (variant === 'red') return 'var(--red-tint)';
+  if (variant === 'amber') return 'var(--amber-tint)';
+  return 'var(--surface-alt)';
 }
 
 // Dienstplan-Farbcode: geplant = Blau, offen = Orange, bestätigt = Grün, Konflikt = Rot
@@ -64,14 +91,10 @@ export function shiftStatusTint(status: string): string {
   return 'var(--surface-alt)';
 }
 
-// Tickets: Status- und Prioritäts-Badges/-Farben
+// Tickets: Status- und Prioritäts-Badges/-Farben — bewusst nur noch zwei Zustände (siehe TicketStatus).
 const TICKET_STATUS_MAP: Record<string, [BadgeVariant, string]> = {
-  neu: ['grey', 'Neu'],
-  geplant: ['blue', 'Geplant'],
-  in_bearbeitung: ['amber', 'In Bearbeitung'],
-  wartet_rueckmeldung: ['amber', 'Wartet auf Rückmeldung'],
+  offen: ['blue', 'Offen'],
   erledigt: ['mint', 'Erledigt'],
-  abgeschlossen: ['green', 'Abgeschlossen'],
 };
 
 const TICKET_PRIORITY_MAP: Record<string, [BadgeVariant, string]> = {
@@ -89,19 +112,43 @@ export function ticketPriorityLabel(priority: string): string {
   return TICKET_PRIORITY_MAP[priority]?.[1] || priority;
 }
 
-/** Kalenderfarbe: Neu=Grau, Geplant=Blau, In Bearbeitung=Orange, Erledigt/Abgeschlossen=Grün — dringende
- * Tickets werden unabhängig vom Status rot hervorgehoben (siehe Ticket-Kalender). */
+/** Kalenderfarbe: Offen=Blau, Erledigt=Grün — dringende, noch offene Tickets werden unabhängig vom Status
+ * rot hervorgehoben (siehe Ticket-Kalender). */
 export function ticketStatusColor(status: string): string {
-  if (status === 'geplant') return 'var(--primary)';
-  if (status === 'in_bearbeitung') return 'var(--orange)';
-  if (status === 'wartet_rueckmeldung') return 'var(--amber)';
-  if (status === 'erledigt' || status === 'abgeschlossen') return 'var(--green)';
-  return 'var(--ink-faint)';
+  if (status === 'erledigt') return 'var(--green)';
+  return 'var(--primary)';
 }
 
 export function ticketCalendarColor(status: string, priority: string): string {
-  if (priority === 'dringend' && status !== 'erledigt' && status !== 'abgeschlossen') return 'var(--red)';
+  if (priority === 'dringend' && status !== 'erledigt') return 'var(--red)';
   return ticketStatusColor(status);
+}
+
+/** CSS-Klasse für die GESAMTE Ticketfläche (ganze Zeile/Karte, nicht nur Titel/Badge), abhängig von der
+ * Fälligkeits-Dringlichkeit (siehe ticketUrgency in state/selectors.ts) — bewusst getrennt von
+ * ticketStatusColor, das den Bearbeitungsstatus meint, nicht die Fälligkeit. Gilt für die vollständige
+ * Ticketliste (TicketsPage.tsx). Das Dashboard nutzt eine eigene, unabhängige Palette — siehe
+ * dashboardUrgencyRowClass weiter unten. "später" (mehr als 1 Tag Zeit / kein Fälligkeitsdatum)
+ * bekommt den ruhigen, neutralen Ton. */
+export function ticketUrgencyRowClass(urgency: string): string {
+  if (urgency === 'overdue') return 'tick-urgency-overdue';
+  if (urgency === 'today') return 'tick-urgency-today';
+  if (urgency === 'soon') return 'tick-urgency-soon';
+  if (urgency === 'done') return 'tick-urgency-done';
+  return 'tick-urgency-later';
+}
+
+/** Dashboard-eigene Fälligkeitsfarbe für die Ticket- UND Materialanfragen-To-do-Liste (siehe
+ * DashboardWorkList.tsx) — bewusst EINE gemeinsame Funktion/Klassenfamilie (.dash-tick-urgency-*), getrennt
+ * von ticketUrgencyRowClass/.tick-urgency-* oben, damit ein Farbwunsch nur fürs Dashboard die vollständige
+ * Ticketliste nicht mitverändert. Tickets und Materialanfragen nutzen hier bewusst dieselbe Palette (siehe
+ * ticketUrgency/materialUrgency in state/selectors.ts), damit beide Bereiche als parallele Arbeitslisten
+ * wirken. Das Dashboard zeigt ohnehin nur offene Vorgänge, daher kein eigener "done"-Zweig nötig. */
+export function dashboardUrgencyRowClass(urgency: string): string {
+  if (urgency === 'overdue') return 'dash-tick-urgency-overdue';
+  if (urgency === 'today') return 'dash-tick-urgency-today';
+  if (urgency === 'soon') return 'dash-tick-urgency-soon';
+  return 'dash-tick-urgency-normal';
 }
 
 export function TicketStatusBadge({ status }: { status: string }) {
@@ -114,11 +161,10 @@ export function TicketPriorityBadge({ priority }: { priority: string }) {
   return <Badge variant={variant}>{label}</Badge>;
 }
 
+// Bewusst nur noch zwei Zustände (siehe MaterialRequestStatus).
 const MATERIAL_STATUS_MAP: Record<string, [BadgeVariant, string]> = {
-  eingereicht: ['amber', 'Eingereicht'],
-  in_bearbeitung: ['blue', 'In Bearbeitung'],
+  offen: ['blue', 'Offen'],
   erledigt: ['mint', 'Erledigt'],
-  abgelehnt: ['red', 'Abgelehnt'],
 };
 
 export function materialStatusLabel(status: string): string {

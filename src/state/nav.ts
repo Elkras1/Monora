@@ -20,9 +20,8 @@ export function navConfigFor(role: SystemRole, state: AppState): NavItem[] {
       { view: 'services', icon: 'checklist', label: 'Leistungen' },
       { view: 'absence', icon: 'absence', label: 'Abwesenheiten' },
       { view: 'tickets', icon: 'ticket', label: 'Alle Tickets' },
-      { view: 'tickets-tasks', icon: 'checklist', label: 'Aufgaben' },
       { view: 'tickets-material', icon: 'box', label: 'Materialanfragen' },
-      { view: 'tickets-calendar', icon: 'schedule', label: 'Ticket-Kalender' },
+      { view: 'tickets-calendar', icon: 'schedule', label: 'Kalender' },
       { view: 'location', icon: 'location', label: 'Standorte & Kunden' },
       { view: 'reports', icon: 'briefcase', label: 'Berichte' },
       { view: 'settings', icon: 'settings', label: 'Einstellungen' },
@@ -41,9 +40,8 @@ export function navConfigFor(role: SystemRole, state: AppState): NavItem[] {
     if (has('services_manage')) items.push({ view: 'services', icon: 'checklist', label: 'Leistungen' });
     if (has('absence_view_own') || has('absence_view_all')) items.push({ view: 'absence', icon: 'absence', label: 'Abwesenheiten' });
     if (has('tickets_view_own') || has('tickets_view_all')) items.push({ view: 'tickets', icon: 'ticket', label: 'Alle Tickets' });
-    if (has('tickets_view_own') || has('tickets_view_all')) items.push({ view: 'tickets-tasks', icon: 'checklist', label: 'Aufgaben' });
     if (has('material_manage')) items.push({ view: 'tickets-material', icon: 'box', label: 'Materialanfragen' });
-    if (has('tickets_calendar_view')) items.push({ view: 'tickets-calendar', icon: 'schedule', label: 'Ticket-Kalender' });
+    if (has('tickets_calendar_view')) items.push({ view: 'tickets-calendar', icon: 'schedule', label: 'Kalender' });
     if (has('locations_view')) items.push({ view: 'location', icon: 'location', label: 'Standorte & Kunden' });
     if (has('reports_view')) items.push({ view: 'reports', icon: 'briefcase', label: 'Berichte' });
     return items;
@@ -76,7 +74,7 @@ export interface NavGroupDef {
 export const NAV_GROUPS: NavGroupDef[] = [
   { label: 'Personal', icon: 'employees', views: ['employees', 'services'] },
   { label: 'Planung', icon: 'schedule', views: ['schedule', 'absence'] },
-  { label: 'Tickets', icon: 'ticket', views: ['tickets', 'tickets-tasks', 'tickets-material', 'tickets-calendar'] },
+  { label: 'Tickets', icon: 'ticket', views: ['tickets', 'tickets-material', 'tickets-calendar'] },
   { label: 'Organisation', icon: 'location', views: ['location', 'settings', 'permissions'] },
 ];
 
@@ -119,10 +117,9 @@ export const VIEW_META: Record<ViewId, [string, string]> = {
   reports: ['Berichte', 'Arbeitszeiten auswerten und exportieren'],
   settings: ['Einstellungen', 'Unternehmensangaben und Regeln festlegen'],
   permissions: ['Rollen & Berechtigungen', 'Festlegen, was Manager und Mitarbeitende dürfen'],
-  tickets: ['Alle Tickets', 'Aufgaben und Materialtickets im Überblick'],
-  'tickets-tasks': ['Aufgaben', 'Kundentickets und Aufgaben verwalten'],
+  tickets: ['Alle Tickets', 'Kundentickets und Aufgaben im Überblick'],
   'tickets-material': ['Materialanfragen', 'Anfragen prüfen, genehmigen und in Tickets umwandeln'],
-  'tickets-calendar': ['Ticket-Kalender', 'Tickets terminieren und per Drag & Drop einplanen'],
+  'tickets-calendar': ['Kalender', 'Tickets und Materialanfragen terminieren und per Drag & Drop einplanen'],
   'me-start': ['Start', 'Dein persönlicher Überblick für heute'],
   'me-schedule': ['Mein Dienstplan', 'Deine Schichten auf einen Blick'],
   'me-time': ['Stempeluhr', 'Starte, pausiere und beende deine Arbeitszeit'],

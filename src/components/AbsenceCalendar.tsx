@@ -3,7 +3,7 @@ import { Drawer } from './ui/Overlay';
 import { Icon } from './icons/Icon';
 import { AbsenceTypeBadge, StatusBadge, absenceTypeColor } from './ui/Badge';
 import { useApp } from '../state/AppContext';
-import { getEmp } from '../state/selectors';
+import { getAbsencePercentage, getEmp } from '../state/selectors';
 import type { Absence } from '../types';
 import { buildMonthWeeks, fmtDate, isoDate, WEEKDAYS } from '../utils/date';
 
@@ -61,7 +61,7 @@ export function AbsenceCalendar({ absences, mode, canManage }: { absences: Absen
             >
               <Icon name="chevL" />
             </button>
-            <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", minWidth: 160, textAlign: 'center', fontSize: 14 }}>
+            <div style={{ fontWeight: 700, minWidth: 160, textAlign: 'center', fontSize: 14 }}>
               {monthCursor.toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}
             </div>
             <button
@@ -128,7 +128,7 @@ export function AbsenceCalendar({ absences, mode, canManage }: { absences: Absen
             <button className="icon-btn" onClick={() => setYearCursor((y) => y - 1)}>
               <Icon name="chevL" />
             </button>
-            <div style={{ fontWeight: 700, fontFamily: "'Space Grotesk'", minWidth: 80, textAlign: 'center', fontSize: 14 }}>
+            <div style={{ fontWeight: 700, minWidth: 80, textAlign: 'center', fontSize: 14 }}>
               {yearCursor}
             </div>
             <button className="icon-btn" onClick={() => setYearCursor((y) => y + 1)}>
@@ -171,19 +171,33 @@ export function AbsenceCalendar({ absences, mode, canManage }: { absences: Absen
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {dayDetail.map((a) => {
                 const emp = getEmp(state, a.employeeId);
+                const percent = getAbsencePercentage(a);
                 return (
                   <div key={a.id} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <span style={{ fontWeight: 700, fontSize: 13.5 }}>{emp?.name ?? '–'}</span>
                       <StatusBadge status={a.status} />
                     </div>
-                    <div style={{ marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                       <AbsenceTypeBadge type={a.type} />
+                      {percent < 100 ? <span className="hint" style={{ fontWeight: 700 }}>Ausfall {percent}%</span> : null}
                     </div>
                     <div className="hint">
                       {fmtDate(new Date(a.start))} – {fmtDate(new Date(a.end))}
                     </div>
                     {a.note ? <div className="hint" style={{ marginTop: 4 }}>{a.note}</div> : null}
+                    {canManage ? (
+                      <button
+                        className="btn btn-outline btn-sm"
+                        style={{ marginTop: 8 }}
+                        onClick={() => {
+                          setSelectedDay(null);
+                          actions.openModal('absence', { absenceId: a.id });
+                        }}
+                      >
+                        <Icon name="edit" /> Bearbeiten
+                      </button>
+                    ) : null}
                   </div>
                 );
               })}

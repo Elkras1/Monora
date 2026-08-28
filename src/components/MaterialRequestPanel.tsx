@@ -78,7 +78,7 @@ export function MaterialRequestPanel() {
   const assignee = getEmp(state, req.assigneeId);
   const completedByEmp = getEmp(state, req.completedBy);
   const linkedTicket = req.linkedTicketId ? state.tickets.find((t) => t.id === req.linkedTicketId) : undefined;
-  const isOpen = req.status !== 'erledigt' && req.status !== 'abgelehnt';
+  const isOpen = req.status !== 'erledigt';
 
   const complete = () => {
     if (window.confirm('Bestellung wirklich als erledigt markieren?')) {
@@ -144,11 +144,6 @@ export function MaterialRequestPanel() {
 
           <div className="mat-request-status-row">
             <MaterialStatusBadge status={req.status} />
-            {canManage && req.status === 'eingereicht' ? (
-              <button className="link-btn" onClick={() => actions.setMaterialRequestStatus(req.id, 'in_bearbeitung')}>
-                In Bearbeitung setzen
-              </button>
-            ) : null}
           </div>
 
           {linkedTicket ? (
@@ -173,11 +168,6 @@ export function MaterialRequestPanel() {
               >
                 <Icon name="edit" /> Bearbeiten
               </button>
-              {isOpen ? (
-                <button className="btn btn-outline" onClick={() => actions.setMaterialRequestStatus(req.id, 'abgelehnt')}>
-                  <Icon name="close" /> Ablehnen
-                </button>
-              ) : null}
               {!req.linkedTicketId ? (
                 <button className="btn btn-outline" onClick={convert}>
                   <Icon name="ticket" /> Als Ticket übernehmen
@@ -225,6 +215,12 @@ export function MaterialRequestPanel() {
                   <span className="dl">Erstellt von</span>
                   <span className="dv">{createdBy ? createdBy.name : '–'}</span>
                 </div>
+                {req.requestedDate ? (
+                  <div>
+                    <span className="dl">Fälligkeit</span>
+                    <span className="dv">{fmtDate(new Date(req.requestedDate))}</span>
+                  </div>
+                ) : null}
                 {assignee ? (
                   <div>
                     <span className="dl">Bearbeitet von</span>

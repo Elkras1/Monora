@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp, useHasPerm } from '../../state/AppContext';
+import { getAbsencePercentage } from '../../state/selectors';
 import { AbsenceTypeBadge, StatusBadge } from '../../components/ui/Badge';
 import { Empty } from '../../components/ui/Empty';
 import { Icon } from '../../components/icons/Icon';
@@ -62,10 +63,14 @@ export function MeAbsencePage() {
           {mine.length ? (
             mine.map((a) => {
               const days = Math.round((new Date(a.end).getTime() - new Date(a.start).getTime()) / 86400000) + 1;
+              const percent = getAbsencePercentage(a);
               return (
                 <div key={a.id} className="card" style={{ padding: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <AbsenceTypeBadge type={a.type} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <AbsenceTypeBadge type={a.type} />
+                      {percent < 100 ? <span className="hint" style={{ fontWeight: 700 }}>Ausfall {percent}%</span> : null}
+                    </div>
                     <StatusBadge status={a.status} />
                   </div>
                   <div style={{ fontWeight: 700, fontSize: 13.5, marginTop: 8 }}>

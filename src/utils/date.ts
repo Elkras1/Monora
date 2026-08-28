@@ -27,6 +27,11 @@ export function fmtDate(d: Date): string {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
 }
 
+/** Kurzform ohne Jahr (z.B. "31.08.") — für knappe Fälligkeits-/Datumszeilen wie im Dashboard. */
+export function fmtDateShort(d: Date): string {
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.`;
+}
+
 export function isoDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }

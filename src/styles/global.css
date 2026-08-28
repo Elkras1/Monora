@@ -11,6 +11,12 @@
   --primary:#00348D;
   --primary-dark:#002463;
   --primary-tint:#EBEFF6;
+  /* Menüfarbe: bewusst EIGENE, vom Markenblau (--primary) losgelöste Variable nur für Hauptmenü/Navigation
+     (TopNav, Sidebar/mobiles Ausklapp-Menü für Admin/Manager, mobile Tab-Bar für Mitarbeiter) — ein
+     Farbwunsch nur fürs Menü darf Buttons/Badges/Fokuszustände etc. (die weiterhin --primary nutzen) nicht
+     mitverändern. Für spätere Anpassungen genügt es, --nav-blue/--nav-blue-dark hier zu ändern. */
+  --nav-blue:#3B82F6;
+  --nav-blue-dark:#1D4ED8;
   --accent:#38BDF8;
   --accent-dark:#0284C7;
   --amber:#DB9B0C;
@@ -22,8 +28,40 @@
   --red-dark:#8F2A2E;
   --green:#189B5A;
   --green-tint:#E1F5EA;
+  /* Eigene, bewusst weichere Palette für die Ticket-Fälligkeitsflächen der vollständigen Ticketliste
+     (TicketsPage.tsx, siehe .tick-urgency-* weiter unten) — dezenter/moderner als die kräftigeren
+     --red-tint/--amber-tint/--orange-tint, die weiterhin für Badges & Warnboxen an anderer Stelle im
+     Einsatz sind. Je Stufe ein Hintergrund- und ein Akzentton (feiner linker Streifen); der Fliesstext
+     bleibt überall die normale dunkle Tinte (--ink), damit er auf jeder Stufe gut lesbar bleibt. */
+  --tick-overdue-bg:#FFF1F2;
+  --tick-overdue-accent:#FDA4AF;
+  --tick-today-bg:#FFF7ED;
+  --tick-today-accent:#FDBA74;
+  --tick-soon-bg:#FFFBEB;
+  --tick-soon-accent:#FDE68A;
+  --tick-later-bg:#F8FAFC;
+  --tick-later-accent:#E2E8F0;
+  --tick-done-bg:#F0FDF4;
+  --tick-done-accent:#BBF7D0;
+  /* Eigene Palette NUR für die Ticket-To-do-Liste im Admin-/Manager-Dashboard (DashboardPage.tsx) — bewusst
+     von der Palette oben getrennt, damit ein Dashboard-spezifischer Farbwunsch die Ticket-Hauptseite nicht
+     mitverändert. "normal" steht hier für "offen, aber nichts kurzfristig Dringendes" (nicht "erledigt"). */
+  --dash-tick-normal-bg:#ECFDF5;
+  --dash-tick-normal-accent:#A7F3D0;
+  --dash-tick-soon-bg:#FFF8E7;
+  --dash-tick-soon-accent:#F5D995;
+  --dash-tick-today-bg:#FFF1E8;
+  --dash-tick-today-accent:#FDBA8C;
+  --dash-tick-overdue-bg:#FFF0ED;
+  --dash-tick-overdue-accent:#F4B4A8;
+  /* Dezenter Lavendel-Ton für Materialanfragen im Kalender (siehe TicketCalendarPage.tsx) — Tickets und
+     Materialanfragen im Dashboard selbst nutzen seit der Vereinheitlichung dieselbe Fälligkeits-Palette
+     (--dash-tick-*-bg oben), nicht mehr diesen Ton. */
+  --dash-mat-older-bg:#F1EEFB;
   --line:#DCE3F0;
-  --shadow: 0 1px 2px rgba(11,30,61,.04), 0 8px 24px -12px rgba(11,30,61,.12);
+  /* Bewusst sehr dezent — die App trennt Bereiche primär über Weissraum und dünne Border, nicht über Schatten. */
+  --shadow: 0 1px 2px rgba(11,30,61,.06);
+  --shadow-lifted: 0 4px 16px -6px rgba(11,30,61,.14);
   --radius:14px;
 }
 *{box-sizing:border-box;}
@@ -35,7 +73,7 @@ body{
   -webkit-font-smoothing:antialiased;
   font-size:14px;
 }
-h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif;margin:0;letter-spacing:-.01em;color:var(--ink);}
+h1,h2,h3,h4{font-family:inherit;font-weight:600;margin:0;letter-spacing:-.01em;color:var(--ink);}
 .mono{font-family:'IBM Plex Mono',monospace;}
 button{font-family:inherit;cursor:pointer;}
 input,select,textarea{font-family:inherit;font-size:14px;}
@@ -50,7 +88,7 @@ a{color:inherit;}
 .sidebar{
   display:none;
   width:238px;flex:none;
-  background:linear-gradient(180deg,var(--primary) 0%, var(--primary-dark) 100%);
+  background:linear-gradient(180deg,var(--nav-blue) 0%, var(--nav-blue-dark) 100%);
   color:#DCE7F7;flex-direction:column;
   position:sticky;top:0;height:100vh;height:100dvh;
   padding-top:env(safe-area-inset-top);
@@ -65,12 +103,12 @@ a{color:inherit;}
 .nav{flex:1;padding:6px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
 .nav-item{
   display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
-  color:#B9D3CC;font-size:13.6px;font-weight:500;background:transparent;border:none;text-align:left;width:100%;
+  color:rgba(255,255,255,.82);font-size:13.6px;font-weight:500;background:transparent;border:none;text-align:left;width:100%;
   transition:background .12s, color .12s;
 }
 .nav-item svg{width:17px;height:17px;flex:none;opacity:.85;}
 .nav-item:hover{background:rgba(255,255,255,.06);color:#fff;}
-.nav-item.active{background:#fff;color:var(--primary-dark);font-weight:600;}
+.nav-item.active{background:rgba(255,255,255,.18);color:#fff;font-weight:600;}
 .nav-item.active svg{opacity:1;}
 .nav-group{margin:4px 0;}
 .nav-group-label{display:flex;align-items:center;gap:9px;padding:9px 12px 3px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8FB3AA;}
@@ -81,11 +119,11 @@ a{color:inherit;}
 .nav-foot .date{font-size:11px;color:#8FB3AA;margin-top:2px;}
 
 /* Desktop/Tablet top navigation — replaces the sidebar as the primary way to move between sections.
-   Klarer, ruhiger blauer Hintergrund in der bestehenden Planico-Hauptfarbe (--primary); der Rest der
-   Farbwelt (Karten, Badges, Status etc.) bleibt unverändert. */
+   Klarer, ruhiger blauer Hintergrund in der eigenen Menüfarbe (--nav-blue, siehe :root); der Rest der
+   Farbwelt (Karten, Badges, Status, Buttons etc. — weiterhin --primary) bleibt unverändert. */
 .topnav{
   display:flex;align-items:center;gap:22px;height:60px;padding:0 28px;
-  background:var(--primary);border-bottom:1px solid var(--primary-dark);box-shadow:0 2px 10px rgba(11,30,61,.12);
+  background:var(--nav-blue);border-bottom:1px solid var(--nav-blue-dark);
   position:sticky;top:0;z-index:50;
 }
 /* Kein Standard-Browser-Fokusring um das Logo (sähe wie ein störender Strich am Logo aus) — stattdessen
@@ -101,24 +139,24 @@ a{color:inherit;}
 .topnav-links{flex:1;display:flex;align-items:center;justify-content:flex-start;gap:4px;flex-wrap:nowrap;min-width:0;}
 .topnav-link{
   position:relative;display:flex;align-items:center;justify-content:center;flex:none;
-  width:42px;height:42px;padding:0;border-radius:12px;
+  width:46px;height:46px;padding:0;border-radius:12px;
   background:none;border:none;border-bottom:2px solid transparent;color:rgba(255,255,255,.82);
   transition:background .15s ease,color .15s ease,border-color .15s ease;
 }
-.topnav-link svg{width:21px;height:21px;opacity:.92;}
+.topnav-link svg{width:27px;height:27px;opacity:.92;}
 .topnav-link:hover{background:rgba(255,255,255,.14);color:#fff;}
-.topnav-link.active{background:#fff;color:var(--primary-dark);border-bottom-color:var(--primary);box-shadow:0 4px 12px rgba(11,30,61,.18);}
+.topnav-link.active{background:rgba(255,255,255,.18);color:#fff;border-bottom-color:rgba(255,255,255,.9);}
 .topnav-link.active svg{opacity:1;}
 .topnav-link-badge{
   position:absolute;top:1px;right:1px;min-width:16px;height:16px;padding:0 3px;border-radius:999px;
   background:var(--red);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;
-  border:2px solid var(--primary);
+  border:2px solid var(--nav-blue);
 }
 
 .topnav-right{display:flex;align-items:center;gap:8px;position:relative;flex:none;}
-.topnav .icon-btn{background:transparent;border:none;color:rgba(255,255,255,.85);width:40px;height:40px;border-radius:12px;}
+.topnav .icon-btn{background:transparent;border:none;color:rgba(255,255,255,.85);width:44px;height:44px;border-radius:12px;}
 .topnav .icon-btn:hover{background:rgba(255,255,255,.14);color:#fff;}
-.topnav .icon-btn svg{width:19px;height:19px;}
+.topnav .icon-btn svg{width:22px;height:22px;}
 .topnav .user-chip{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);padding:3px;border-radius:50%;}
 
 /* Dunkler Tooltip bei Hover/Tastaturfokus für die Hauptnavigation und die rechten Icons — zusätzlich
@@ -129,7 +167,7 @@ a{color:inherit;}
 .topnav [data-tooltip]::after{
   content:attr(data-tooltip);position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);
   background:var(--ink);color:#fff;font-size:11.5px;font-weight:600;white-space:nowrap;
-  padding:5px 10px;border-radius:7px;box-shadow:0 10px 22px rgba(0,0,0,.3);
+  padding:5px 10px;border-radius:7px;box-shadow:0 6px 16px -4px rgba(0,0,0,.25);
   opacity:0;visibility:hidden;pointer-events:none;z-index:500;transition:opacity .12s ease;
 }
 .topnav [data-tooltip]:hover::after,
@@ -156,7 +194,7 @@ a{color:inherit;}
    kein Benutzer, keine Icons). Eigene Klasse statt Änderungen an .topbar/.topbar h1, damit der
    Admin-/Manager-Header unangetastet bleibt. */
 .topbar.topbar-staff{justify-content:flex-start;padding-top:max(22px, env(safe-area-inset-top));padding-bottom:18px;}
-.topbar-staff h1{font-size:27px;font-weight:800;letter-spacing:-.015em;}
+.topbar-staff h1{font-size:26px;font-weight:700;letter-spacing:-.015em;}
 .geo-pill{
   display:flex;align-items:center;gap:7px;background:var(--primary-tint);color:var(--primary-dark);
   padding:7px 12px;border-radius:999px;font-size:12.5px;font-weight:600;
@@ -169,8 +207,8 @@ a{color:inherit;}
 /* Tablet: weiterhin Icons (kein Zurückfallen auf die mobile Navigation), nur kompakter. */
 @media (max-width:1150px){
   .topnav{gap:12px;padding:0 18px;}
-  .topnav-link{width:38px;height:38px;border-radius:11px;}
-  .topnav-link svg{width:19px;height:19px;}
+  .topnav-link{width:42px;height:42px;border-radius:11px;}
+  .topnav-link svg{width:24px;height:24px;}
   .topnav-subnav{padding:8px 18px;}
 }
 
@@ -179,7 +217,7 @@ a{color:inherit;}
 .user-chip-txt{text-align:left;line-height:1.2;}
 .user-chip-txt .n{font-size:12.5px;font-weight:700;color:var(--ink);}
 .user-chip-txt .r{font-size:10.5px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.02em;}
-.user-menu{position:absolute;top:calc(100% + 8px);right:0;width:270px;max-width:calc(100vw - 24px);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.14);z-index:120;padding:12px;}
+.user-menu{position:absolute;top:calc(100% + 8px);right:0;width:270px;max-width:calc(100vw - 24px);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 26px -6px rgba(11,30,61,.16);z-index:120;padding:12px;}
 .user-menu-head{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:700;padding:2px 4px 8px;}
 .user-menu-current{display:flex;align-items:center;gap:10px;padding:2px 4px;}
 .user-menu-demo-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;padding:2px 4px 6px;}
@@ -207,7 +245,7 @@ a{color:inherit;}
 }
 .notif-dropdown{
   position:absolute;top:calc(100% + 8px);right:0;width:340px;max-width:calc(100vw - 24px);
-  background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.14);
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 26px -6px rgba(11,30,61,.16);
   z-index:120;overflow:hidden;
 }
 .notif-dropdown-head{padding:12px 14px;font-size:12px;font-weight:700;color:var(--ink-soft);border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.03em;}
@@ -259,9 +297,9 @@ a{color:inherit;}
     border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.06);z-index:60;padding:4px 2px calc(4px + env(safe-area-inset-bottom));
   }
   .mtab{position:relative;flex:1;display:flex;align-items:center;justify-content:center;padding:12px 2px;border:none;background:none;color:var(--ink-faint);min-height:52px;}
-  .mtab svg{width:23px;height:23px;}
-  .mtab.active{color:var(--primary);}
-  .mtab.active::before{content:'';position:absolute;top:0;left:26%;right:26%;height:3px;border-radius:0 0 3px 3px;background:var(--primary);}
+  .mtab svg{width:26px;height:26px;}
+  .mtab.active{color:var(--nav-blue);}
+  .mtab.active::before{content:'';position:absolute;top:0;left:26%;right:26%;height:3px;border-radius:0 0 3px 3px;background:var(--nav-blue);}
 }
 
 /* Cards / grid */
@@ -271,13 +309,13 @@ a{color:inherit;}
 .cols-2{grid-template-columns:2fr 1fr;}
 @media (max-width:1000px){.cols-4{grid-template-columns:repeat(2,1fr);}.cols-2,.cols-3{grid-template-columns:1fr;}}
 
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px;box-shadow:var(--shadow);}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px;box-shadow:none;}
 .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .card-head h3{font-size:14.5px;}
 .card-head .muted-link{font-size:12px;color:var(--primary);font-weight:600;background:none;border:none;}
 
 .kpi .label{font-size:12px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
-.kpi .value{font-family:'Space Grotesk';font-size:30px;font-weight:700;margin-top:6px;}
+.kpi .value{font-size:28px;font-weight:600;margin-top:6px;}
 .kpi .delta{font-size:12px;margin-top:4px;color:var(--ink-faint);}
 .kpi .icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
 .kpi .icon svg{width:17px;height:17px;}
@@ -301,7 +339,7 @@ a{color:inherit;}
 .dash-alert-card:active{transform:scale(.98);}
 .dash-alert-card .icn{width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;}
 .dash-alert-card .icn svg{width:16px;height:16px;}
-.dash-alert-card .val{font-family:'Space Grotesk';font-size:30px;font-weight:800;line-height:1;}
+.dash-alert-card .val{font-size:30px;font-weight:700;line-height:1;}
 .dash-alert-card .lbl{font-size:12.5px;font-weight:700;opacity:.92;}
 .dash-alert-card.is-orange{background:linear-gradient(135deg,#F0883E,#D9691F);}
 .dash-alert-card.is-red{background:linear-gradient(135deg,#E2565B,var(--red));}
@@ -312,20 +350,55 @@ a{color:inherit;}
 .dash-alert-card.is-quiet .lbl{color:var(--ink-soft);opacity:1;}
 
 /* Dashboard: Materialanfragen-/Ticket-Zeilen mit Inline-Aktionen */
-.dash-mat-row,.dash-tick-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line);}
+.dash-mat-row,.dash-tick-row{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line);border-radius:8px;}
 .dash-mat-row:last-child,.dash-tick-row:last-child{border-bottom:none;}
+.dash-mat-row:hover,.dash-tick-row:hover{background:var(--surface-alt);}
 .dash-mat-info,.dash-tick-info{display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer;}
 .dash-mat-info .name,.dash-tick-info .name{font-weight:700;font-size:12.8px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Fälligkeits-/Status-Chip um Ticket-Titel bzw. Objektname im Dashboard — dezenter Farbfleck statt ganzer bunter Zeile. */
+.dash-mat-info .name.is-chip,.dash-tick-info .name.is-chip{display:inline-block;max-width:100%;padding:2px 8px;border-radius:6px;font-size:13.5px;}
 .dash-mat-info .meta,.dash-tick-info .meta{font-size:11.3px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dash-mat-badges,.dash-tick-badges{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none;}
+.dash-tick-row .name{font-size:14.5px;white-space:normal;}
 .dash-mat-actions{display:flex;gap:4px;flex:none;}
+/* Materialanfragen (Dashboard): kompakter blauer Haken statt Textbutton — Status wird hier bewusst nicht
+   mehr angezeigt (siehe DashboardPage.tsx), der Haken markiert direkt als erledigt. */
+.dash-mat-check-btn{width:30px;height:30px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;transition:background .12s ease,transform .06s ease;}
+.dash-mat-check-btn:hover{background:var(--primary-dark);}
+.dash-mat-check-btn:active{transform:scale(.92);}
+.dash-mat-check-btn svg{width:14px;height:14px;}
+/* "+ Neues Ticket" / "+ Neue Materialanfrage" im Dashboard-Kartenkopf — bewusst dieselbe runde, kompakte
+   Planico-blaue Form wie der "Erledigt"-Haken (.dash-mat-check-btn), damit Tickets und Materialanfragen
+   optisch zusammenpassen (siehe Karten-Header-Zeile in DashboardPage.tsx). */
+.dash-header-add-btn{width:30px;height:30px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;transition:background .12s ease,transform .06s ease;}
+.dash-header-add-btn:hover{background:var(--primary-dark);}
+.dash-header-add-btn:active{transform:scale(.92);}
+.dash-header-add-btn svg{width:15px;height:15px;}
 .dash-row-overdue{color:var(--red-dark) !important;font-weight:700;}
+
+/* Gemeinsame Dashboard-Arbeitsliste für Tickets UND Materialanfragen (siehe DashboardWorkList.tsx) — EINE
+   Zeilenstruktur/-höhe/-schrift für beide Bereiche, damit sie wie zwei Teile derselben Komponente wirken.
+   Bewusst getrennt von .dash-mat-row/.dash-tick-row oben (die weiterhin z.B. vom Chat-Modul genutzt werden),
+   damit Änderungen an dieser gemeinsamen Liste nicht versehentlich andere Dashboard-Module mitverändern. */
+.dash-worklist-body{display:flex;flex-direction:column;}
+.dash-worklist-row{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:8px;min-height:64px;}
+.dash-worklist-row:hover{filter:brightness(0.98);}
+.dash-worklist-info{display:flex;flex-direction:column;justify-content:center;gap:2px;flex:1;min-width:0;cursor:pointer;}
+.dash-worklist-name{font-weight:700;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-worklist-meta{font-size:11.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-worklist-due{font-size:10.8px;font-weight:600;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-worklist-due.is-overdue{color:var(--red-dark);}
+.dash-worklist-actions{display:flex;gap:4px;flex:none;}
+.dash-worklist-check-btn{width:30px;height:30px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;transition:background .12s ease,transform .06s ease;}
+.dash-worklist-check-btn:hover{background:var(--primary-dark);}
+.dash-worklist-check-btn:active{transform:scale(.92);}
+.dash-worklist-check-btn svg{width:14px;height:14px;}
 
 .dash-status-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px;border-bottom:1px dashed var(--line);font-size:12.5px;}
 .dash-status-row:last-child{border-bottom:none;}
 .dash-status-row .lbl{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--ink-soft);}
 .dash-status-row .lbl i{width:8px;height:8px;border-radius:50%;display:inline-block;}
-.dash-status-row .val{font-weight:800;font-family:'Space Grotesk';color:var(--ink);}
+.dash-status-row .val{font-weight:600;color:var(--ink);}
 
 /* Dashboard: konfigurierbare Module (Admin/Manager) */
 .dash-header-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
@@ -335,6 +408,22 @@ a{color:inherit;}
 .dash-module{display:flex;flex-direction:column;min-width:0;}
 .dash-module.size-sm{flex:1 1 220px;}
 .dash-module.size-lg{flex:1 1 420px;}
+.dash-module.size-xl{flex:1 1 100%;}
+.dash-module.size-half{flex:1 1 calc(50% - 8px);min-width:360px;}
+@media (max-width:1100px){
+  .dash-module.size-half{flex-basis:100%;min-width:0;}
+}
+/* Tickets und Materialanfragen sitzen NICHT lose als zwei "half"-Module im allgemeinen Flex-Umbruch (dort
+   könnten benachbarte kleinere KPI-Karten die Paarung auf eine Zeile verhindern und eines der beiden zum
+   Alleinstehen mit voller Breite zwingen — genau das ist vorher passiert). Stattdessen rendert DashboardPage
+   sie fest als Paar in einem eigenen Wrapper (.dash-module-pair-row), der selbst immer eine ganze Zeile
+   belegt (wie .size-xl) und intern beide Karten zu exakt gleichen Teilen aufteilt, unabhängig von jedem
+   anderen Modul davor oder danach. Unter 1100px (Tablet/Mobile) untereinander, je volle Breite. */
+.dash-module-pair-row{display:flex;flex:1 1 100%;gap:16px;align-items:stretch;}
+.dash-module-pair-row .dash-module{flex:1 1 0;min-width:0;}
+@media (max-width:1100px){
+  .dash-module-pair-row{flex-direction:column;}
+}
 .dash-module .dash-module-body{flex:1;margin-bottom:0;}
 @media (max-width:700px){.dash-module{flex-basis:100% !important;}}
 
@@ -365,12 +454,14 @@ a{color:inherit;}
 .btn:disabled{opacity:.5;cursor:not-allowed;}
 .btn:disabled:active{transform:none;}
 .btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-tint);}
-.btn-primary{background:var(--primary);color:#fff;box-shadow:0 2px 8px -2px rgba(0,52,141,.45);}
-.btn-primary:hover{background:var(--primary-dark);box-shadow:0 4px 14px -3px rgba(0,52,141,.5);}
-.btn-accent{background:var(--accent);color:#04203a;}
-.btn-accent:hover{background:var(--accent-dark);color:#fff;}
-.btn-ghost{background:var(--surface-alt);color:var(--ink);}
-.btn-ghost:hover{background:var(--line);}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{background:var(--primary-dark);}
+/* "Erfolg"-Variante (Genehmigen/Bestätigen/Einstempeln/Erledigt u.ä.) — bewusst Grün statt der früheren
+   fünften Akzentfarbe, damit die App insgesamt mit weniger Buttonfarben auskommt. */
+.btn-accent{background:var(--green);color:#fff;}
+.btn-accent:hover{background:#127A48;}
+.btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line);}
+.btn-ghost:hover{background:var(--surface-alt);border-color:var(--ink-faint);}
 .btn-outline{background:transparent;border-color:var(--line);color:var(--ink);}
 .btn-outline:hover{border-color:var(--primary);color:var(--primary);}
 .btn-danger{background:var(--red-tint);color:var(--red);}
@@ -395,7 +486,7 @@ a{color:inherit;}
 /* table */
 .table-wrap{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13.2px;}
-th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:700;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);font-weight:700;padding:9px 12px;background:var(--surface-alt);border-bottom:1px solid var(--line);white-space:nowrap;}
 td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
 tbody tr:hover{background:var(--surface-alt);}
@@ -436,18 +527,20 @@ tbody tr:hover{background:var(--surface-alt);}
 .eval-total-card{background:var(--primary-tint);border:1px solid var(--primary);border-radius:12px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
 .eval-total-card .label{font-weight:700;color:var(--primary-dark);font-size:12px;}
 .eval-total-card .value{font-weight:800;font-size:17px;color:var(--primary-dark);white-space:nowrap;}
-.avatar{width:29px;height:29px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;font-family:'Space Grotesk';flex:none;}
+.avatar{width:29px;height:29px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:12px;flex:none;}
 .person{display:flex;align-items:center;gap:9px;}
 .person .name{font-weight:600;}
 .person .meta{color:var(--ink-faint);font-size:11.5px;}
 
 /* forms */
 .field{margin-bottom:13px;}
-.field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:5px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
 .field input,.field select,.field textarea{
-  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);
+  width:100%;min-height:40px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);
 }
+.field textarea{min-height:0;}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
+.field input::placeholder,.field textarea::placeholder{color:var(--ink-faint);}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .password-field{position:relative;}
 .password-field input{padding-right:46px;}
@@ -484,7 +577,7 @@ tbody tr:hover{background:var(--surface-alt);}
 
 /* modal */
 .overlay{position:fixed;inset:0;background:rgba(10,25,20,.45);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
-.modal{background:var(--surface);border-radius:16px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+.modal{background:var(--surface);border-radius:16px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-shadow:0 12px 32px -8px rgba(11,30,61,.22);}
 .modal-wide{max-width:640px;}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line);}
 .modal-head h3{font-size:16px;}
@@ -544,7 +637,7 @@ tbody tr:hover{background:var(--surface-alt);}
 .stamp-info h2{font-size:20px;margin-bottom:8px;}
 .stamp-meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;}
 .stamp-meta div{font-size:12px;color:var(--ink-faint);}
-.stamp-meta b{display:block;color:var(--ink);font-size:14px;font-family:'Space Grotesk';}
+.stamp-meta b{display:block;color:var(--ink);font-size:14px;font-weight:600;}
 
 @media (max-width:480px){
   .stamp-widget{flex-direction:column;align-items:center;text-align:center;gap:16px;}
@@ -555,6 +648,12 @@ tbody tr:hover{background:var(--surface-alt);}
   .stamp-info .field{margin-left:auto;margin-right:auto;}
   .detail-grid{grid-template-columns:1fr;}
 }
+
+/* ---- Admin/Manager Stempelkarte (StampWidget) — schlicht, ohne tickende Uhr ---- */
+.stamp-card-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.stamp-card-who{flex:1;min-width:160px;}
+.stamp-card-who .who{font-size:12.5px;color:var(--ink-soft);margin-bottom:1px;}
+.stamp-card-who h3{font-size:16px;}
 
 /* ---- Mitarbeiter: moderne Stempeluhr (Sparte "Zeiterfassung") — grosse runde Karte, runde Buttons ---- */
 .stampclock-page{
@@ -567,7 +666,7 @@ tbody tr:hover{background:var(--surface-alt);}
 .stampclock-page.is-idle{justify-content:flex-end;gap:22px;padding-bottom:28px;}
 .stampclock-card{
   width:100%;max-width:350px;background:var(--surface);border:1px solid var(--line);
-  border-radius:32px;padding:26px 22px 24px;box-shadow:0 22px 44px -20px rgba(11,30,61,.25), var(--shadow);
+  border-radius:32px;padding:26px 22px 24px;box-shadow:var(--shadow-lifted);
   display:flex;flex-direction:column;align-items:center;gap:8px;
   animation:stampfade .22s ease-out;
 }
@@ -588,7 +687,7 @@ tbody tr:hover{background:var(--surface-alt);}
 .stampclock-status.is-pause .dot{background:var(--amber);}
 .stampclock-timer{font-family:'IBM Plex Mono',monospace;font-size:40px;font-weight:700;color:var(--ink);letter-spacing:.01em;margin:2px 0;}
 .stampclock-timer.is-pause{color:#93670A;}
-.stampclock-object{font-family:'Space Grotesk';font-size:16px;font-weight:700;color:var(--ink);}
+.stampclock-object{font-size:16px;font-weight:600;color:var(--ink);}
 
 /* Zustand "nicht eingestempelt": automatische Objekterkennung statt Dropdown */
 .stampclock-object-zone{width:100%;display:flex;flex-direction:column;align-items:center;min-height:24px;}
@@ -602,7 +701,7 @@ tbody tr:hover{background:var(--surface-alt);}
 .stampclock-locate-block svg{width:24px;height:24px;color:var(--ink-faint);}
 
 .stampclock-selected-object{text-align:center;}
-.stampclock-selected-object .name{font-family:'Space Grotesk';font-size:18px;font-weight:800;color:var(--ink);}
+.stampclock-selected-object .name{font-size:18px;font-weight:700;color:var(--ink);}
 .stampclock-change-object{display:block;margin:5px auto 0;background:none;border:none;color:var(--primary);font-size:11.5px;font-weight:700;text-decoration:underline;padding:4px;}
 
 .stampclock-picker{width:100%;max-width:340px;}
@@ -681,7 +780,7 @@ tbody tr:hover{background:var(--surface-alt);}
 .cal-col{background:var(--surface);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;min-height:200px;}
 .cal-col.is-today{border-color:var(--accent-dark);box-shadow:0 0 0 1px var(--accent-dark);}
 .cal-col-head{background:var(--surface-alt);padding:9px 10px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
-.cal-col-head .d{font-family:'Space Grotesk';font-size:14px;color:var(--ink);margin-left:2px;}
+.cal-col-head .d{font-size:14px;font-weight:600;color:var(--ink);margin-left:2px;}
 .cal-col.is-today .cal-col-head{color:var(--accent-dark);}
 .today-dot{width:6px;height:6px;border-radius:50%;background:var(--accent-dark);margin-left:auto;}
 .cal-col-body{padding:9px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:80px;}
@@ -887,6 +986,8 @@ tbody tr:hover{background:var(--surface-alt);}
 .emp-sched-grid.is-fluid .emp-shift-chip{padding:1px 3px;border-radius:4px;border-left-width:2px;}
 .emp-sched-grid.is-fluid .emp-shift-chip .t{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:clip;}
 .emp-more{font-size:9.5px;color:var(--ink-faint);text-align:center;}
+.emp-abs-chip{border-radius:6px;padding:3px 6px;font-size:10px;line-height:1.25;border-left:3px solid;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.emp-sched-grid.is-fluid .emp-abs-chip{padding:1px 3px;border-radius:4px;border-left-width:2px;font-size:8.5px;}
 .emp-cell-add{position:absolute;inset:2px;border:1px dashed transparent;border-radius:6px;background:none;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);opacity:0;pointer-events:none;transition:opacity .12s,background .12s,border-color .12s;cursor:pointer;padding:0;}
 .emp-cell-add svg{width:11px;height:11px;}
 .emp-day-cell:hover .emp-cell-add,.emp-day-cell:focus-within .emp-cell-add{opacity:1;pointer-events:auto;background:var(--primary-tint);border-color:var(--primary);color:var(--primary-dark);}
@@ -923,7 +1024,7 @@ tbody tr:hover{background:var(--surface-alt);}
 
 /* shift detail drawer */
 .drawer-overlay{position:fixed;inset:0;background:rgba(10,25,20,.4);backdrop-filter:blur(1px);z-index:110;display:flex;justify-content:flex-end;}
-.drawer{width:100%;max-width:420px;height:100vh;height:100dvh;background:var(--surface);box-shadow:-16px 0 40px rgba(0,0,0,.18);display:flex;flex-direction:column;animation:drawerin .18s ease-out;padding-top:env(safe-area-inset-top);}
+.drawer{width:100%;max-width:420px;height:100vh;height:100dvh;background:var(--surface);border-left:1px solid var(--line);box-shadow:-8px 0 24px -8px rgba(11,30,61,.18);display:flex;flex-direction:column;animation:drawerin .18s ease-out;padding-top:env(safe-area-inset-top);}
 @keyframes drawerin{from{transform:translateX(24px);opacity:.4;}to{transform:translateX(0);opacity:1;}}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line);}
 .drawer-body{padding:20px;overflow-y:auto;flex:1;}
@@ -943,7 +1044,7 @@ tbody tr:hover{background:var(--surface-alt);}
 .radius-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--primary-dark);background:var(--primary-tint);padding:3px 8px;border-radius:999px;margin-top:9px;font-weight:700;}
 .cust-card{cursor:pointer;transition:transform .08s, box-shadow .12s;}
 .cust-card:hover{transform:translateY(-1px);box-shadow:var(--shadow);}
-.addr-suggest{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:30;margin-top:4px;overflow:hidden;max-height:220px;overflow-y:auto;}
+.addr-suggest{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lifted);z-index:30;margin-top:4px;overflow:hidden;max-height:220px;overflow-y:auto;}
 .addr-suggest-item{display:flex;align-items:center;gap:8px;padding:9px 11px;font-size:12.6px;cursor:pointer;border-bottom:1px solid var(--line);}
 .addr-suggest-item:last-child{border-bottom:none;}
 .addr-suggest-item:hover{background:var(--surface-alt);}
@@ -978,13 +1079,13 @@ tbody tr:hover{background:var(--surface-alt);}
 
 /* Meine Stunden: reduzierte Karte ohne Status — nur Datum, Objekt, Zeit, Gesamtzeit */
 .me-hours-row{padding:14px 16px;}
-.me-hours-row-date{font-weight:700;font-size:14px;font-family:'Space Grotesk';color:var(--ink);}
+.me-hours-row-date{font-weight:600;font-size:14px;color:var(--ink);}
 .me-hours-row-cust{font-size:13px;color:var(--ink-soft);margin-top:2px;}
 .me-hours-row-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);}
 .me-hours-row-foot .mono{font-size:12.5px;color:var(--ink-soft);font-weight:600;}
 .me-hours-row-total{font-size:13.5px;font-weight:800;color:var(--primary-dark);}
 
-.toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:var(--shadow);z-index:200;display:flex;align-items:center;gap:8px;}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:var(--shadow-lifted);z-index:200;display:flex;align-items:center;gap:8px;}
 .toast svg{width:15px;height:15px;color:var(--accent);}
 
 /* Nachrichten: ungelesen-Badges in der Navigation */
@@ -1104,7 +1205,7 @@ tbody tr:hover{background:var(--surface-alt);}
 .mat-section-label svg{width:15px;height:15px;}
 .mat-select-big{
   width:100%;padding:14px 14px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);
-  font-family:'Space Grotesk';font-size:16px;font-weight:700;color:var(--ink);box-shadow:var(--shadow);min-height:52px;
+  font-size:16px;font-weight:600;color:var(--ink);box-shadow:var(--shadow);min-height:52px;
 }
 .mat-select-big:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-tint);}
 
@@ -1123,7 +1224,7 @@ tbody tr:hover{background:var(--surface-alt);}
 .mat-qty-stepper button{width:38px;height:44px;border:none;background:var(--surface-alt);color:var(--ink);display:flex;align-items:center;justify-content:center;}
 .mat-qty-stepper button:disabled{opacity:.4;}
 .mat-qty-stepper button svg{width:14px;height:14px;}
-.mat-qty-value{min-width:30px;text-align:center;font-weight:800;font-family:'Space Grotesk';font-size:15px;}
+.mat-qty-value{min-width:30px;text-align:center;font-weight:700;font-size:15px;}
 .mat-line-remove{flex:none;width:44px;height:44px;border:none;background:var(--red-tint);color:var(--red);border-radius:10px;display:flex;align-items:center;justify-content:center;}
 .mat-line-remove svg{width:15px;height:15px;}
 .mat-line-remove:disabled{opacity:.4;}
@@ -1152,7 +1253,7 @@ tbody tr:hover{background:var(--surface-alt);}
 .mat-panel-items{display:flex;flex-direction:column;gap:2px;}
 .mat-panel-item-row{display:flex;align-items:baseline;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
 .mat-panel-item-row:last-child{border-bottom:none;}
-.mat-panel-item-row .qty{font-weight:800;font-family:'Space Grotesk';font-size:15px;color:var(--ink);flex:none;}
+.mat-panel-item-row .qty{font-weight:700;font-size:15px;color:var(--ink);flex:none;}
 .mat-panel-item-row .name{flex:1;font-weight:600;color:var(--ink);min-width:0;}
 .mat-complete-btn{font-weight:800 !important;}
 
@@ -1217,13 +1318,68 @@ tbody tr:hover{background:var(--surface-alt);}
 .mat-ov-status{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;}
 .mat-ov-side .time{font-size:10.8px;color:var(--ink-faint);}
 .mat-ov-actions{display:flex;gap:6px;}
+
+/* Ticket-Übersicht (Dashboard) — selbe Modal-Hülle wie die Materialanfragen-Übersicht (.mat-overview-modal),
+   eigene, kompakte Zeilen mit dezenter Fälligkeits-Einfärbung statt einer bunten ganzen Zeile. */
+.tick-ov-row{display:grid;grid-template-columns:1.3fr 1fr auto;gap:16px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line);border-left:3px solid transparent;}
+.tick-ov-row:last-child{border-bottom:none;}
+.tick-ov-row.is-normal:hover{background:var(--surface-alt);}
+.tick-ov-row.is-soon{background:var(--amber-tint);border-left-color:var(--amber);}
+.tick-ov-row.is-today{background:var(--orange-tint);border-left-color:var(--orange);}
+.tick-ov-row.is-overdue{background:var(--red-tint);border-left-color:var(--red);}
+.tick-ov-main .nr{font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.03em;}
+.tick-ov-main .title{font-weight:700;font-size:13.6px;color:var(--ink);margin-top:1px;}
+.tick-ov-main .meta{font-size:11.6px;color:var(--ink-soft);margin-top:2px;}
+.tick-ov-due{display:flex;flex-direction:column;align-items:flex-start;gap:5px;}
+.tick-ov-due-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);}
+.tick-ov-due-label.is-soon{color:#93670A;}
+.tick-ov-due-label.is-today{color:#B8560F;}
+.tick-ov-due-label.is-overdue{color:var(--red);}
+.tick-ov-actions{display:flex;gap:6px;flex:none;}
+
 @media (max-width:640px){
   .overlay:has(.mat-overview-modal){padding:10px;}
   .modal.mat-overview-modal{max-width:100%;max-height:calc(100dvh - 20px);}
   .mat-ov-row{grid-template-columns:1fr;gap:8px;padding:14px 4px;}
   .mat-ov-side{align-items:flex-start;flex-direction:row;flex-wrap:wrap;}
   .mat-ov-items .preview,.mat-ov-items .note{white-space:normal;}
+  .tick-ov-row{grid-template-columns:1fr;gap:8px;padding:14px 4px;}
+  .tick-ov-due{flex-direction:row;flex-wrap:wrap;align-items:center;}
+  .tick-ov-actions{flex-wrap:wrap;}
 }
+
+/* Dashboard-Kalender (DashboardCalendar.tsx) — ruhige Apple-/iCloud-artige Monatsansicht: viel Weissraum,
+   dünne Trennlinien, keine Schatten/Farbverläufe. Gitter über CSS grid (repeat(7,1fr)) statt einer
+   horizontal scrollenden Zeitleiste wie im Dienstplan — dadurch von Haus aus ohne horizontales Scrollen. */
+.cal-dash-nav{display:flex;align-items:center;justify-content:space-between;margin:2px 0 12px;flex-wrap:wrap;gap:8px;}
+.cal-dash-month-label{font-weight:600;min-width:150px;text-align:center;font-size:14px;}
+.cal-dash-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;}
+.cal-dash-weekdays div{text-align:center;font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;}
+.cal-dash-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;}
+.cal-dash-day{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:92px;padding:6px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:background .12s ease,border-color .12s ease;}
+.cal-dash-day.is-blank{background:transparent;border-color:transparent;cursor:default;}
+.cal-dash-day.is-weekend{background:var(--bg);}
+.cal-dash-day.is-today{border-color:var(--primary);}
+.cal-dash-day.is-today .cal-dash-day-num{color:var(--primary-dark);font-weight:700;}
+.cal-dash-day.is-selected{box-shadow:inset 0 0 0 2px var(--primary);}
+.cal-dash-day.is-drop-target{background:var(--primary-tint);}
+.cal-dash-day-top{display:flex;align-items:center;justify-content:space-between;}
+.cal-dash-day-num{font-size:12.5px;font-weight:600;color:var(--ink-soft);}
+.cal-dash-day-add{width:18px;height:18px;border-radius:5px;border:none;background:none;color:var(--ink-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;opacity:0;transition:opacity .12s ease,background .12s ease,color .12s ease;}
+.cal-dash-day-add svg{width:11px;height:11px;}
+.cal-dash-day:hover .cal-dash-day-add,.cal-dash-day:focus-within .cal-dash-day-add{opacity:1;}
+.cal-dash-day-add:hover{background:var(--primary-tint);color:var(--primary-dark);}
+.cal-dash-day-entries{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.cal-dash-entry{font-size:10.5px;font-weight:600;color:var(--ink);background:var(--primary-tint);border-radius:5px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+.cal-dash-day-more{font-size:10px;color:var(--ink-faint);font-weight:600;padding-left:2px;}
+
+.cal-dash-agenda{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
+.cal-dash-agenda-head{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);margin-bottom:8px;}
+.cal-dash-agenda-row{display:flex;align-items:baseline;gap:10px;padding:7px 4px;border-bottom:1px solid var(--line);cursor:pointer;}
+.cal-dash-agenda-row:last-child{border-bottom:none;}
+.cal-dash-agenda-row:hover{background:var(--surface-alt);}
+.cal-dash-agenda-time{font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:700;color:var(--ink-soft);flex:none;width:38px;}
+.cal-dash-agenda-lbl{font-size:12.8px;color:var(--ink);}
 
 .mobile-toggle{display:none;}
 @media (max-width:880px){
@@ -1239,13 +1395,21 @@ tbody tr:hover{background:var(--surface-alt);}
   .btn-sm{padding:9px 13px;font-size:12.8px;min-height:38px;}
   .icon-btn{width:44px;height:44px;}
   .icon-btn svg{width:17px;height:17px;}
+  .dash-mat-check-btn{width:40px;height:40px;}
+  .dash-mat-check-btn svg{width:17px;height:17px;}
+  .dash-header-add-btn{width:40px;height:40px;}
+  .dash-header-add-btn svg{width:18px;height:18px;}
+  .cal-dash-day{min-height:60px;padding:4px;border-radius:8px;}
+  .cal-dash-day-add{opacity:1;width:20px;height:20px;}
+  .cal-dash-entry{font-size:9.5px;padding:2px 4px;}
+  .cal-dash-month-label{min-width:0;font-size:13px;}
   .field input,.field select,.field textarea{padding:12px 12px;font-size:15px;min-height:44px;}
   .field-row{grid-template-columns:1fr;}
   .tab{padding:10px 14px;font-size:13px;}
   .tabs{width:100%;}
   .tabs .tab{flex:1;text-align:center;}
   .mtab{padding:12px 2px;min-height:52px;justify-content:center;}
-  .mtab svg{width:23px;height:23px;}
+  .mtab svg{width:26px;height:26px;}
   .close-x{width:40px;height:40px;}
   .close-x svg{width:15px;height:15px;}
 
@@ -1266,3 +1430,28 @@ tbody tr:hover{background:var(--surface-alt);}
 
   .mat-line-select{flex-basis:100%;}
 }
+
+/* Ticket-Fälligkeit: ganze Zeile/Karte einfärben — NUR für die vollständige Ticketliste (TicketsPage.tsx,
+   siehe ticketUrgencyRowClass in Badge.tsx). Das Dashboard hat seit dem separaten Dashboard-Farbauftrag
+   eine EIGENE Klassenfamilie (.dash-tick-urgency-*, weiter unten) und verwendet diese Klassen hier nicht
+   mehr — bewusst getrennt, damit ein künftiger Farbwunsch für nur einen der beiden Orte den anderen nicht
+   mitverändert. Bewusst am Ende der Datei, damit diese Klassen andere Hintergrundfarben (z.B. .eval-card)
+   zuverlässig überschreiben, ohne per !important arbeiten zu müssen. Nur Hintergrund, keine Textfarbe: der
+   normale dunkle Fliesstext (--ink) bleibt auf allen Tints gut lesbar. Bewusst kein border-left/box-shadow-
+   Akzent: weder border noch box-shadow rendern auf <tr> browserübergreifend zuverlässig (Ticketliste) —
+   nur der Hintergrund verhält sich dort identisch zur Dashboard-/Mobile-Kartenansicht; die vom Kunden
+   genannten Akzenttöne (--tick-*-accent) stehen für eine spätere, gezielt getestete Verwendung bereit. */
+.tick-urgency-soon{background:var(--tick-soon-bg);}
+.tick-urgency-today{background:var(--tick-today-bg);}
+.tick-urgency-overdue{background:var(--tick-overdue-bg);}
+.tick-urgency-later{background:var(--tick-later-bg);}
+.tick-urgency-done{background:var(--tick-done-bg);}
+
+/* Dashboard-To-do-Liste (DashboardWorkList.tsx, siehe dashboardUrgencyRowClass in Badge.tsx) — eigene,
+   modernere Pastellpalette NUR fürs Dashboard, gemeinsam für Tickets UND Materialanfragen (identische
+   Farblogik nach Fälligkeit); die Ticket-Hauptseite bleibt bei .tick-urgency-* oben unverändert. Ebenfalls
+   nur Hintergrund (kein border/box-shadow, siehe Begründung oben), Fliesstext bleibt die normale dunkle Tinte. */
+.dash-tick-urgency-normal{background:var(--dash-tick-normal-bg);}
+.dash-tick-urgency-soon{background:var(--dash-tick-soon-bg);}
+.dash-tick-urgency-today{background:var(--dash-tick-today-bg);}
+.dash-tick-urgency-overdue{background:var(--dash-tick-overdue-bg);}

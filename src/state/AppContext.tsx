@@ -4,6 +4,7 @@ import type {
   AbsenceStatus,
   AppData,
   AppNotification,
+  CalendarEvent,
   ChatMessage,
   Customer,
   CustomerIssue,
@@ -149,6 +150,27 @@ function migrateData(data: AppData): AppData {
     if (e.customFieldValues === undefined) e.customFieldValues = {};
     if (e.documents === undefined) e.documents = [];
   });
+  // Ticketstatus wurde von sechs auf zwei Zustände reduziert (siehe TicketStatus in types/index.ts) — alte
+  // Zwischenstatus werden hier auf "offen" abgebildet, nur "erledigt"/"abgeschlossen" gilt als "erledigt".
+  // Keine Daten gehen dabei verloren, nur der Statuswert selbst wird vereinfacht.
+  const TICKET_STATUS_MIGRATION: Record<string, TicketStatus> = {
+    neu: 'offen',
+    geplant: 'offen',
+    in_bearbeitung: 'offen',
+    wartet_rueckmeldung: 'offen',
+    offen: 'offen',
+    erledigt: 'erledigt',
+    abgeschlossen: 'erledigt',
+  };
+  data.tickets.forEach((t) => {
+    if (t.completedAt === undefined) t.completedAt = null;
+    if (t.completedBy === undefined) t.completedBy = null;
+    t.status = TICKET_STATUS_MIGRATION[t.status as string] ?? 'offen';
+  });
+  data.absences.forEach((a) => {
+    // Ausfallgrad wurde nachträglich eingeführt — bestehende Abwesenheiten galten immer als vollständiger Ausfall.
+    if (a.absencePercentage === undefined) a.absencePercentage = 100;
+  });
   if (data.permissions.manager.emp_view_sensitive === undefined) data.permissions.manager.emp_view_sensitive = false;
   if (data.permissions.mitarbeiter.emp_view_sensitive === undefined) data.permissions.mitarbeiter.emp_view_sensitive = false;
   if (data.permissions.manager.emp_edit_sensitive === undefined) data.permissions.manager.emp_edit_sensitive = false;
@@ -160,19 +182,24 @@ function migrateData(data: AppData): AppData {
   if (!data.chats) data.chats = [];
   if (!data.messages) data.messages = [];
   if (!data.tickets) data.tickets = [];
+  if (!data.calendarEvents) data.calendarEvents = [];
   if (!data.materialRequests) data.materialRequests = [];
   if (!data.materials) data.materials = [];
   if (!data.notifications) data.notifications = [];
+  // Materialstatus wurde von mehreren Zwischenstufen auf zwei Zustände reduziert (siehe MaterialRequestStatus
+  // in types/index.ts) — Vorgabe: alles, was nicht eindeutig erledigt/geliefert war, gilt jetzt als "offen"
+  // (auch ehemals "abgelehnt", da es sonst in keiner der beiden neuen Kategorien landen würde).
   const MATERIAL_STATUS_MIGRATION: Record<string, MaterialRequestStatus> = {
-    entwurf: 'eingereicht',
-    eingereicht: 'eingereicht',
-    in_pruefung: 'in_bearbeitung',
-    genehmigt: 'in_bearbeitung',
-    bestellt: 'in_bearbeitung',
-    in_bearbeitung: 'in_bearbeitung',
+    entwurf: 'offen',
+    eingereicht: 'offen',
+    in_pruefung: 'offen',
+    genehmigt: 'offen',
+    bestellt: 'offen',
+    in_bearbeitung: 'offen',
+    abgelehnt: 'offen',
+    offen: 'offen',
     geliefert: 'erledigt',
     erledigt: 'erledigt',
-    abgelehnt: 'abgelehnt',
   };
   data.materialRequests.forEach((m) => {
     const anyM = m as any;
@@ -198,7 +225,7 @@ function migrateData(data: AppData): AppData {
     }
     if (anyM.completedAt === undefined) anyM.completedAt = null;
     if (anyM.completedBy === undefined) anyM.completedBy = null;
-    m.status = MATERIAL_STATUS_MIGRATION[m.status as string] ?? 'eingereicht';
+    m.status = MATERIAL_STATUS_MIGRATION[m.status as string] ?? 'offen';
   });
   if (data.permissions.manager.tickets_view_own === undefined) {
     data.permissions.manager.tickets_view_own = false;
@@ -276,9 +303,7 @@ function pushNotif(list: AppNotification[], n: Omit<AppNotification, 'id' | 'cre
 }
 
 const MATERIAL_STATUS_NOTIF: Partial<Record<MaterialRequestStatus, { type: NotificationType; title: string; message?: string }>> = {
-  in_bearbeitung: { type: 'material_ordered', title: 'Materialbestellung in Bearbeitung' },
   erledigt: { type: 'material_delivered', title: 'Materialbestellung erledigt', message: 'Deine Materialbestellung wurde erledigt.' },
-  abgelehnt: { type: 'material_rejected', title: 'Materialbestellung abgelehnt' },
 };
 
 /** Kurze Zusammenfassung der Positionen für Benachrichtigungstexte, z. B. "4× WC-Papier, 2× Müllsäcke". */
@@ -374,6 +399,7 @@ interface AppContextValue {
     moveShiftTo: (id: string, newDate: string, newEmployeeId: string | null) => void;
     // absences
     saveAbsence: (data: Omit<Absence, 'id'>) => void;
+    updateAbsence: (id: string, data: Omit<Absence, 'id'>) => void;
     setAbsStatus: (id: string, status: AbsenceStatus) => void;
     deleteAbsence: (id: string) => void;
     moveAbsence: (id: string, newStart: string) => void;
@@ -439,7 +465,17 @@ interface AppContextValue {
     createTicket: (
       data: Omit<
         Ticket,
-        'id' | 'ticketNumber' | 'comments' | 'attachments' | 'activityLog' | 'createdAt' | 'updatedAt' | 'createdBy' | 'materialRequestId'
+        | 'id'
+        | 'ticketNumber'
+        | 'comments'
+        | 'attachments'
+        | 'activityLog'
+        | 'createdAt'
+        | 'updatedAt'
+        | 'createdBy'
+        | 'materialRequestId'
+        | 'completedAt'
+        | 'completedBy'
       >
     ) => void;
     updateTicket: (id: string, patch: Partial<Ticket>) => void;
@@ -468,6 +504,11 @@ interface AppContextValue {
       id: string,
       extra: { assignedEmployeeId?: string | null; assignedManagerId?: string | null; dueDate?: string | null; priority?: TicketPriority }
     ) => void;
+    // Dashboard-Kalender (manuelle Termine — Ticket-Fälligkeiten werden separat aus state.tickets abgeleitet)
+    createCalendarEvent: (data: Omit<CalendarEvent, 'id' | 'createdBy' | 'createdAt' | 'updatedAt'>) => void;
+    updateCalendarEvent: (id: string, patch: Partial<CalendarEvent>) => void;
+    moveCalendarEvent: (id: string, newDate: string) => void;
+    deleteCalendarEvent: (id: string) => void;
     // Benachrichtigungen
     markNotificationRead: (id: string) => void;
   };
@@ -495,6 +536,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         chats: state.chats,
         messages: state.messages,
         tickets: state.tickets,
+        calendarEvents: state.calendarEvents,
         materialRequests: state.materialRequests,
         materials: state.materials,
         notifications: state.notifications,
@@ -560,7 +602,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             t.dueDate &&
             t.dueDate < todayIso &&
             t.status !== 'erledigt' &&
-            t.status !== 'abgeschlossen' &&
             !s.notifications.some((n) => n.type === 'ticket_overdue' && n.linkedTicketId === t.id)
         );
         if (!overdue.length) return s;
@@ -878,6 +919,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setState((s) => ({ ...s, absences: [...s.absences, { id: uid(), ...data }] }));
         toast('Antrag erfasst.');
       },
+      updateAbsence: (id, data) => {
+        setState((s) => ({ ...s, absences: s.absences.map((a) => (a.id === id ? { id, ...data } : a)) }));
+        toast('Abwesenheit aktualisiert.');
+      },
       setAbsStatus: (id, status) => {
         setState((s) => ({ ...s, absences: s.absences.map((a) => (a.id === id ? { ...a, status } : a)) }));
         toast(status === 'genehmigt' ? 'Antrag genehmigt.' : 'Antrag abgelehnt.');
@@ -926,7 +971,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveMeAbsence: (data) => {
         setState((s) => ({
           ...s,
-          absences: [...s.absences, { id: uid(), employeeId: s.currentUserId as string, ...data, status: 'beantragt' }],
+          // Der Ausfallgrad wird von Admin/Manager beim Prüfen des Antrags festgelegt (z.B. anhand des
+          // Arztzeugnisses) — der Mitarbeiter selbst gibt hier keinen Prozentsatz an, daher Standard 100 %.
+          absences: [...s.absences, { id: uid(), employeeId: s.currentUserId as string, ...data, status: 'beantragt', absencePercentage: 100 }],
         }));
         toast('Antrag eingereicht.');
       },
@@ -1317,6 +1364,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdBy: by,
             createdAt: now,
             updatedAt: now,
+            completedAt: null,
+            completedBy: null,
           };
           let notifications = s.notifications;
           if (ticket.priority === 'dringend') {
@@ -1362,12 +1411,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setState((s) => {
           const by = currentUser(s, s.currentUserId)?.name || 'System';
           const now = new Date().toISOString();
+          const isDone = status === 'erledigt';
           return {
             ...s,
             tickets: s.tickets.map((t) => {
               if (t.id !== id) return t;
-              const text = status === 'abgeschlossen' ? 'Ticket abgeschlossen' : `Status geändert zu "${TICKET_STATUS_TEXT[status]}"`;
-              return { ...t, status, activityLog: [...t.activityLog, { id: uid(), ts: now, text, by }], updatedAt: now };
+              const text = `Status geändert zu "${TICKET_STATUS_TEXT[status]}"`;
+              return {
+                ...t,
+                status,
+                // Nachvollziehbarkeit wie bei Materialanfragen: erledigt/abgeschlossen setzt completedAt/completedBy,
+                // ein Zurücksetzen auf einen offenen Status löscht sie wieder (kein Datenverlust — nur diese beiden Felder).
+                completedAt: isDone ? now : null,
+                completedBy: isDone ? by : null,
+                activityLog: [...t.activityLog, { id: uid(), ts: now, text, by }],
+                updatedAt: now,
+              };
             }),
           };
         });
@@ -1497,7 +1556,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 id,
                 createdByEmployeeId: data.employeeId ?? s.currentUserId ?? 'unknown',
                 assigneeId: null,
-                status: 'eingereicht',
+                status: 'offen',
                 completedAt: null,
                 completedBy: null,
                 linkedTicketId: null,
@@ -1574,7 +1633,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       withdrawMaterialRequest: (id) => {
         setState((s) => ({
           ...s,
-          materialRequests: s.materialRequests.filter((m) => m.id !== id || m.status !== 'eingereicht'),
+          materialRequests: s.materialRequests.filter((m) => m.id !== id || m.status !== 'offen'),
         }));
         toast('Anfrage zurückgezogen.');
       },
@@ -1588,6 +1647,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       markNotificationRead: (id) => {
         setState((s) => ({ ...s, notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) }));
+      },
+      createCalendarEvent: (data) => {
+        setState((s) => {
+          const by = currentUser(s, s.currentUserId)?.name || 'System';
+          const now = new Date().toISOString();
+          const event: CalendarEvent = { ...data, id: uid(), createdBy: by, createdAt: now, updatedAt: now };
+          return { ...s, calendarEvents: [...s.calendarEvents, event] };
+        });
+        toast('Termin gespeichert.');
+      },
+      updateCalendarEvent: (id, patch) => {
+        setState((s) => ({
+          ...s,
+          calendarEvents: s.calendarEvents.map((e) => (e.id === id ? { ...e, ...patch, updatedAt: new Date().toISOString() } : e)),
+        }));
+        toast('Termin aktualisiert.');
+      },
+      moveCalendarEvent: (id, newDate) => {
+        setState((s) => ({
+          ...s,
+          calendarEvents: s.calendarEvents.map((e) => (e.id === id ? { ...e, date: newDate, updatedAt: new Date().toISOString() } : e)),
+        }));
+        toast('Termin verschoben.');
+      },
+      deleteCalendarEvent: (id) => {
+        setState((s) => ({ ...s, calendarEvents: s.calendarEvents.filter((e) => e.id !== id) }));
+        toast('Termin gelöscht.');
       },
       convertMaterialRequestToTicket: (id, extra) => {
         setState((s) => {
@@ -1608,7 +1694,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             assignedEmployeeId: extra.assignedEmployeeId ?? req.employeeId,
             assignedManagerId: extra.assignedManagerId ?? null,
             priority: extra.priority ?? req.priority ?? 'normal',
-            status: 'neu',
+            status: 'offen',
             startDate: isoDate(new Date()),
             dueDate: extra.dueDate ?? req.requestedDate ?? null,
             dueTime: null,
@@ -1624,13 +1710,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdBy: by,
             createdAt: now,
             updatedAt: now,
+            completedAt: null,
+            completedBy: null,
           };
           return {
             ...s,
             tickets: [...s.tickets, ticket],
-            materialRequests: s.materialRequests.map((m) =>
-              m.id === id ? { ...m, status: 'in_bearbeitung', linkedTicketId: ticket.id, updatedAt: now } : m
-            ),
+            // Status bleibt bewusst "offen" (kein "in_bearbeitung" mehr, siehe MaterialRequestStatus) — die
+            // Anfrage gilt erst als erledigt, wenn sie (oder das verknüpfte Ticket) explizit abgehakt wird.
+            materialRequests: s.materialRequests.map((m) => (m.id === id ? { ...m, linkedTicketId: ticket.id, updatedAt: now } : m)),
           };
         });
         toast('Als Ticket übernommen.');
@@ -1650,12 +1738,8 @@ function statusLabel(s: string): string {
 }
 
 const TICKET_STATUS_TEXT: Record<TicketStatus, string> = {
-  neu: 'Neu',
-  geplant: 'Geplant',
-  in_bearbeitung: 'In Bearbeitung',
-  wartet_rueckmeldung: 'Wartet auf Rückmeldung',
+  offen: 'Offen',
   erledigt: 'Erledigt',
-  abgeschlossen: 'Abgeschlossen',
 };
 
 export function useApp(): AppContextValue {

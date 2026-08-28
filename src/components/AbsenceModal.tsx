@@ -2,27 +2,51 @@ import React, { useState } from 'react';
 import { Modal } from './ui/Overlay';
 import { useApp, useHasPerm } from '../state/AppContext';
 import type { AbsenceStatus, AbsenceType } from '../types';
+import { getAbsencePercentage } from '../state/selectors';
 import { isoDate } from '../utils/date';
 
-export function AbsenceModal({ payload }: { payload?: { employeeId?: string; date?: string } }) {
+const QUICK_PERCENTAGES = [25, 50, 75, 100];
+
+function clampPercent(raw: number): number {
+  if (!Number.isFinite(raw)) return 100;
+  return Math.min(100, Math.max(1, Math.round(raw)));
+}
+
+export function AbsenceModal({ payload }: { payload?: { employeeId?: string; date?: string; absenceId?: string } }) {
   const { state, actions } = useApp();
   const hasPerm = useHasPerm();
   const canSetStatus = hasPerm('absence_approve');
-  const [employeeId, setEmployeeId] = useState(payload?.employeeId ?? state.employees[0]?.id ?? '');
-  const [type, setType] = useState<AbsenceType>('Urlaub');
-  const [start, setStart] = useState(payload?.date ?? isoDate(new Date()));
-  const [end, setEnd] = useState(payload?.date ?? isoDate(new Date()));
-  const [note, setNote] = useState('');
-  const [status, setStatus] = useState<AbsenceStatus>('beantragt');
+  const editing = payload?.absenceId ? state.absences.find((a) => a.id === payload.absenceId) : undefined;
+  const [employeeId, setEmployeeId] = useState(editing?.employeeId ?? payload?.employeeId ?? state.employees[0]?.id ?? '');
+  const [type, setType] = useState<AbsenceType>(editing?.type ?? 'Urlaub');
+  const [start, setStart] = useState(editing?.start ?? payload?.date ?? isoDate(new Date()));
+  const [end, setEnd] = useState(editing?.end ?? payload?.date ?? isoDate(new Date()));
+  const [note, setNote] = useState(editing?.note ?? '');
+  const [status, setStatus] = useState<AbsenceStatus>(editing?.status ?? 'beantragt');
+  // Ausfallgrad: 1–100 %, Standard 100 % (volle Abwesenheit) — passend für Ferien und die meisten Fälle.
+  const [percentage, setPercentage] = useState(editing ? getAbsencePercentage(editing) : 100);
 
   const save = () => {
-    actions.saveAbsence({ employeeId, type, start, end, note, status: canSetStatus ? status : 'beantragt' });
+    const data = {
+      employeeId,
+      type,
+      start,
+      end,
+      note,
+      status: canSetStatus ? status : ('beantragt' as AbsenceStatus),
+      absencePercentage: percentage,
+    };
+    if (editing) {
+      actions.updateAbsence(editing.id, data);
+    } else {
+      actions.saveAbsence(data);
+    }
     actions.closeModal();
   };
 
   return (
     <Modal
-      title="Abwesenheit erfassen"
+      title={editing ? 'Abwesenheit bearbeiten' : 'Abwesenheit erfassen'}
       onClose={() => actions.closeModal()}
       footer={
         <>
@@ -30,7 +54,7 @@ export function AbsenceModal({ payload }: { payload?: { employeeId?: string; dat
             Abbrechen
           </button>
           <button className="btn btn-primary" onClick={save}>
-            Antrag erfassen
+            {editing ? 'Änderungen speichern' : 'Antrag erfassen'}
           </button>
         </>
       }
@@ -54,6 +78,40 @@ export function AbsenceModal({ payload }: { payload?: { employeeId?: string; dat
           <option value="Unbezahlt">Unbezahlt</option>
           <option value="Sonstiges">Sonstiges</option>
         </select>
+      </div>
+      <div className="field">
+        <label>Ausfall</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: 92 }}>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              step={1}
+              value={percentage}
+              onChange={(e) => setPercentage(clampPercent(parseInt(e.target.value, 10)))}
+              style={{ width: '100%' }}
+            />
+            <span className="hint" style={{ fontWeight: 700 }}>
+              %
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {QUICK_PERCENTAGES.map((p) => (
+              <button
+                key={p}
+                type="button"
+                className={`btn btn-outline btn-sm ${percentage === p ? 'is-active' : ''}`}
+                onClick={() => setPercentage(p)}
+              >
+                {p}%
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="hint" style={{ marginTop: 6 }}>
+          Zu wie viel Prozent ist der Mitarbeiter arbeitsunfähig? Bei Ferien in der Regel 100 %.
+        </div>
       </div>
       <div className="field-row">
         <div className="field">

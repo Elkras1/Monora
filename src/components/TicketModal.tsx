@@ -34,13 +34,14 @@ export function TicketModal({ payload }: { payload?: TicketModalPayload }) {
   const [customerId, setCustomerId] = useState(editing?.customerId ?? payload?.customerId ?? state.customers[0]?.id ?? '');
   const [category, setCategory] = useState<TicketCategory | ''>(editing?.category ?? '');
   const [priority, setPriority] = useState<TicketPriority>(editing?.priority ?? 'normal');
-  const [status, setStatus] = useState<TicketStatus>(editing?.status ?? 'neu');
+  const [status, setStatus] = useState<TicketStatus>(editing?.status ?? 'offen');
   const [assignedEmployeeId, setAssignedEmployeeId] = useState(editing?.assignedEmployeeId ?? payload?.employeeId ?? '');
   const [assignedManagerId, setAssignedManagerId] = useState(editing?.assignedManagerId ?? '');
   const [startDate, setStartDate] = useState(editing?.startDate ?? isoDate(new Date()));
   const [dueDate, setDueDate] = useState(editing?.dueDate ?? payload?.date ?? '');
   const [dueTime, setDueTime] = useState(editing?.dueTime ?? '');
   const [note, setNote] = useState(editing?.note ?? '');
+  const [showInCalendar, setShowInCalendar] = useState(editing?.showInCalendar ?? true);
 
   const activeEmployees = state.employees.filter((e) => e.status === 'aktiv');
   const managers = state.employees.filter((e) => e.status === 'aktiv' && (e.systemRole === 'manager' || e.systemRole === 'admin'));
@@ -62,6 +63,7 @@ export function TicketModal({ payload }: { payload?: TicketModalPayload }) {
       dueTime: dueTime || null,
       category: category || null,
       note,
+      showInCalendar,
     };
     if (editing) {
       actions.updateTicket(editing.id, data);
@@ -132,12 +134,8 @@ export function TicketModal({ payload }: { payload?: TicketModalPayload }) {
         <div className="field">
           <label>Status</label>
           <select value={status} onChange={(e) => setStatus(e.target.value as TicketStatus)}>
-            <option value="neu">Neu</option>
-            <option value="geplant">Geplant</option>
-            <option value="in_bearbeitung">In Bearbeitung</option>
-            <option value="wartet_rueckmeldung">Wartet auf Rückmeldung</option>
+            <option value="offen">Offen</option>
             <option value="erledigt">Erledigt</option>
-            <option value="abgeschlossen">Abgeschlossen</option>
           </select>
         </div>
       </div>
@@ -178,6 +176,18 @@ export function TicketModal({ payload }: { payload?: TicketModalPayload }) {
       <div className="field" style={{ maxWidth: 220 }}>
         <label>Uhrzeit (optional)</label>
         <input type="time" value={dueTime ?? ''} onChange={(e) => setDueTime(e.target.value)} />
+      </div>
+      <div className="field">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={showInCalendar}
+            onChange={(e) => setShowInCalendar(e.target.checked)}
+            style={{ accentColor: 'var(--primary)' }}
+          />
+          Im Kalender anzeigen
+        </label>
+        <div className="hint">Nur relevant, solange ein Fälligkeitsdatum gesetzt ist.</div>
       </div>
       <div className="field">
         <label>Interne Notiz</label>

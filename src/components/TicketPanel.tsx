@@ -84,8 +84,10 @@ export function TicketPanel() {
             <button
               className="btn btn-danger"
               onClick={() => {
-                actions.deleteTicket(ticket.id);
-                actions.closeTicketPanel();
+                if (window.confirm('Dieses Ticket wirklich löschen?')) {
+                  actions.deleteTicket(ticket.id);
+                  actions.closeTicketPanel();
+                }
               }}
             >
               <Icon name="trash" /> Löschen
@@ -194,24 +196,12 @@ export function TicketPanel() {
         </div>
       ) : null}
 
-      {canFullEdit ? (
-        <div className="settings-section" style={{ marginTop: 18 }}>
-          <h3 style={{ fontSize: 13 }}>Status ändern</h3>
-          <select value={ticket.status} onChange={(e) => setStatus(e.target.value as TicketStatus)} style={{ marginTop: 8 }}>
-            <option value="neu">Neu</option>
-            <option value="geplant">Geplant</option>
-            <option value="in_bearbeitung">In Bearbeitung</option>
-            <option value="wartet_rueckmeldung">Wartet auf Rückmeldung</option>
-            <option value="erledigt">Erledigt</option>
-            <option value="abgeschlossen">Abgeschlossen</option>
-          </select>
-        </div>
-      ) : canQuickStatus ? (
+      {canFullEdit || canQuickStatus ? (
         <div className="settings-section" style={{ marginTop: 18 }}>
           <h3 style={{ fontSize: 13 }}>Status ändern</h3>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn btn-outline btn-sm" onClick={() => setStatus('in_bearbeitung')} disabled={ticket.status === 'in_bearbeitung'}>
-              In Bearbeitung
+            <button className="btn btn-outline btn-sm" onClick={() => setStatus('offen')} disabled={ticket.status === 'offen'}>
+              Offen
             </button>
             <button className="btn btn-accent btn-sm" onClick={() => setStatus('erledigt')} disabled={ticket.status === 'erledigt'}>
               <Icon name="check" /> Erledigt

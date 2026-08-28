@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Icon } from './icons/Icon';
 import { Empty } from './ui/Empty';
-import { shiftDisplayStatus } from '../state/selectors';
-import { shiftStatusColor, shiftStatusTint } from './ui/Badge';
+import { getAbsencePercentage, shiftDisplayStatus } from '../state/selectors';
+import { absenceCompactLabel, absenceTypeColor, absenceTypeTint, shiftStatusColor, shiftStatusTint } from './ui/Badge';
 import { colorFor, initials } from '../utils/format';
 import { WEEKDAYS, isoDate, pad } from '../utils/date';
-import type { Employee, Shift } from '../types';
+import type { Absence, Employee, Shift } from '../types';
 
 /** Drops the trailing ":00" so full-hour shifts read as "08–12" instead of "08:00–12:00" in tight cells. */
 function shortTime(t: string): string {
@@ -26,6 +26,9 @@ interface Props {
   onCellCreate: (employeeId: string | null, iso: string) => void;
   onOpenShift: (shiftId: string) => void;
   onMove: (shiftId: string, newDate: string, newEmployeeId: string | null) => void;
+  /** Genehmigte Abwesenheit (falls vorhanden), die den Mitarbeiter an diesem Tag betrifft — nur zur Anzeige,
+   * blockiert die Zellen bewusst nicht (auch nicht bei 100 %), da der Dienstplan bisher keine Abwesenheiten kennt. */
+  absenceFor?: (employeeId: string, iso: string) => Absence | undefined;
 }
 
 export function ScheduleMatrix({
@@ -42,6 +45,7 @@ export function ScheduleMatrix({
   onCellCreate,
   onOpenShift,
   onMove,
+  absenceFor,
 }: Props) {
   const [draggedShift, setDraggedShift] = useState<Shift | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -63,6 +67,7 @@ export function ScheduleMatrix({
     const sorted = [...dShifts].sort((a, b) => a.start.localeCompare(b.start));
     const shown = sorted.slice(0, 2);
     const more = sorted.length - shown.length;
+    const absence = rowEmpId ? absenceFor?.(rowEmpId, iso) : undefined;
 
     return (
       <div
@@ -89,6 +94,15 @@ export function ScheduleMatrix({
           }
         }}
       >
+        {absence ? (
+          <div
+            className="emp-abs-chip"
+            style={{ background: absenceTypeTint(absence.type), borderLeftColor: absenceTypeColor(absence.type), color: absenceTypeColor(absence.type) }}
+            title={`${absenceCompactLabel(absence.type, getAbsencePercentage(absence))} · Abwesenheit`}
+          >
+            {absenceCompactLabel(absence.type, getAbsencePercentage(absence))}
+          </div>
+        ) : null}
         {shown.map((s) => {
           const dispStatus = shiftDisplayStatus(s, conflictIds);
           return (

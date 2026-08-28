@@ -1,6 +1,7 @@
 import type {
   AppData,
   Absence,
+  CalendarEvent,
   Customer,
   CustomerIssue,
   Employee,
@@ -336,6 +337,7 @@ export function seedData(): AppData {
       end: isoDate(addDays(monday, 13)),
       status: 'genehmigt',
       note: '',
+      absencePercentage: 100,
     },
     {
       id: uid(),
@@ -345,6 +347,7 @@ export function seedData(): AppData {
       end: isoDate(addDays(monday, -1)),
       status: 'genehmigt',
       note: 'Attest vorliegend',
+      absencePercentage: 100,
     },
     {
       id: uid(),
@@ -354,6 +357,7 @@ export function seedData(): AppData {
       end: isoDate(addDays(monday, 27)),
       status: 'beantragt',
       note: 'Sommerferien',
+      absencePercentage: 100,
     },
     {
       id: uid(),
@@ -363,6 +367,7 @@ export function seedData(): AppData {
       end: isoDate(addDays(monday, 4)),
       status: 'beantragt',
       note: 'Arzttermin',
+      absencePercentage: 100,
     },
     {
       id: uid(),
@@ -372,6 +377,7 @@ export function seedData(): AppData {
       end: isoDate(addDays(monday, 18)),
       status: 'beantragt',
       note: 'Kurztrip',
+      absencePercentage: 100,
     },
     {
       id: uid(),
@@ -381,6 +387,17 @@ export function seedData(): AppData {
       end: isoDate(addDays(monday, -10)),
       status: 'genehmigt',
       note: '',
+      absencePercentage: 100,
+    },
+    {
+      id: uid(),
+      employeeId: e5.id,
+      type: 'Krankheit',
+      start: isoDate(addDays(monday, 1)),
+      end: isoDate(addDays(monday, 3)),
+      status: 'genehmigt',
+      note: 'Teilweise arbeitsfähig laut Arztzeugnis',
+      absencePercentage: 50,
     },
   ];
 
@@ -495,6 +512,7 @@ export function seedData(): AppData {
     num: number;
   }): Ticket {
     const createdAt = isoDate(addDays(today, -3 - o.num));
+    const isDone = o.status === 'erledigt';
     return {
       id: uid(),
       ticketNumber: `T-${String(o.num).padStart(4, '0')}`,
@@ -519,6 +537,8 @@ export function seedData(): AppData {
       createdBy: o.createdBy,
       createdAt: `${createdAt}T09:00:00`,
       updatedAt: `${createdAt}T09:00:00`,
+      completedAt: isDone ? `${createdAt}T15:30:00` : null,
+      completedBy: isDone ? o.createdBy : null,
     };
   }
 
@@ -531,7 +551,7 @@ export function seedData(): AppData {
       assignedEmployeeId: e2.id,
       assignedManagerId: eManager.id,
       priority: 'hoch',
-      status: 'in_bearbeitung',
+      status: 'offen',
       dueOffset: 1,
       category: 'Reinigung nachbessern',
       createdBy: eManager.name,
@@ -545,7 +565,7 @@ export function seedData(): AppData {
       assignedEmployeeId: e4.id,
       assignedManagerId: eManager.id,
       priority: 'normal',
-      status: 'geplant',
+      status: 'offen',
       dueOffset: 3,
       category: 'Qualitätskontrolle',
       createdBy: eManager.name,
@@ -559,7 +579,7 @@ export function seedData(): AppData {
       assignedEmployeeId: null,
       assignedManagerId: eManager.id,
       priority: 'dringend',
-      status: 'neu',
+      status: 'offen',
       dueOffset: 0,
       category: 'Reparatur / Schaden',
       createdBy: eAdmin.name,
@@ -573,7 +593,7 @@ export function seedData(): AppData {
       assignedEmployeeId: e8.id,
       assignedManagerId: eManager.id,
       priority: 'normal',
-      status: 'abgeschlossen',
+      status: 'erledigt',
       dueOffset: -5,
       category: 'Sonderreinigung',
       createdBy: eManager.name,
@@ -609,7 +629,7 @@ export function seedData(): AppData {
         { id: uid(), materialId: matWcPapier.id, quantity: 4 },
       ],
       photos: [],
-      status: 'eingereicht',
+      status: 'offen',
       completedAt: null,
       completedBy: null,
       linkedTicketId: null,
@@ -627,7 +647,7 @@ export function seedData(): AppData {
         { id: uid(), customMaterialName: 'Batterien für Dosiergerät', quantity: 2 },
       ],
       photos: [],
-      status: 'in_bearbeitung',
+      status: 'offen',
       completedAt: null,
       completedBy: null,
       linkedTicketId: null,
@@ -664,6 +684,37 @@ export function seedData(): AppData {
     },
   ];
 
+  // Manuelle Dashboard-Kalendertermine — bewusst getrennt von tickets (siehe CalendarEvent-Kommentar in
+  // types/index.ts): Ticket-Fälligkeiten erscheinen automatisch im Kalender, ohne hier dupliziert zu werden.
+  const calendarEvents: CalendarEvent[] = [
+    {
+      id: uid(),
+      title: 'Handwerker – Tür einstellen',
+      date: isoDate(addDays(monday, 2)),
+      startTime: '09:00',
+      endTime: '10:00',
+      locationId: c1.id,
+      note: 'Zugang über Hintereingang, Schlüssel liegt an der Rezeption bereit.',
+      color: null,
+      createdBy: eManager.name,
+      createdAt: isoDate(addDays(monday, -1)) + 'T08:00:00',
+      updatedAt: isoDate(addDays(monday, -1)) + 'T08:00:00',
+    },
+    {
+      id: uid(),
+      title: 'Kundengespräch Vertragsverlängerung',
+      date: isoDate(addDays(monday, 4)),
+      startTime: '15:00',
+      endTime: null,
+      locationId: c2.id,
+      note: null,
+      color: null,
+      createdBy: eAdmin.name,
+      createdAt: isoDate(addDays(monday, -1)) + 'T08:05:00',
+      updatedAt: isoDate(addDays(monday, -1)) + 'T08:05:00',
+    },
+  ];
+
   return {
     employees,
     customers,
@@ -676,6 +727,7 @@ export function seedData(): AppData {
     chats: [],
     messages: [],
     tickets,
+    calendarEvents,
     materialRequests,
     materials,
     notifications,

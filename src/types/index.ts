@@ -169,6 +169,9 @@ export interface Absence {
   end: string;
   status: AbsenceStatus;
   note: string;
+  /** Prozentualer Arbeitsausfall (1–100), z.B. 50 bei einer 50%-Krankschreibung. Datensätze aus der Zeit vor
+   * diesem Feld haben es nicht gesetzt und gelten als 100 % (siehe getAbsencePercentage/migrateData). */
+  absencePercentage?: number;
 }
 
 export type TimeEntryStatus = 'offen' | 'bestätigt' | 'korrigiert';
@@ -275,7 +278,6 @@ export type ViewId =
   | 'permissions'
   | 'messages'
   | 'tickets'
-  | 'tickets-tasks'
   | 'tickets-material'
   | 'tickets-calendar'
   | 'me-start'
@@ -325,11 +327,12 @@ export interface FilterState {
   tickCust?: string;
   tickEmp?: string;
   tickManager?: string;
-  tickStatus?: string;
+  tickTab?: 'offen' | 'erledigt';
   tickPriority?: string;
   tickDateFrom?: string;
   tickDateTo?: string;
   tickCalView?: 'day' | 'week' | 'month' | 'list';
+  tickCalFilter?: 'alle' | 'tickets' | 'material';
   tickOverdueOnly?: boolean;
   matStatus?: string;
 }
@@ -398,7 +401,10 @@ export type TicketCategory =
 
 export type TicketPriority = 'niedrig' | 'normal' | 'hoch' | 'dringend';
 
-export type TicketStatus = 'neu' | 'geplant' | 'in_bearbeitung' | 'wartet_rueckmeldung' | 'erledigt' | 'abgeschlossen';
+// Bewusst auf zwei Zustände reduziert (siehe migrateData in AppContext.tsx für die Abbildung alter
+// Zwischenstatus wie "in_bearbeitung"/"wartet_rueckmeldung" auf "offen" bzw. "abgeschlossen" auf "erledigt") —
+// ein Ticket ist entweder in Arbeit oder fertig, alles dazwischen bringt in der Praxis keinen Mehrwert.
+export type TicketStatus = 'offen' | 'erledigt';
 
 export interface TicketComment {
   id: string;
@@ -450,10 +456,42 @@ export interface Ticket {
   createdBy: string; // Name
   createdAt: string;
   updatedAt: string;
+  // Wie bei MaterialRequest: gesetzt, sobald status auf "erledigt"/"abgeschlossen" wechselt — nicht beim Löschen,
+  // damit erledigte Tickets nachvollziehbar bleiben (siehe setTicketStatus in AppContext).
+  completedAt: string | null;
+  completedBy: string | null; // Name
+  // Steuert, ob dieses Ticket im Dashboard-Kalender auftaucht (siehe DashboardCalendar.tsx). Undefined gilt
+  // als "an" (Altdaten/neue Tickets mit Fälligkeitsdatum erscheinen automatisch) — nur eine explizite
+  // Deaktivierung (false) blendet ein Ticket trotz Fälligkeitsdatum aus dem Kalender aus.
+  showInCalendar?: boolean;
 }
 
-/** Einfache Status, bewusst auf vier reduziert: "Erledigt" muss immer nur ein Klick entfernt sein. */
-export type MaterialRequestStatus = 'eingereicht' | 'in_bearbeitung' | 'erledigt' | 'abgelehnt';
+/**
+ * Manueller Kalendertermin im Admin-/Manager-Dashboard (siehe DashboardCalendar.tsx). Bewusst schlank und
+ * unabhängig vom Ticketsystem: Tickets mit Fälligkeitsdatum werden NICHT hierher kopiert, sondern zur
+ * Anzeigezeit aus state.tickets abgeleitet (siehe ticketShowsInCalendar in state/selectors.ts) — so bleibt
+ * das Ticket die einzige Quelle der Wahrheit für sein Fälligkeitsdatum. Diese Liste enthält also
+ * ausschliesslich frei angelegte Termine (Handwerker, Kundengespräche, interne Aufgaben usw.).
+ * Feldnamen bewusst 1:1 migrationsfreundlich für eine spätere Supabase-Tabelle "calendar_events".
+ */
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string; // ISO-Datum YYYY-MM-DD
+  startTime?: string | null; // HH:MM
+  endTime?: string | null; // HH:MM
+  locationId?: string | null; // Kunde/Objekt
+  note?: string | null;
+  color?: string | null; // optionale CSS-Farbe; ohne Angabe = Planico-Blau (siehe DashboardCalendar.tsx)
+  createdBy: string; // Name
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Bewusst auf zwei Zustände reduziert (wie TicketStatus) — "Erledigt" muss immer nur ein Klick entfernt
+// sein, alte Zwischenstatus ("eingereicht"/"in_bearbeitung"/"abgelehnt") werden beim Laden auf "offen"
+// abgebildet, ausser sie waren bereits abgeschlossen (siehe migrateData in AppContext.tsx).
+export type MaterialRequestStatus = 'offen' | 'erledigt';
 
 /** Von Admin/berechtigten Managern gepflegte Artikelliste ("Artikel verwalten"). */
 export interface Material {
@@ -534,6 +572,7 @@ export interface AppData {
   chats: Chat[];
   messages: ChatMessage[];
   tickets: Ticket[];
+  calendarEvents: CalendarEvent[];
   materialRequests: MaterialRequest[];
   materials: Material[];
   notifications: AppNotification[];

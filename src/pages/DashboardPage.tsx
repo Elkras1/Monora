@@ -1,43 +1,131 @@
 import React, { useState } from 'react';
 import { useApp, useCurrentUser, useHasPerm } from '../state/AppContext';
-import { computeConflictIds, getCust, getEmp, shiftDisplayStatus } from '../state/selectors';
+import {
+  computeConflictIds,
+  dueLabel,
+  dueRank,
+  getAbsencePercentage,
+  getCust,
+  getEmp,
+  materialUrgency,
+  shiftDisplayStatus,
+  ticketUrgency,
+} from '../state/selectors';
 import { getChatListFor } from '../state/chat';
 import { KpiCard } from '../components/ui/KpiCard';
-import { MaterialStatusBadge, StatusBadge, TicketPriorityBadge, TicketStatusBadge, ticketStatusColor } from '../components/ui/Badge';
+import { StatusBadge, dashboardUrgencyRowClass } from '../components/ui/Badge';
 import { Empty } from '../components/ui/Empty';
 import { Icon } from '../components/icons/Icon';
 import { StampWidget } from '../components/StampWidget';
+import { DashboardCalendar } from '../components/DashboardCalendar';
+import { DashboardWorkList, DASH_WORKLIST_MAX_ROWS } from '../components/DashboardWorkList';
 import { DashboardSettingsModal } from '../components/DashboardSettingsModal';
 import { LiveStatusListModal } from '../components/LiveStatusListModal';
-import { MaterialRequestsOverviewModal } from '../components/MaterialRequestsOverviewModal';
 import { DASHBOARD_MODULES } from '../state/dashboardModules';
 import { useDashboardPrefs } from '../hooks/useDashboardPrefs';
-import { colorFor, initials, summarizeMaterialItems } from '../utils/format';
+import { colorFor, initials, materialItemName } from '../utils/format';
 import { addDays, fmtDate, fmtTime, isoDate, mondayOf } from '../utils/date';
-import type { TicketStatus, TimeEntry, TimeEntryStatus } from '../types';
+import type { TimeEntry, TimeEntryStatus } from '../types';
 
-const TICKET_STATUS_ORDER: TicketStatus[] = ['neu', 'geplant', 'in_bearbeitung', 'wartet_rueckmeldung', 'erledigt', 'abgeschlossen'];
-const TICKET_STATUS_LABEL: Record<TicketStatus, string> = {
-  neu: 'Neu',
-  geplant: 'Geplant',
-  in_bearbeitung: 'In Bearbeitung',
-  wartet_rueckmeldung: 'Wartet auf Rückmeldung',
-  erledigt: 'Erledigt',
-  abgeschlossen: 'Abgeschlossen',
-};
+/**
+ * Bewusst AUSSERHALB von DashboardPage definiert (Modul-Ebene statt lokale Funktion im Funktionsrumpf):
+ * Eine Komponente, die bei jedem Render der Elternkomponente neu als Funktion erzeugt wird, hat für React
+ * jedes Mal einen neuen "type" — React räumt den kompletten DOM-Teilbaum ab und baut ihn neu auf, statt nur
+ * die Props zu aktualisieren. Genau das passierte hier bisher: `setDragId(...)` in onDragStart löste einen
+ * Re-Render von DashboardPage aus, wodurch die lokal definierte ModuleGroup-Funktion neu erzeugt und der
+ * gerade gezogene DOM-Knoten mitten im nativen HTML5-Drag entfernt/neu gemountet wurde — das bricht die
+ * laufende Drag-Geste ab bzw. macht das Drop-Ziel/-Ergebnis unzuverlässig. Mit stabiler Komponentenidentität
+ * hier oben aktualisiert React beim Re-Render nur noch die Props auf denselben DOM-Knoten, der Drag bleibt
+ * intakt und der Drop wird zuverlässig committed.
+ */
+function ModuleGroup({
+  ids,
+  editMode,
+  onDropZone,
+  onDropModule,
+  onDragStartModule,
+  hideModule,
+  renderModule,
+}: {
+  ids: string[];
+  editMode: boolean;
+  onDropZone: (e: React.DragEvent) => void;
+  onDropModule: (e: React.DragEvent, id: string) => void;
+  onDragStartModule: (e: React.DragEvent, id: string) => void;
+  hideModule: (id: string) => void;
+  renderModule: (id: string) => React.ReactNode;
+}) {
+  const renderOne = (id: string) => {
+    const def = DASHBOARD_MODULES.find((m) => m.id === id);
+    return (
+      <div
+        key={id}
+        className={`dash-module size-${def?.size ?? 'lg'} ${editMode ? 'is-editable' : ''}`}
+        draggable={editMode}
+        onDragStart={(e) => onDragStartModule(e, id)}
+        onDragOver={(e) => editMode && e.preventDefault()}
+        onDrop={(e) => {
+          e.stopPropagation();
+          onDropModule(e, id);
+        }}
+      >
+        {editMode ? (
+          <div className="dash-module-edit-head">
+            <Icon name="menu" />
+            <span>{def?.label ?? id}</span>
+            <button className="icon-btn" title="Ausblenden" onClick={() => hideModule(id)}>
+              <Icon name="close" />
+            </button>
+          </div>
+        ) : null}
+        <div className={`card dash-module-body ${editMode ? 'is-locked' : ''}`}>{renderModule(id)}</div>
+      </div>
+    );
+  };
+
+  // Tickets und Materialanfragen sind die beiden zentralen, gleichwertigen Arbeitslisten des Dashboards und
+  // werden bewusst als FESTES Paar in einer eigenen Zeile gerendert (siehe .dash-module-pair-row in
+  // global.css), statt sich wie alle anderen Module frei in den Flex-Umbruch einzureihen — nur so ist die
+  // exakte 50/50-Aufteilung unabhängig von Position/Grösse benachbarter Module garantiert. Sind (z.B. wegen
+  // fehlender Berechtigung oder weil der Benutzer eines der beiden in "Weitere Informationen" verschoben hat)
+  // nicht beide in derselben Gruppe sichtbar, fällt die Anzeige auf die normale Einzel-Modul-Darstellung zurück.
+  const seen = new Set<string>();
+  const blocks: React.ReactNode[] = [];
+  ids.forEach((id) => {
+    if (seen.has(id)) return;
+    const pairId = id === 'kpi-tickets' ? 'kpi-materials' : id === 'kpi-materials' ? 'kpi-tickets' : null;
+    if (pairId && ids.includes(pairId)) {
+      seen.add('kpi-tickets');
+      seen.add('kpi-materials');
+      blocks.push(
+        <div className="dash-module-pair-row" key="pair-tickets-materials">
+          {renderOne('kpi-tickets')}
+          {renderOne('kpi-materials')}
+        </div>
+      );
+      return;
+    }
+    seen.add(id);
+    blocks.push(renderOne(id));
+  });
+
+  return (
+    <div className="dash-modules" onDragOver={(e) => editMode && e.preventDefault()} onDrop={onDropZone}>
+      {blocks}
+    </div>
+  );
+}
 
 export function DashboardPage() {
   const { state, actions } = useApp();
   const user = useCurrentUser();
   const hasPerm = useHasPerm();
-  const canManageMaterial = hasPerm('material_manage');
   const { prefs, save: savePrefs, reset: resetPrefs } = useDashboardPrefs(user?.id ?? null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [moreExpanded, setMoreExpanded] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [liveListOpen, setLiveListOpen] = useState<'active' | 'pause' | null>(null);
-  const [matOverviewOpen, setMatOverviewOpen] = useState(false);
 
   const activeNow = state.timeEntries.filter((t) => !t.clockOut);
   const activeEmployees = state.employees.filter((e) => e.status === 'aktiv');
@@ -74,26 +162,32 @@ export function DashboardPage() {
     .filter((t) => !t.geofenceOk && (!t.clockOut || isoDate(new Date(t.clockIn)) === todayIso))
     .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
 
-  const newMaterialCount = state.materialRequests.filter((m) => m.status === 'eingereicht').length;
-  const newestMaterialRequests = [...state.materialRequests].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
-  const urgentTickets = state.tickets
-    .filter((t) => t.priority === 'dringend' && t.status !== 'erledigt' && t.status !== 'abgeschlossen')
-    .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'));
-  const overdueTickets = state.tickets.filter(
-    (t) => t.dueDate && t.dueDate < todayIso && t.status !== 'erledigt' && t.status !== 'abgeschlossen'
-  );
-  const dueTodayTickets = state.tickets.filter((t) => t.dueDate === todayIso);
-  const ticketStatusCounts: Record<TicketStatus, number> = {
-    neu: 0,
-    geplant: 0,
-    in_bearbeitung: 0,
-    wartet_rueckmeldung: 0,
-    erledigt: 0,
-    abgeschlossen: 0,
-  };
-  state.tickets.forEach((t) => {
-    ticketStatusCounts[t.status]++;
-  });
+  const canEditTickets = hasPerm('tickets_edit');
+  const canCreateTickets = hasPerm('tickets_create');
+  const canManageMaterial = hasPerm('material_manage');
+
+  const tomorrowIso = isoDate(addDays(new Date(), 1));
+
+  // Tickets und Materialanfragen sind zwei parallele Arbeitslisten im Dashboard (siehe DashboardWorkList) —
+  // dieselbe Prioritäts-Sortierung (überfällig < heute < morgen < später < ohne Fälligkeitsdatum, siehe
+  // dueRank in state/selectors.ts) und derselbe Zeilen-Deckel (DASH_WORKLIST_MAX_ROWS) für beide, damit sie
+  // sich identisch verhalten. type !== 'material' ist hier bewusst: Tickets, die aus einer Materialanfrage
+  // erzeugt wurden (convertMaterialRequestToTicket, siehe MaterialRequestPanel), gehören technisch weiterhin
+  // zu state.tickets, sollen aber NIE im Ticketbereich auftauchen — nur die Materialanfrage selbst zählt.
+  const openTickets = [...state.tickets]
+    .filter((t) => t.type !== 'material' && t.status !== 'erledigt')
+    .sort((a, b) => dueRank(a.dueDate, todayIso, tomorrowIso) - dueRank(b.dueDate, todayIso, tomorrowIso) || (a.dueDate ?? '9999-99-99').localeCompare(b.dueDate ?? '9999-99-99'))
+    .slice(0, DASH_WORKLIST_MAX_ROWS);
+
+  const openMaterialRequests = [...state.materialRequests]
+    .filter((m) => m.status === 'offen')
+    .sort(
+      (a, b) =>
+        dueRank(a.requestedDate, todayIso, tomorrowIso) - dueRank(b.requestedDate, todayIso, tomorrowIso) ||
+        (a.requestedDate ?? '9999-99-99').localeCompare(b.requestedDate ?? '9999-99-99')
+    )
+    .slice(0, DASH_WORKLIST_MAX_ROWS);
+
   const unreadChats = user ? getChatListFor(state, user.id).filter((c) => c.unreadCount > 0) : [];
 
   const openTimeEntry = (t: TimeEntry) => (t.clockOut ? actions.openTimeEntryPanel(t.id) : actions.openLiveStatusPanel(t.id));
@@ -106,7 +200,11 @@ export function DashboardPage() {
   const visibleMore = prefs.more.filter(moduleAllowed);
 
   const hideModule = (id: string) => {
-    savePrefs({ main: prefs.main.filter((x) => x !== id), more: prefs.more.filter((x) => x !== id) });
+    savePrefs({
+      main: prefs.main.filter((x) => x !== id),
+      more: prefs.more.filter((x) => x !== id),
+      hidden: prefs.hidden.includes(id) ? prefs.hidden : [...prefs.hidden, id],
+    });
   };
   const onModDrop = (e: React.DragEvent, zone: 'main' | 'more', targetId: string | null) => {
     e.preventDefault();
@@ -116,7 +214,7 @@ export function DashboardPage() {
     const list = zone === 'main' ? newMain : newMore;
     const idx = targetId ? list.indexOf(targetId) : -1;
     list.splice(idx === -1 ? list.length : idx, 0, dragId);
-    savePrefs({ main: newMain, more: newMore });
+    savePrefs({ main: newMain, more: newMore, hidden: prefs.hidden });
     setDragId(null);
   };
 
@@ -236,171 +334,48 @@ export function DashboardPage() {
             }}
           />
         );
-      case 'mat-new':
+      case 'kpi-materials':
         return (
-          <>
-            <div className="card-head">
-              <h3>
-                Neue Materialanfragen
-                {newMaterialCount > 0 ? (
-                  <span className="badge badge-amber" style={{ marginLeft: 8 }}>
-                    {newMaterialCount}
-                  </span>
-                ) : null}
-              </h3>
-              <button className="muted-link" onClick={() => setMatOverviewOpen(true)}>
-                Alle anzeigen →
-              </button>
-            </div>
-            {newestMaterialRequests.length ? (
-              newestMaterialRequests.map((m) => {
-                const cust = getCust(state, m.locationId);
-                return (
-                  <div key={m.id} className="dash-mat-row">
-                    <div className="dash-mat-info" onClick={() => actions.openMaterialRequestPanel(m.id)}>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="name">{cust ? cust.name : 'Kein Objekt'}</div>
-                        <div className="meta">
-                          {m.items.length} Artikel · {summarizeMaterialItems(m.items, state.materials, 50)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="dash-mat-badges">
-                      <MaterialStatusBadge status={m.status} />
-                    </div>
-                    <div className="dash-mat-actions">
-                      <button className="icon-btn" title="Öffnen" onClick={() => actions.openMaterialRequestPanel(m.id)}>
-                        <Icon name="eye" />
-                      </button>
-                      {canManageMaterial && m.status !== 'erledigt' && m.status !== 'abgelehnt' ? (
-                        <button
-                          className="btn btn-accent btn-sm"
-                          onClick={() => {
-                            if (window.confirm('Bestellung wirklich als erledigt markieren?')) actions.completeMaterialRequest(m.id);
-                          }}
-                        >
-                          <Icon name="check" /> Erledigt
-                        </button>
-                      ) : null}
-                      {canManageMaterial && !m.linkedTicketId ? (
-                        <button className="icon-btn" title="Als Ticket übernehmen" onClick={() => actions.convertMaterialRequestToTicket(m.id, {})}>
-                          <Icon name="ticket" />
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <Empty icon="box" text="Keine Materialanfragen vorhanden." />
-            )}
-          </>
+          <DashboardWorkList
+            title="Materialanfragen"
+            onAdd={canManageMaterial ? () => actions.openModal('materialRequest') : undefined}
+            addTooltip="Neue Materialanfrage"
+            items={openMaterialRequests}
+            getKey={(m) => m.id}
+            rowClassName={(m) => dashboardUrgencyRowClass(materialUrgency(m, todayIso, tomorrowIso))}
+            onRowClick={(m) => actions.openMaterialRequestPanel(m.id)}
+            onComplete={canManageMaterial ? (m) => actions.completeMaterialRequest(m.id) : undefined}
+            completeTooltip="Als erledigt markieren"
+            renderName={(m) => getCust(state, m.locationId)?.name ?? 'Kein Objekt'}
+            renderMeta={(m) => m.items.map((i) => `${materialItemName(i, state.materials)} × ${i.quantity}`).join(' · ')}
+            renderDue={(m) => dueLabel(m.requestedDate, todayIso, tomorrowIso)}
+            isOverdue={(m) => materialUrgency(m, todayIso, tomorrowIso) === 'overdue'}
+            emptyIcon="box"
+            emptyText="Keine offenen Materialanfragen."
+          />
         );
-      case 'tick-urgent':
+      case 'kpi-tickets':
         return (
-          <>
-            <div className="card-head">
-              <h3>
-                Dringende Tickets
-                {urgentTickets.length > 0 ? (
-                  <span className="badge badge-red" style={{ marginLeft: 8 }}>
-                    {urgentTickets.length}
-                  </span>
-                ) : null}
-              </h3>
-              <button
-                className="muted-link"
-                onClick={() => {
-                  actions.setFilter({ tickPriority: 'dringend', tickOverdueOnly: false });
-                  actions.setView('tickets');
-                }}
-              >
-                Alle anzeigen →
-              </button>
-            </div>
-            {urgentTickets.length ? (
-              urgentTickets.slice(0, 5).map((t) => {
-                const cust = getCust(state, t.customerId);
-                const emp = getEmp(state, t.assignedEmployeeId);
-                const overdue = !!t.dueDate && t.dueDate < todayIso;
-                return (
-                  <div key={t.id} className="dash-tick-row">
-                    <div className="dash-tick-info" onClick={() => actions.openTicketPanel(t.id)}>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="name">
-                          {t.ticketNumber} · {t.title}
-                        </div>
-                        <div className="meta">
-                          {cust ? cust.name : 'Kein Objekt'} · {emp ? emp.name : 'Nicht zugewiesen'}
-                        </div>
-                        <div className={`meta ${overdue ? 'dash-row-overdue' : ''}`}>
-                          {t.dueDate ? `Fällig ${fmtDate(new Date(t.dueDate))}${overdue ? ' · überfällig' : ''}` : 'Kein Termin'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="dash-tick-badges">
-                      <TicketPriorityBadge priority={t.priority} />
-                      <TicketStatusBadge status={t.status} />
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <Empty icon="ticket" text="Keine dringenden Tickets." />
-            )}
-          </>
+          <DashboardWorkList
+            title="Tickets"
+            onAdd={canCreateTickets ? () => actions.openModal('ticket') : undefined}
+            addTooltip="Neues Ticket"
+            items={openTickets}
+            getKey={(t) => t.id}
+            rowClassName={(t) => dashboardUrgencyRowClass(ticketUrgency(t, todayIso, tomorrowIso))}
+            onRowClick={(t) => actions.openTicketPanel(t.id)}
+            onComplete={canEditTickets ? (t) => actions.setTicketStatus(t.id, 'erledigt') : undefined}
+            completeTooltip="Als erledigt markieren"
+            renderName={(t) => t.title}
+            renderMeta={(t) => getCust(state, t.customerId)?.name ?? 'Kein Objekt'}
+            renderDue={(t) => dueLabel(t.dueDate, todayIso, tomorrowIso)}
+            isOverdue={(t) => ticketUrgency(t, todayIso, tomorrowIso) === 'overdue'}
+            emptyIcon="ticket"
+            emptyText="Keine offenen Tickets."
+          />
         );
-      case 'tick-overdue':
-        return (
-          <>
-            <div className="card-head">
-              <h3>
-                Überfällige Tickets
-                {overdueTickets.length > 0 ? (
-                  <span className="badge badge-red" style={{ marginLeft: 8, background: 'var(--red-dark)', color: '#fff' }}>
-                    {overdueTickets.length}
-                  </span>
-                ) : null}
-              </h3>
-              <button
-                className="muted-link"
-                onClick={() => {
-                  actions.setFilter({ tickOverdueOnly: true, tickPriority: '' });
-                  actions.setView('tickets');
-                }}
-              >
-                Alle anzeigen →
-              </button>
-            </div>
-            {overdueTickets.length ? (
-              overdueTickets.slice(0, 5).map((t) => {
-                const cust = getCust(state, t.customerId);
-                const emp = getEmp(state, t.assignedEmployeeId);
-                return (
-                  <div key={t.id} className="dash-tick-row">
-                    <div className="dash-tick-info" onClick={() => actions.openTicketPanel(t.id)}>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="name">
-                          {t.ticketNumber} · {t.title}
-                        </div>
-                        <div className="meta">
-                          {cust ? cust.name : 'Kein Objekt'} · {emp ? emp.name : 'Nicht zugewiesen'}
-                        </div>
-                        <div className="meta dash-row-overdue">{t.dueDate ? `Fällig ${fmtDate(new Date(t.dueDate))} · überfällig` : ''}</div>
-                      </div>
-                    </div>
-                    <div className="dash-tick-badges">
-                      <TicketPriorityBadge priority={t.priority} />
-                      <TicketStatusBadge status={t.status} />
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <Empty icon="ticket" text="Keine überfälligen Tickets." />
-            )}
-          </>
-        );
+      case 'dash-calendar':
+        return <DashboardCalendar />;
       case 'today-entries':
         return (
           <>
@@ -461,66 +436,6 @@ export function DashboardPage() {
             ) : (
               <Empty icon="clock" text="Heute noch keine Zeiterfassungen." />
             )}
-          </>
-        );
-      case 'ticket-calendar-today':
-        return (
-          <>
-            <div className="card-head">
-              <h3>Ticket-Kalender heute</h3>
-              <button className="muted-link" onClick={() => actions.setView('tickets-calendar')}>
-                Zum Kalender →
-              </button>
-            </div>
-            {dueTodayTickets.length ? (
-              dueTodayTickets.map((t) => {
-                const cust = getCust(state, t.customerId);
-                return (
-                  <div key={t.id} className="dash-tick-row">
-                    <div className="dash-tick-info" onClick={() => actions.openTicketPanel(t.id)}>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="name">
-                          {t.dueTime ? `${t.dueTime} · ` : ''}
-                          {t.title}
-                        </div>
-                        <div className="meta">{cust ? cust.name : 'Kein Objekt'}</div>
-                      </div>
-                    </div>
-                    <TicketStatusBadge status={t.status} />
-                  </div>
-                );
-              })
-            ) : (
-              <Empty icon="schedule" text="Heute sind keine Tickets fällig." />
-            )}
-          </>
-        );
-      case 'ticket-status-overview':
-        return (
-          <>
-            <div className="card-head">
-              <h3>Ticket-Statusübersicht</h3>
-              <button className="muted-link" onClick={() => actions.setView('tickets')}>
-                Alle Tickets →
-              </button>
-            </div>
-            {TICKET_STATUS_ORDER.map((s) => (
-              <div
-                key={s}
-                className="dash-status-row"
-                style={{ cursor: 'pointer' }}
-                onClick={() => {
-                  actions.setFilter({ tickStatus: s });
-                  actions.setView('tickets');
-                }}
-              >
-                <span className="lbl">
-                  <i style={{ background: ticketStatusColor(s) }} />
-                  {TICKET_STATUS_LABEL[s]}
-                </span>
-                <span className="val">{ticketStatusCounts[s]}</span>
-              </div>
-            ))}
           </>
         );
       case 'chat-new':
@@ -709,7 +624,9 @@ export function DashboardPage() {
                         {e.name}
                       </div>
                       <div className="meta" style={{ color: 'var(--ink-faint)', fontSize: 11.5 }}>
-                        {a.type} · {fmtDate(new Date(a.start))} – {fmtDate(new Date(a.end))}
+                        {a.type}
+                        {getAbsencePercentage(a) < 100 ? ` · ${getAbsencePercentage(a)}%` : ''} · {fmtDate(new Date(a.start))} –{' '}
+                        {fmtDate(new Date(a.end))}
                       </div>
                     </div>
                     <StatusBadge status={a.status} />
@@ -775,45 +692,11 @@ export function DashboardPage() {
     }
   }
 
-  const ModuleGroup = ({ ids, zone }: { ids: string[]; zone: 'main' | 'more' }) => (
-    <div
-      className="dash-modules"
-      onDragOver={(e) => editMode && e.preventDefault()}
-      onDrop={(e) => onModDrop(e, zone, null)}
-    >
-      {ids.map((id) => {
-        const def = DASHBOARD_MODULES.find((m) => m.id === id);
-        return (
-          <div
-            key={id}
-            className={`dash-module size-${def?.size ?? 'lg'} ${editMode ? 'is-editable' : ''}`}
-            draggable={editMode}
-            onDragStart={(e) => {
-              if (!editMode) return;
-              e.dataTransfer.setData('text/plain', id);
-              setDragId(id);
-            }}
-            onDragOver={(e) => editMode && e.preventDefault()}
-            onDrop={(e) => {
-              e.stopPropagation();
-              onModDrop(e, zone, id);
-            }}
-          >
-            {editMode ? (
-              <div className="dash-module-edit-head">
-                <Icon name="menu" />
-                <span>{def?.label ?? id}</span>
-                <button className="icon-btn" title="Ausblenden" onClick={() => hideModule(id)}>
-                  <Icon name="close" />
-                </button>
-              </div>
-            ) : null}
-            <div className={`card dash-module-body ${editMode ? 'is-locked' : ''}`}>{renderModule(id)}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
+  const onDragStartModule = (e: React.DragEvent, id: string) => {
+    if (!editMode) return;
+    e.dataTransfer.setData('text/plain', id);
+    setDragId(id);
+  };
 
   return (
     <>
@@ -842,7 +725,19 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      {visibleMain.length ? <ModuleGroup ids={visibleMain} zone="main" /> : <Empty icon="dashboard" text="Keine Module ausgewählt. Öffne „Dashboard anpassen“, um Bereiche einzublenden." />}
+      {visibleMain.length ? (
+        <ModuleGroup
+          ids={visibleMain}
+          editMode={editMode}
+          onDropZone={(e) => onModDrop(e, 'main', null)}
+          onDropModule={(e, id) => onModDrop(e, 'main', id)}
+          onDragStartModule={onDragStartModule}
+          hideModule={hideModule}
+          renderModule={renderModule}
+        />
+      ) : (
+        <Empty icon="dashboard" text="Keine Module ausgewählt. Öffne „Dashboard anpassen“, um Bereiche einzublenden." />
+      )}
 
       <button className="dash-more-toggle" onClick={() => setMoreExpanded((v) => !v)} style={{ marginTop: 16 }}>
         <span>Weitere Informationen{visibleMore.length ? ` (${visibleMore.length})` : ''}</span>
@@ -851,7 +746,17 @@ export function DashboardPage() {
 
       {moreExpanded || editMode ? (
         <>
-          {visibleMore.length ? <ModuleGroup ids={visibleMore} zone="more" /> : null}
+          {visibleMore.length ? (
+            <ModuleGroup
+              ids={visibleMore}
+              editMode={editMode}
+              onDropZone={(e) => onModDrop(e, 'more', null)}
+              onDropModule={(e, id) => onModDrop(e, 'more', id)}
+              onDragStartModule={onDragStartModule}
+              hideModule={hideModule}
+              renderModule={renderModule}
+            />
+          ) : null}
           {editMode ? (
             <div className="dash-drop-hint" onDragOver={(e) => e.preventDefault()} onDrop={(e) => onModDrop(e, 'more', null)}>
               Module hierher ziehen, um sie unter „Weitere Informationen" abzulegen.
@@ -869,7 +774,6 @@ export function DashboardPage() {
       ) : null}
 
       {liveListOpen ? <LiveStatusListModal kind={liveListOpen} onClose={() => setLiveListOpen(null)} /> : null}
-      {matOverviewOpen ? <MaterialRequestsOverviewModal onClose={() => setMatOverviewOpen(false)} /> : null}
     </>
   );
 }

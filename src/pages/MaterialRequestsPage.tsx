@@ -8,26 +8,18 @@ import { fmtDate } from '../utils/date';
 import { summarizeMaterialItems } from '../utils/format';
 import { MaterialCatalogModal } from '../components/MaterialCatalogModal';
 
-const TABS = ['alle', 'eingereicht', 'in_bearbeitung', 'erledigt', 'abgelehnt'] as const;
-const TAB_LABEL: Record<(typeof TABS)[number], string> = {
-  alle: 'Alle',
-  eingereicht: 'Eingereicht',
-  in_bearbeitung: 'In Bearbeitung',
-  erledigt: 'Erledigt',
-  abgelehnt: 'Abgelehnt',
-};
+const TABS = ['offen', 'erledigt'] as const;
+const TAB_LABEL: Record<(typeof TABS)[number], string> = { offen: 'Offen', erledigt: 'Erledigt' };
 
 export function MaterialRequestsPage() {
   const { state, actions } = useApp();
   const hasPerm = useHasPerm();
   const canManage = hasPerm('material_manage');
-  const tab = state.filter.matStatus ?? 'alle';
+  const tab = state.filter.matStatus === 'erledigt' ? 'erledigt' : 'offen';
   const [catalogOpen, setCatalogOpen] = useState(false);
 
   const list = useMemo(() => {
-    return [...state.materialRequests]
-      .filter((m) => tab === 'alle' || m.status === tab)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [...state.materialRequests].filter((m) => m.status === tab).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [state.materialRequests, tab]);
 
   const complete = (e: React.MouseEvent, id: string) => {
@@ -102,7 +94,7 @@ export function MaterialRequestsPage() {
                           <MaterialStatusBadge status={m.status} />
                         </td>
                         <td>
-                          {canManage && m.status !== 'erledigt' && m.status !== 'abgelehnt' ? (
+                          {canManage && m.status !== 'erledigt' ? (
                             <button className="btn btn-accent btn-sm" onClick={(e) => complete(e, m.id)}>
                               <Icon name="check" /> Erledigt
                             </button>
@@ -138,7 +130,7 @@ export function MaterialRequestsPage() {
                   {m.note ? <div className="mat-panel-note">„{m.note}“</div> : null}
                   <div className="eval-card-foot">
                     <MaterialStatusBadge status={m.status} />
-                    {canManage && m.status !== 'erledigt' && m.status !== 'abgelehnt' ? (
+                    {canManage && m.status !== 'erledigt' ? (
                       <button className="btn btn-accent btn-sm" onClick={(e) => complete(e, m.id)}>
                         <Icon name="check" /> Erledigt
                       </button>

@@ -57,8 +57,6 @@ function ViewRouter() {
       return <MessagesPage />;
     case 'tickets':
       return hasPerm('tickets_view_own') || hasPerm('tickets_view_all') ? <TicketsPage /> : <NoAccess />;
-    case 'tickets-tasks':
-      return hasPerm('tickets_view_own') || hasPerm('tickets_view_all') ? <TicketsPage fixedType="aufgabe" /> : <NoAccess />;
     case 'tickets-material':
       return hasPerm('material_manage') ? <MaterialRequestsPage /> : <NoAccess />;
     case 'tickets-calendar':

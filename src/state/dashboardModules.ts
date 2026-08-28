@@ -4,21 +4,27 @@ export interface DashboardModuleDef {
   label: string;
   /** Berechtigung, die für dieses Modul nötig ist — fehlt sie, ist das Modul für Manager weder wählbar noch sichtbar. Admin sieht immer alles. */
   perm?: string;
-  /** Layout-Hinweis: "sm" = kompakte Kennzahl, "lg" = Liste/Tabelle über die volle Breite. */
-  size: 'sm' | 'lg';
+  /** Layout-Hinweis: "sm" = kompakte Kennzahl, "half" = ca. halbe Dashboard-Zeile (paart sich mit dem
+   * nächsten "half"-Modul), "lg" = Liste/Tabelle über die volle Breite, "xl" = erzwungene volle
+   * Dashboard-Zeile. */
+  size: 'sm' | 'half' | 'lg' | 'xl';
 }
 
 export const DASHBOARD_MODULES: DashboardModuleDef[] = [
   { id: 'kpi-active-now', label: 'Aktuell im Einsatz', size: 'sm' },
   { id: 'kpi-pause', label: 'In Pause', size: 'sm' },
-  { id: 'mat-new', label: 'Neue Materialanfragen', perm: 'material_manage', size: 'lg' },
-  { id: 'tick-urgent', label: 'Dringende Tickets', perm: 'tickets_view_all', size: 'lg' },
-  { id: 'tick-overdue', label: 'Überfällige Tickets', perm: 'tickets_view_all', size: 'lg' },
+  // Tickets und Materialanfragen sind die wichtigsten Arbeitsbereiche im Dashboard, aber klar getrennte
+  // Datenquellen (siehe DashboardPage.tsx) — bewusst gleich gross und nebeneinander (size "half"), damit
+  // beide sofort und gleichwertig sichtbar sind, statt eine kleine Kennzahl-Karte zu sein.
+  { id: 'kpi-tickets', label: 'Tickets', perm: 'tickets_view_all', size: 'half' },
+  { id: 'kpi-materials', label: 'Materialanfragen', perm: 'material_manage', size: 'half' },
+  // Ruhiger Monatskalender: manuelle Termine (state.calendarEvents) + Tickets mit Fälligkeitsdatum
+  // (dynamisch aus state.tickets abgeleitet, siehe DashboardCalendar.tsx) — keine eigene Berechtigung,
+  // da manuelle Termine für jeden Admin/Manager gelten und Tickets bereits selbst rollenscoped sind.
+  { id: 'dash-calendar', label: 'Kalender', size: 'xl' },
   { id: 'kpi-open-entries', label: 'Offene Zeiteinträge', size: 'sm' },
   { id: 'today-entries', label: 'Heutige Zeiterfassungen', size: 'lg' },
   { id: 'kpi-absences-today', label: 'Abwesenheiten heute', size: 'sm' },
-  { id: 'ticket-calendar-today', label: 'Ticket-Kalender heute', perm: 'tickets_calendar_view', size: 'lg' },
-  { id: 'ticket-status-overview', label: 'Ticket-Statusübersicht', perm: 'tickets_view_all', size: 'lg' },
   { id: 'chat-new', label: 'Neue Chat-Nachrichten', size: 'lg' },
   { id: 'reports', label: 'Berichte', perm: 'reports_view', size: 'sm' },
   { id: 'exports', label: 'Exporte', perm: 'time_export', size: 'sm' },

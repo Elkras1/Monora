@@ -1,4 +1,5 @@
-import type { AppData, Customer, Employee, Service, Shift, ShiftStatus, SystemRole, TimeEntry } from '../types';
+import type { AppData, Absence, Customer, Employee, MaterialRequest, Service, Shift, ShiftStatus, SystemRole, Ticket, TimeEntry } from '../types';
+import { fmtDateShort } from '../utils/date';
 
 export function getEmp(data: AppData, id: string | null | undefined): Employee | undefined {
   if (!id) return undefined;
@@ -76,6 +77,81 @@ export function computeConflictIds(shifts: Shift[]): Set<string> {
 
 export function shiftDisplayStatus(shift: Shift, conflictIds: Set<string>): ShiftStatus | 'konflikt' {
   return conflictIds.has(shift.id) ? 'konflikt' : shift.status;
+}
+
+/** Prozentualer Ausfall einer Abwesenheit; ältere Datensätze ohne das Feld gelten als 100 %. */
+export function getAbsencePercentage(absence: Absence): number {
+  return absence.absencePercentage ?? 100;
+}
+
+/** Genehmigte Abwesenheiten eines Mitarbeiters, die einen bestimmten Tag abdecken (z.B. für Hinweise im Dienstplan). */
+export function absencesOnDate(data: AppData, employeeId: string, iso: string): Absence[] {
+  return data.absences.filter((a) => a.employeeId === employeeId && a.status === 'genehmigt' && a.start <= iso && a.end >= iso);
+}
+
+export type TicketUrgency = 'normal' | 'soon' | 'today' | 'overdue' | 'done';
+
+/** Dringlichkeit eines Tickets nach Fälligkeitsdatum — für die dezente Farbfläche in Dashboard und
+ * Ticketliste (siehe ticketUrgencyRowClass in components/ui/Badge.tsx). Erledigte/abgeschlossene Tickets
+ * bekommen die eigene Kategorie "done" (dezentes Grün), unabhängig vom ursprünglichen Fälligkeitsdatum. */
+export function ticketUrgency(ticket: Ticket, todayIso: string, tomorrowIso: string): TicketUrgency {
+  if (ticket.status === 'erledigt') return 'done';
+  if (!ticket.dueDate) return 'normal';
+  if (ticket.dueDate < todayIso) return 'overdue';
+  if (ticket.dueDate === todayIso) return 'today';
+  if (ticket.dueDate === tomorrowIso) return 'soon';
+  return 'normal';
+}
+
+export function ticketDaysOverdue(dueIso: string, todayIso: string): number {
+  return Math.round((new Date(todayIso).getTime() - new Date(dueIso).getTime()) / 86400000);
+}
+
+/** Materialanfragen-Pendant zu ticketUrgency: nutzt requestedDate als optionales Fälligkeitsdatum (vom
+ * Mitarbeiter nie gesetzt, nur Admin/Manager weisen es beim Bearbeiten optional zu, siehe
+ * MaterialRequestModal.tsx) — dieselbe Farblogik wie bei Tickets, ohne Fälligkeitsdatum gilt eine Anfrage
+ * einfach als normal offen. */
+export function materialUrgency(req: MaterialRequest, todayIso: string, tomorrowIso: string): TicketUrgency {
+  if (req.status === 'erledigt') return 'done';
+  if (!req.requestedDate) return 'normal';
+  if (req.requestedDate < todayIso) return 'overdue';
+  if (req.requestedDate === todayIso) return 'today';
+  if (req.requestedDate === tomorrowIso) return 'soon';
+  return 'normal';
+}
+
+/** Sortierrang für Dashboard-To-do-Listen (Tickets UND Materialanfragen, siehe DashboardWorkList.tsx):
+ * überfällig < heute < morgen < später < ohne Fälligkeitsdatum. "Später" und "ohne Datum" teilen sich zwar
+ * dieselbe Farbe (siehe ticketUrgency/materialUrgency: beide "normal"), werden hier aber bewusst getrennt
+ * einsortiert — ein Eintrag ohne Datum soll nicht vor einem mit fernem, aber bekanntem Datum stehen. */
+export function dueRank(dateIso: string | null | undefined, todayIso: string, tomorrowIso: string): number {
+  if (!dateIso) return 4;
+  if (dateIso < todayIso) return 0;
+  if (dateIso === todayIso) return 1;
+  if (dateIso === tomorrowIso) return 2;
+  return 3;
+}
+
+/** Kompakte, dezente Datums-/Statuszeile für Dashboard-To-do-Listen — identisch für Tickets und
+ * Materialanfragen (siehe DashboardWorkList.tsx), damit beide Bereiche optisch/inhaltlich gleich wirken.
+ * Ohne Datum bewusst "Offen" statt leer, damit die Zeile nie “springt”. */
+export function dueLabel(dateIso: string | null | undefined, todayIso: string, tomorrowIso: string): string {
+  if (!dateIso) return 'Offen';
+  if (dateIso < todayIso) {
+    const days = ticketDaysOverdue(dateIso, todayIso);
+    return `${days} Tag${days === 1 ? '' : 'e'} überfällig`;
+  }
+  if (dateIso === todayIso) return 'Heute';
+  if (dateIso === tomorrowIso) return 'Morgen';
+  return `Fällig ${fmtDateShort(new Date(dateIso))}`;
+}
+
+/** Ob ein Ticket automatisch im Dashboard-Kalender erscheinen soll (siehe DashboardCalendar.tsx). Braucht
+ * ein Fälligkeitsdatum, sonst gibt es keinen Tag, an dem es angezeigt werden könnte. `showInCalendar` ist
+ * `undefined` bei Alt-Tickets/ohne bewusste Abwahl — das gilt als "an"; nur eine explizite Deaktivierung
+ * (false) blendet ein fälliges Ticket aus. */
+export function ticketShowsInCalendar(ticket: Ticket): boolean {
+  return !!ticket.dueDate && ticket.showInCalendar !== false;
 }
 
 /** Andere Mitarbeitende, die am selben Tag am selben Objekt eingeteilt sind ("Team" einer Schicht). */

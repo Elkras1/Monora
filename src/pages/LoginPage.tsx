@@ -34,7 +34,7 @@ function LoginForm() {
         Passwort vergessen?
       </button>
       <div className="login-error">{state.loginError}</div>
-      <button className="btn btn-accent" style={{ width: '100%', justifyContent: 'center', padding: 11, fontSize: 14 }} onClick={submit}>
+      <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 11, fontSize: 14 }} onClick={submit}>
         <Icon name="check" /> Anmelden
       </button>
     </>
@@ -73,7 +73,7 @@ function ForgotPasswordForm() {
               }}
             />
           </div>
-          <button className="btn btn-accent" style={{ width: '100%', justifyContent: 'center', padding: 11, fontSize: 14 }} onClick={send}>
+          <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 11, fontSize: 14 }} onClick={send}>
             Link senden
           </button>
         </>
@@ -136,7 +136,7 @@ function ResetPasswordForm() {
       {touched && !requirementsOk ? <div className="login-error">Passwort erfüllt die Anforderungen noch nicht.</div> : null}
       {touched && requirementsOk && !matchOk ? <div className="login-error">Die Passwörter stimmen nicht überein.</div> : null}
       <button
-        className="btn btn-accent"
+        className="btn btn-primary"
         style={{ width: '100%', justifyContent: 'center', padding: 11, fontSize: 14, marginTop: 8 }}
         onClick={save}
       >

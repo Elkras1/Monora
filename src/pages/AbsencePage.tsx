@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useApp, useHasPerm, useIsAdmin } from '../state/AppContext';
-import { getEmp } from '../state/selectors';
+import { getAbsencePercentage, getEmp } from '../state/selectors';
 import { AbsenceTypeBadge, StatusBadge } from '../components/ui/Badge';
 import { Empty } from '../components/ui/Empty';
 import { Icon } from '../components/icons/Icon';
@@ -185,6 +185,7 @@ export function AbsencePage() {
                 <tr>
                   <th>Mitarbeiter</th>
                   <th>Art</th>
+                  <th>Ausfall</th>
                   <th>Zeitraum</th>
                   <th>Tage</th>
                   <th>Notiz</th>
@@ -198,6 +199,7 @@ export function AbsencePage() {
                     const e = getEmp(state, a.employeeId);
                     if (!e) return null;
                     const days = Math.round((new Date(a.end).getTime() - new Date(a.start).getTime()) / 86400000) + 1;
+                    const percent = getAbsencePercentage(a);
                     return (
                       <tr key={a.id}>
                         <td>
@@ -211,6 +213,7 @@ export function AbsencePage() {
                         <td>
                           <AbsenceTypeBadge type={a.type} />
                         </td>
+                        <td className="mono">{percent}%</td>
                         <td className="mono">
                           {fmtDate(new Date(a.start))} – {fmtDate(new Date(a.end))}
                         </td>
@@ -231,8 +234,13 @@ export function AbsencePage() {
                                 <Icon name="close" />
                               </button>
                             ) : null}
+                            {canManage ? (
+                              <button className="icon-btn" title="Bearbeiten" onClick={() => actions.openModal('absence', { absenceId: a.id })}>
+                                <Icon name="edit" />
+                              </button>
+                            ) : null}
                             {isAdmin ? (
-                              <button className="icon-btn" onClick={() => actions.deleteAbsence(a.id)}>
+                              <button className="icon-btn" title="Löschen" onClick={() => actions.deleteAbsence(a.id)}>
                                 <Icon name="trash" />
                               </button>
                             ) : null}
@@ -243,7 +251,7 @@ export function AbsencePage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <Empty icon="absence" text="Keine Einträge in dieser Ansicht." />
                     </td>
                   </tr>
