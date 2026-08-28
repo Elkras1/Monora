@@ -110,7 +110,7 @@ export function MeStampBlock() {
         <div className="dial-ring" />
         <div
           className={`dial-core ${isOn && !onPause ? '' : 'off'}`}
-          style={onPause ? { background: 'linear-gradient(160deg,#DB9B0C,#93670A)' } : undefined}
+          style={onPause ? { background: 'linear-gradient(160deg,var(--stamp-pause),var(--stamp-pause-dark))' } : undefined}
         >
           <div className="time mono">{dialTime}</div>
           <div className="lbl">{onPause ? 'Pause' : isOn ? 'Arbeitet' : 'Bereit'}</div>
@@ -154,23 +154,23 @@ export function MeStampBlock() {
               </select>
             </div>
             {!selectedCustomerId ? <div className="hint" style={{ marginBottom: 10 }}>Bitte zuerst Objekt auswählen.</div> : null}
-            <button className="btn btn-accent btn-stamp" onClick={startClockIn} disabled={!selectedCustomerId}>
-              <Icon name="pin" /> Start
+            <button className="btn btn-stamp btn-stamp-start" onClick={startClockIn} disabled={!selectedCustomerId}>
+              <Icon name="play" /> Start
             </button>
           </div>
         ) : (
           <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {onPause ? (
-              <button className="btn btn-accent btn-stamp" onClick={() => actingId && actions.endPause(actingId)}>
+              <button className="btn btn-stamp btn-stamp-start" onClick={() => actingId && actions.endPause(actingId)}>
                 <Icon name="check" /> Pause beenden
               </button>
             ) : (
               <>
-                <button className="btn btn-outline btn-stamp" onClick={() => actingId && actions.startPause(actingId)}>
-                  Pause
+                <button className="btn btn-stamp btn-stamp-pause" onClick={() => actingId && actions.startPause(actingId)}>
+                  <Icon name="pause" /> Pause
                 </button>
-                <button className="btn btn-danger btn-stamp" onClick={() => actions.openModal('clockout')}>
-                  <Icon name="close" /> Stopp
+                <button className="btn btn-stamp btn-stamp-stop" onClick={() => actions.openModal('clockout')}>
+                  <Icon name="stop" /> Stopp
                 </button>
               </>
             )}

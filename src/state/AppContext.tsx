@@ -1567,7 +1567,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             notifications,
           };
         });
-        toast('Bestellung gesendet.');
+        toast('Materialanfrage wurde gesendet.');
       },
       createMaterialRequestAdmin: (data) => {
         const now = new Date().toISOString();

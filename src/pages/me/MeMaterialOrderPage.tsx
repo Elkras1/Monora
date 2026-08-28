@@ -1,10 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useApp, useActingEmployeeId } from '../../state/AppContext';
-import { eligibleCustomersFor, getEmp } from '../../state/selectors';
+import { eligibleCustomersFor, getCust, getEmp } from '../../state/selectors';
 import { Icon } from '../../components/icons/Icon';
 import { PhotoThumb } from '../../components/ui/PhotoThumb';
+import { Empty } from '../../components/ui/Empty';
+import { MaterialStatusBadge } from '../../components/ui/Badge';
 import type { MaterialRequestItem, TicketAttachmentMeta } from '../../types';
-import { uid } from '../../utils/format';
+import { materialItemName, uid } from '../../utils/format';
+import { fmtDate } from '../../utils/date';
 import { MAX_TICKET_ATTACHMENT_SIZE_BYTES, saveTicketAttachmentBlob } from '../../utils/ticketAttachmentStore';
 
 const MAX_PHOTOS = 5;
@@ -41,6 +44,14 @@ export function MeMaterialOrderPage() {
   const [uploading, setUploading] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  // "Meine Materialanfragen": ausschliesslich die eigenen, aus demselben zentralen state.materialRequests
+  // gefilterten Anfragen (dieselbe Datenquelle, die auch Admin/Manager unter Materialanfragen und im
+  // Dashboard sehen) — neueste zuerst, damit eine gerade gesendete Anfrage sofort ganz oben erscheint.
+  const myRequests = useMemo(
+    () => [...state.materialRequests].filter((m) => m.employeeId === actingId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [state.materialRequests, actingId]
+  );
 
   const updateLine = (id: string, patch: Partial<OrderLine>) =>
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
@@ -100,6 +111,10 @@ export function MeMaterialOrderPage() {
         ? { id: l.id, materialId: null, customMaterialName: l.customName.trim(), quantity: l.quantity }
         : { id: l.id, materialId: l.materialId, customMaterialName: null, quantity: l.quantity }
     );
+    // Der Erfolgs-Toast kommt bewusst ausschliesslich aus der Action selbst (siehe createMaterialRequest in
+    // AppContext.tsx) — vorher wurde hier zusätzlich ein zweiter, abweichender Toast angezeigt, unabhängig
+    // davon, was die Action tatsächlich tat. Formular-Reset erfolgt weiterhin direkt danach: die Action ist
+    // synchron und schreibt den neuen Datensatz noch in diesem Funktionsaufruf in den zentralen State.
     actions.createMaterialRequest({
       employeeId: actingId,
       locationId: locationId || null,
@@ -107,7 +122,6 @@ export function MeMaterialOrderPage() {
       note: note.trim() || undefined,
       photos,
     });
-    toast('Bestellung gesendet.');
     setLines([newLine()]);
     setNote('');
     setPhotos([]);
@@ -226,6 +240,35 @@ export function MeMaterialOrderPage() {
       <button className="mat-send-btn" onClick={send} disabled={!validLines.length || !locationId}>
         <Icon name="send" /> Bestellung senden
       </button>
+
+      <div className="mat-section me-mat-req-section">
+        <div className="mat-section-label">Meine Materialanfragen</div>
+        {myRequests.length ? (
+          <div className="me-mat-req-list">
+            {myRequests.map((m) => {
+              const cust = getCust(state, m.locationId);
+              return (
+                <div key={m.id} className="eval-card me-mat-req-card" onClick={() => actions.openMaterialRequestPanel(m.id)}>
+                  <div className="mat-req-card-object">{cust ? cust.name : 'Kein Objekt'}</div>
+                  <div className="me-mat-req-items">
+                    {m.items.map((i) => (
+                      <div key={i.id}>
+                        {materialItemName(i, state.materials)} × {i.quantity}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="eval-card-foot">
+                    <span className="hint">Gesendet: {fmtDate(new Date(m.createdAt))}</span>
+                    <MaterialStatusBadge status={m.status} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <Empty icon="box" text="Noch keine Materialanfragen gesendet." />
+        )}
+      </div>
     </div>
   );
 }
