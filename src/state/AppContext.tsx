@@ -41,6 +41,41 @@ import type { GeoFix } from '../hooks/useGeolocation';
 
 const STORAGE_KEY = 'cleanflow-data';
 
+/** Extrahiert genau die persistierbaren Felder aus dem AppState (ohne UI-/Session-Felder wie view/loggedIn). */
+function toPersistable(s: AppState): AppData {
+  return {
+    employees: s.employees,
+    customers: s.customers,
+    services: s.services,
+    shifts: s.shifts,
+    absences: s.absences,
+    timeEntries: s.timeEntries,
+    timeCorrections: s.timeCorrections,
+    customFieldDefs: s.customFieldDefs,
+    chats: s.chats,
+    messages: s.messages,
+    tickets: s.tickets,
+    calendarEvents: s.calendarEvents,
+    materialRequests: s.materialRequests,
+    materials: s.materials,
+    notifications: s.notifications,
+    settings: s.settings,
+    permissions: s.permissions,
+  };
+}
+
+/** Schreibt sofort (synchron, ohne Debounce) nach localStorage. Für den normalen Betrieb übernimmt der
+ * debounced useEffect in AppProvider das Speichern; diese Funktion ist für einzelne, besonders wichtige
+ * Aktionen gedacht (siehe createMaterialRequest), bei denen ein Datenverlust durch einen zu früh in den
+ * Hintergrund/geschlossenen Mobile-Tab (bevor der 350ms-Debounce feuert) vermieden werden soll. */
+function persistNow(s: AppState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toPersistable(s)));
+  } catch {
+    /* ignore quota errors in demo mode */
+  }
+}
+
 export type ModalType =
   | 'clockin'
   | 'clockout'
@@ -523,41 +558,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      const persistable: AppData = {
-        employees: state.employees,
-        customers: state.customers,
-        services: state.services,
-        shifts: state.shifts,
-        absences: state.absences,
-        timeEntries: state.timeEntries,
-        timeCorrections: state.timeCorrections,
-        customFieldDefs: state.customFieldDefs,
-        chats: state.chats,
-        messages: state.messages,
-        tickets: state.tickets,
-        calendarEvents: state.calendarEvents,
-        materialRequests: state.materialRequests,
-        materials: state.materials,
-        notifications: state.notifications,
-        settings: state.settings,
-        permissions: state.permissions,
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
-      } catch {
-        /* ignore quota errors in demo mode */
-      }
-    }, 350);
+    saveTimer.current = setTimeout(() => persistNow(state), 350);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [state]);
 
   // Hält mehrere gleichzeitig offene Tabs/Fenster (z. B. Admin- und Mitarbeiter-Ansicht nebeneinander
-  // zum Testen) synchron: Sobald ein anderer Tab im selben Browser Daten speichert (z. B. Standort-Radius
-  // geändert), übernimmt dieser Tab die aktuellen Daten sofort, ohne die eigene Navigation/Login-Session
-  // zu verlieren.
+  // zum Testen) synchron: Sobald ein anderer Tab im selben Browser Daten speichert (z. B. eine neue
+  // Materialanfrage), übernimmt dieser Tab die aktuellen Daten sofort, ohne die eigene Navigation/Login-
+  // Session zu verlieren — funktioniert dank des "storage"-Events bereits innerhalb von Millisekunden nach
+  // dem debounced localStorage.setItem oben, kein Reload/Re-Login nötig (per Playwright-Test verifiziert:
+  // Mitarbeiter sendet Materialanfrage in Tab A, Admin-Tab B zeigt sie ohne jede Interaktion sofort an).
+  //
+  // WICHTIG (Architektur-Grenze, siehe Aufgabenstellung): Dieser Mechanismus funktioniert NUR innerhalb
+  // desselben Browsers/derselben lokalen Umgebung, da er auf dem "storage"-Event von localStorage beruht,
+  // das ausschliesslich zwischen Tabs desselben Ursprungs (Origin) auf demselben Gerät feuert. Sind
+  // Admin und Mitarbeiter auf unterschiedlichen Geräten/Browsern unterwegs, hat jedes Gerät sein eigenes,
+  // vollständig getrenntes localStorage — echte geräteübergreifende Live-Synchronisation ist mit dieser
+  // reinen Client-/Prototyp-Architektur (kein Backend) grundsätzlich nicht möglich und lässt sich auch
+  // nicht durch zusätzliches Polling "reparieren". Das würde eine echte Datenschicht (z. B. Supabase) mit
+  // Realtime-Subscriptions voraussetzen, die hier bewusst (noch) nicht eingeführt wird.
   useEffect(() => {
     function handleStorage(e: StorageEvent) {
       if (e.key !== STORAGE_KEY || !e.newValue) return;
@@ -1547,7 +1568,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             linkedMaterialRequestId: id,
             linkedTicketId: null,
           });
-          return {
+          const next: AppState = {
             ...s,
             materialRequests: [
               ...s.materialRequests,
@@ -1566,6 +1587,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ],
             notifications,
           };
+          // Sofort (nicht erst nach dem 350ms-Debounce, siehe persistNow) nach localStorage schreiben: eine
+          // Materialanfrage wird oft mobil gesendet, direkt gefolgt vom Wechsel zu einer anderen App — ein
+          // Browser-Tab kann dabei sehr schnell in den Hintergrund/pausiert werden, bevor der normale
+          // Debounce-Timer feuert. Für diesen einen, bewusst seltenen und wichtigen Fall (Datenverlust einer
+          // gerade abgeschickten Bestellung) lohnt sich der zusätzliche synchrone Schreibvorgang.
+          persistNow(next);
+          return next;
         });
         toast('Materialanfrage wurde gesendet.');
       },

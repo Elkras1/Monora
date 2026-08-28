@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Icon } from '../icons/Icon';
-import { Drawer } from '../ui/Overlay';
 import { useApp, useCurrentRole, useCurrentUser } from '../../state/AppContext';
 import { navConfigFor } from '../../state/nav';
 import { getUnreadTotalFor } from '../../state/chat';
@@ -63,41 +62,57 @@ export function MobileTabBar() {
       </div>
 
       {menuOpen ? (
-        <Drawer title="Menü" onClose={() => setMenuOpen(false)}>
-          <div className="me-more-list">
-            {MENU_ITEMS.map((it, i) => (
-              <button
-                key={i}
-                className={`user-menu-item ${state.view === it.view ? 'active' : ''}`}
-                onClick={() => {
-                  actions.setView(it.view);
-                  setMenuOpen(false);
-                }}
-              >
-                <span className="me-more-item-icon">
-                  <Icon name={it.icon} />
-                </span>
-                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{it.label}</div>
-              </button>
-            ))}
-            <div className="divider" style={{ margin: '10px 0 8px' }} />
-            <button
-              className="user-menu-item"
-              onClick={() => {
-                setMenuOpen(false);
-                actions.logout();
-              }}
-            >
-              <span
-                className="me-more-item-icon"
-                style={{ background: 'var(--red-tint)', color: 'var(--red)' }}
-              >
+        // Bewusst ein eigenes Bottom-Sheet statt des generischen <Drawer> (rechtsseitig, volle Bildschirm-
+        // höhe, siehe .drawer-overlay) — der Drawer läge über der fest positionierten Bottom-Navigation und
+        // würde sie optisch verdecken sowie ihre Klicks abfangen. Das Sheet endet bewusst oberhalb der
+        // Navigation (siehe .mobile-sheet in global.css), die Navigation bleibt darunter durchgehend sichtbar.
+        <div
+          className="mobile-sheet-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMenuOpen(false);
+          }}
+        >
+          <div className="mobile-sheet">
+            <div className="mobile-sheet-head">
+              <h3>Menü</h3>
+              <button className="close-x" onClick={() => setMenuOpen(false)} aria-label="Schliessen">
                 <Icon name="close" />
-              </span>
-              <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--red)' }}>Abmelden</div>
-            </button>
+              </button>
+            </div>
+            <div className="mobile-sheet-body">
+              <div className="me-more-list">
+                {MENU_ITEMS.map((it, i) => (
+                  <button
+                    key={i}
+                    className={`user-menu-item ${state.view === it.view ? 'active' : ''}`}
+                    onClick={() => {
+                      actions.setView(it.view);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <span className="me-more-item-icon">
+                      <Icon name={it.icon} />
+                    </span>
+                    <div style={{ fontWeight: 600, fontSize: 13.5 }}>{it.label}</div>
+                  </button>
+                ))}
+                <div className="divider" style={{ margin: '10px 0 8px' }} />
+                <button
+                  className="user-menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    actions.logout();
+                  }}
+                >
+                  <span className="me-more-item-icon" style={{ background: 'var(--red-tint)', color: 'var(--red)' }}>
+                    <Icon name="close" />
+                  </span>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--red)' }}>Abmelden</div>
+                </button>
+              </div>
+            </div>
           </div>
-        </Drawer>
+        </div>
       ) : null}
     </>
   );

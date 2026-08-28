@@ -11,7 +11,11 @@ export interface DashboardModuleDef {
 }
 
 export const DASHBOARD_MODULES: DashboardModuleDef[] = [
-  { id: 'kpi-active-now', label: 'Aktuell im Einsatz', size: 'sm' },
+  // "Aktuell im Einsatz" ist bewusst "xl" (eigene volle Zeile) statt einer kleinen Kennzahl-Karte — es
+  // steht immer ganz oben im Dashboard (siehe die feste Pinning-Logik in ModuleGroup/DashboardPage.tsx,
+  // dieselbe Idee wie beim Tickets/Material-Paar) und zeigt neben der Anzahl auch die kompakte Liste der
+  // gerade aktiven Mitarbeiter.
+  { id: 'kpi-active-now', label: 'Aktuell im Einsatz', size: 'xl' },
   { id: 'kpi-pause', label: 'In Pause', size: 'sm' },
   // Tickets und Materialanfragen sind die wichtigsten Arbeitsbereiche im Dashboard, aber klar getrennte
   // Datenquellen (siehe DashboardPage.tsx) — bewusst gleich gross und nebeneinander (size "half"), damit

@@ -12,11 +12,14 @@
   --primary-dark:#002463;
   --primary-tint:#EBEFF6;
   /* Menüfarbe: bewusst EIGENE, vom Markenblau (--primary) losgelöste Variable nur für Hauptmenü/Navigation
-     (TopNav, Sidebar/mobiles Ausklapp-Menü für Admin/Manager, mobile Tab-Bar für Mitarbeiter) — ein
-     Farbwunsch nur fürs Menü darf Buttons/Badges/Fokuszustände etc. (die weiterhin --primary nutzen) nicht
-     mitverändern. Für spätere Anpassungen genügt es, --nav-blue/--nav-blue-dark hier zu ändern. */
+     (TopNav, Sidebar/mobiles Ausklapp-Menü für Admin/Manager, mobile Tab-Bar für Mitarbeiter) UND für die
+     Login-Seite (siehe .login-screen weiter unten) — Login ist der gemeinsame, rollenunabhängige
+     Einstiegspunkt und soll optisch eindeutig zur (helleren) Planico-Marke gehören, exakt derselbe Ton wie
+     das Menü, keine dritte Blaunuance. Buttons/Badges im übrigen Admin-/Manager-Bereich nutzen weiterhin
+     --primary. Für spätere Anpassungen genügt es, --nav-blue/--nav-blue-dark/--nav-blue-tint hier zu ändern. */
   --nav-blue:#3B82F6;
   --nav-blue-dark:#1D4ED8;
+  --nav-blue-tint:#DBEAFE;
   --accent:#38BDF8;
   --accent-dark:#0284C7;
   --amber:#DB9B0C;
@@ -74,6 +77,11 @@
   --shadow: 0 1px 2px rgba(11,30,61,.06);
   --shadow-lifted: 0 4px 16px -6px rgba(11,30,61,.14);
   --radius:14px;
+  /* Tatsächliche Höhe der mobilen Bottom-Navigation (siehe .mobile-tabbar) — EINE zentrale Zahl, die sowohl
+     für das Bottom-Padding des Hauptinhalts (.content) als auch für den Sicherheitsabstand des "Mehr"-
+     Bottom-Sheets (.mobile-sheet) verwendet wird, damit beide garantiert konsistent bleiben (vorher stand
+     der Content-Padding-Wert als eigene, leicht abweichende Zahl separat im Code). */
+  --mobile-tabbar-height:64px;
 }
 *{box-sizing:border-box;}
 /* WICHTIG — tatsächliche Ursache des "Verrutschens": html,body hatten bisher `height:100%` UND
@@ -330,14 +338,28 @@ a{color:inherit;}
 .login-demo-divider{display:flex;align-items:center;gap:10px;margin:22px 0 12px;color:var(--ink-faint);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
 .login-demo-divider::before,.login-demo-divider::after{content:'';flex:1;height:1px;background:var(--line);}
 .login-demo-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left;}
-.login-demo-item:hover{border-color:var(--primary);background:var(--surface-alt);}
+.login-demo-item:hover{border-color:var(--nav-blue);background:var(--surface-alt);}
+/* Login nutzt bewusst dieselbe Menüfarbe (--nav-blue) wie Hauptmenü/Navigation statt des allgemeineren
+   --primary — Login ist der gemeinsame Einstiegspunkt vor jeder Rolle, kein Admin-/Manager-Aktionsbutton.
+   Bewusst nur innerhalb .login-screen überschrieben: .btn-primary/--primary bleiben für den Rest der App
+   (alle Admin-/Manager-Buttons, Badges, Fokuszustände) komplett unverändert. */
+.login-screen .btn-primary{background:var(--nav-blue);}
+.login-screen .btn-primary:hover{background:var(--nav-blue-dark);}
+.login-screen .btn-primary:focus-visible{box-shadow:0 0 0 3px var(--nav-blue-tint);}
+.login-screen .field input:focus,
+.login-screen .field select:focus,
+.login-screen .field textarea:focus{border-color:var(--nav-blue);box-shadow:0 0 0 3px var(--nav-blue-tint);}
+.login-screen .link-btn,
+.login-screen a{color:var(--nav-blue);}
+.login-screen .password-toggle:hover{color:var(--nav-blue);}
 
-/* mobile tab bar (Mitarbeiter-Ansicht) */
+/* mobile tab bar (Mitarbeiter-Ansicht) — bewusst hoher z-index (über Modals/Overlays/dem "Mehr"-Sheet,
+   siehe .mobile-sheet-overlay), damit sie unter GAR keinem geöffneten Overlay verschwinden kann. */
 .mobile-tabbar{display:none;}
 @media (max-width:880px){
   .mobile-tabbar{
-    display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--surface);
-    border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.06);z-index:60;padding:4px 2px calc(4px + env(safe-area-inset-bottom));
+    display:flex;position:fixed;bottom:0;left:0;right:0;width:100%;min-height:var(--mobile-tabbar-height);background:var(--surface);
+    border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.06);z-index:1000;padding:4px 2px calc(4px + env(safe-area-inset-bottom));
   }
   .mtab{position:relative;flex:1;display:flex;align-items:center;justify-content:center;padding:12px 2px;border:none;background:none;color:var(--ink-faint);min-height:52px;}
   .mtab svg{width:26px;height:26px;}
@@ -469,6 +491,23 @@ a{color:inherit;}
 }
 .dash-module .dash-module-body{flex:1;margin-bottom:0;}
 @media (max-width:700px){.dash-module{flex-basis:100% !important;}}
+
+/* Dashboard-Kartentitel bewusst kräftiger als der app-weite Standard (.card-head h3, font-size:14.5px) —
+   NUR innerhalb von .dash-module (Desktop-Dashboard-Karten) überschrieben, damit andere Seiten und die
+   mobile Mitarbeiteransicht (dieselbe .card-head-Klasse) unverändert bleiben. */
+.dash-module .card-head h3{font-size:16px;font-weight:700;color:var(--ink);}
+
+/* "Aktuell im Einsatz" (siehe DashboardPage.tsx) — grosse, kräftige Zahl in der zentralen Menü-/Login-Farbe
+   (--nav-blue, dieselbe wie TopNav/Login), darunter eine kompakte Liste der gerade aktiven Mitarbeiter
+   (Name / Objekt · seit HH:MM). Bewusst ohne Fälligkeits-/Statusfarben pro Zeile — hier zählt nur "wer ist
+   gerade im Einsatz", nicht Dringlichkeit. */
+.dash-active-now-count{font-size:34px;font-weight:800;color:var(--nav-blue);line-height:1;margin:2px 0 14px;}
+.dash-active-now-list{display:flex;flex-direction:column;}
+.dash-active-now-row{display:flex;flex-direction:column;gap:1px;padding:8px 4px;border-bottom:1px solid var(--line);cursor:pointer;}
+.dash-active-now-row:last-child{border-bottom:none;}
+.dash-active-now-row:hover{background:var(--surface-alt);}
+.dash-active-now-row .name{font-weight:700;font-size:13.5px;color:var(--ink);}
+.dash-active-now-row .meta{font-size:11.5px;color:var(--ink-faint);}
 
 .dash-module.is-editable{border-radius:16px;box-shadow:0 0 0 2px transparent;transition:box-shadow .12s;}
 .dash-module.is-editable:hover{box-shadow:0 0 0 2px var(--primary-tint);}
@@ -707,11 +746,12 @@ tbody tr:hover{background:var(--surface-alt);}
      Bereich tatsächlich für Stempeluhr/Start-Button genutzt wird statt als Leerraum zu wirken. */
   min-height:calc(100vh - 150px);min-height:calc(100svh - 150px);
 }
-/* Zustand "nicht eingestempelt": bewusst zentriert statt unten verankert — vorher entstand durch
-   justify-content:flex-end auf einem fast bildschirmhohen Container ein grosser, ungenutzter Leerraum
-   zwischen Header und Inhalt ("Seite wirkt zu hoch"). Zentriert bringt Objekt-Erkennung + Start-Button
-   direkt in den sichtbaren Bereich, ohne dass gescrollt werden muss. */
-.stampclock-page.is-idle{justify-content:center;gap:20px;}
+/* Zustand "nicht eingestempelt": bewusst am Kopf ausgerichtet statt zentriert/unten verankert — sowohl
+   justify-content:flex-end (Original) als auch justify-content:center (Zwischenstand) haben den Inhalt in
+   einer fast bildschirmhohen Box "schweben" lassen und dadurch viel ungenutzten Leerraum erzeugt ("Seite
+   wirkt zu hoch"). min-height:0 lässt die Seite nur so hoch werden, wie ihr tatsächlicher Inhalt braucht —
+   Objekt-Erkennung + Start-Button sitzen direkt unter dem Header, ohne künstliche Lücke. */
+.stampclock-page.is-idle{justify-content:flex-start;gap:18px;padding-top:20px;min-height:0;}
 .stampclock-card{
   width:100%;max-width:350px;background:var(--surface);border:1px solid var(--line);
   border-radius:32px;padding:26px 22px 24px;box-shadow:var(--shadow-lifted);
@@ -1081,6 +1121,27 @@ tbody tr:hover{background:var(--surface-alt);}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line);}
 .drawer-body{padding:20px;overflow-y:auto;flex:1;}
 .drawer-foot{display:flex;gap:8px;padding:16px 20px;border-top:1px solid var(--line);flex-wrap:wrap;}
+
+/* Mitarbeiter-"Mehr"-Menü als eigenes Bottom-Sheet (siehe MobileTabBar.tsx) — bewusst NICHT der generische
+   <Drawer> (der rechtsseitig volle Bildschirmhöhe einnimmt, z-index:110, und damit die fest positionierte
+   Bottom-Navigation, z-index:60, optisch komplett verdeckt und deren Klicks abfängt — genau das war der
+   Grund, warum die Bottom-Navigation beim Öffnen des Menüs "verschwand"). Das Sheet endet bewusst oberhalb
+   der Navigation (margin-bottom = Navigationshöhe) und sein Overlay bekommt einen NIEDRIGEREN z-index als
+   die Navigation, damit diese immer sichtbar und klickbar bleibt.*/
+.mobile-sheet-overlay{
+  position:fixed;inset:0;z-index:500;background:rgba(10,25,20,.4);
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.mobile-sheet{
+  width:100%;max-width:480px;max-height:70vh;background:var(--surface);
+  border-radius:20px 20px 0 0;box-shadow:0 -12px 32px -10px rgba(11,30,61,.28);
+  display:flex;flex-direction:column;animation:sheetin .18s ease-out;
+  margin-bottom:calc(var(--mobile-tabbar-height) + env(safe-area-inset-bottom));
+}
+@keyframes sheetin{from{transform:translateY(18px);opacity:.4;}to{transform:translateY(0);opacity:1;}}
+.mobile-sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 6px;flex:none;}
+.mobile-sheet-body{padding:8px 18px 18px;overflow-y:auto;flex:1;min-height:0;}
+
 .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;}
 .detail-grid .dl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);margin-bottom:4px;}
 .detail-grid .dv{font-size:13.5px;font-weight:600;color:var(--ink);}
@@ -1445,7 +1506,7 @@ tbody tr:hover{background:var(--surface-alt);}
   .sidebar{display:flex;position:fixed;left:-260px;z-index:90;transition:left .2s;box-shadow:0 0 40px rgba(0,0,0,.3);}
   .sidebar.open{left:0;}
   .mobile-toggle{display:flex;}
-  .content{padding:16px 16px calc(74px + env(safe-area-inset-bottom));max-width:100vw;overflow-x:hidden;}
+  .content{padding:16px 16px calc(var(--mobile-tabbar-height) + 10px + env(safe-area-inset-bottom));max-width:100vw;overflow-x:hidden;}
   .topbar{display:flex;padding:12px 16px;padding-top:max(12px, env(safe-area-inset-top));}
 
   /* grössere Touchflächen auf dem Handy */

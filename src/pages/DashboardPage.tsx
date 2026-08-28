@@ -83,16 +83,23 @@ function ModuleGroup({
     );
   };
 
-  // Tickets und Materialanfragen sind die beiden zentralen, gleichwertigen Arbeitslisten des Dashboards und
-  // werden bewusst als FESTES Paar in einer eigenen Zeile gerendert (siehe .dash-module-pair-row in
-  // global.css), statt sich wie alle anderen Module frei in den Flex-Umbruch einzureihen — nur so ist die
-  // exakte 50/50-Aufteilung unabhängig von Position/Grösse benachbarter Module garantiert. Sind (z.B. wegen
-  // fehlender Berechtigung oder weil der Benutzer eines der beiden in "Weitere Informationen" verschoben hat)
-  // nicht beide in derselben Gruppe sichtbar, fällt die Anzeige auf die normale Einzel-Modul-Darstellung zurück.
+  // Feste Grundstruktur des Dashboards, unabhängig von der per Drag & Drop gespeicherten Reihenfolge:
+  // 1) "Aktuell im Einsatz" immer ganz oben, 2) Tickets/Materialanfragen als festes 50/50-Paar (siehe
+  // .dash-module-pair-row in global.css) — nur so ist die exakte Aufteilung unabhängig von Position/Grösse
+  // benachbarter Module garantiert, 3) alle übrigen (frei sortierbaren) Module, 4) der Kalender immer ganz
+  // unten, statt zwischen anderen Modulen eingeklemmt zu sein. Fehlt eines dieser Module in der jeweiligen
+  // Gruppe (z. B. weil der Benutzer es nach "Weitere Informationen" verschoben oder ausgeblendet hat, oder
+  // fehlende Berechtigung), entfällt einfach dessen Pinning-Schritt — die übrigen Module bleiben unberührt.
   const seen = new Set<string>();
   const blocks: React.ReactNode[] = [];
+
+  if (ids.includes('kpi-active-now')) {
+    seen.add('kpi-active-now');
+    blocks.push(renderOne('kpi-active-now'));
+  }
+
   ids.forEach((id) => {
-    if (seen.has(id)) return;
+    if (seen.has(id) || id === 'dash-calendar') return;
     const pairId = id === 'kpi-tickets' ? 'kpi-materials' : id === 'kpi-materials' ? 'kpi-tickets' : null;
     if (pairId && ids.includes(pairId)) {
       seen.add('kpi-tickets');
@@ -108,6 +115,10 @@ function ModuleGroup({
     seen.add(id);
     blocks.push(renderOne(id));
   });
+
+  if (ids.includes('dash-calendar')) {
+    blocks.push(renderOne('dash-calendar'));
+  }
 
   return (
     <div className="dash-modules" onDragOver={(e) => editMode && e.preventDefault()} onDrop={onDropZone}>
@@ -222,15 +233,30 @@ export function DashboardPage() {
     switch (id) {
       case 'kpi-active-now':
         return (
-          <KpiCard
-            icon="bolt"
-            label="Aktuell im Einsatz"
-            value={activeNow.length}
-            bg="#E3F3FE"
-            fg="var(--accent-dark)"
-            delta={activeNow.length ? 'Live eingestempelt' : 'Niemand aktiv'}
-            onClick={() => setLiveListOpen('active')}
-          />
+          <>
+            <div className="card-head">
+              <h3>Aktuell im Einsatz</h3>
+            </div>
+            <div className="dash-active-now-count">{activeNow.length}</div>
+            {activeNow.length ? (
+              <div className="dash-active-now-list">
+                {activeNow.map((t) => {
+                  const emp = getEmp(state, t.employeeId);
+                  const cust = getCust(state, t.customerId);
+                  return (
+                    <div key={t.id} className="dash-active-now-row" onClick={() => openTimeEntry(t)}>
+                      <span className="name">{emp ? emp.name : 'Unbekannt'}</span>
+                      <span className="meta">
+                        {cust ? cust.name : 'Kein Objekt'} · seit {fmtTime(new Date(t.clockIn))}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Empty icon="bolt" text="Niemand aktuell im Einsatz." />
+            )}
+          </>
         );
       case 'kpi-pause':
         return (

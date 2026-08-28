@@ -19,7 +19,11 @@ export interface DashboardPrefs {
   hidden: string[];
 }
 
-export const DEFAULT_MAIN_MODULES = ['kpi-active-now', 'kpi-pause', 'kpi-tickets', 'kpi-materials', 'dash-calendar', 'kpi-open-entries'];
+// Bewusst schlank auf die vier Kernbereiche reduziert (Einsatzstatus, Tickets, Materialanfragen, Kalender)
+// — ein ruhiges Standard-Dashboard ohne zusätzliche Kennzahl-Karten. "In Pause"/"Offene Zeiteinträge" u.a.
+// bleiben im Modul-Katalog (DASHBOARD_MODULES) weiterhin wählbar und lassen sich über "Dashboard anpassen"
+// jederzeit ergänzen — diese Änderung betrifft nur die Werkseinstellung für neue/zurückgesetzte Profile.
+export const DEFAULT_MAIN_MODULES = ['kpi-active-now', 'kpi-tickets', 'kpi-materials', 'dash-calendar'];
 
 const DEFAULT_PREFS: DashboardPrefs = { main: DEFAULT_MAIN_MODULES, more: [], hidden: [] };
 
