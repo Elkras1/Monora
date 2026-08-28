@@ -28,11 +28,13 @@
   --red-dark:#8F2A2E;
   --green:#189B5A;
   --green-tint:#E1F5EA;
-  /* Eigene Farben NUR für die Mitarbeiter-Stempeluhr (Start/Stopp/Pause, siehe .btn-stamp-* weiter unten) —
+  /* Eigene Farben NUR für die Mitarbeiter-Stempeluhr (Start/Stopp/Pause, siehe .stampclock-round-btn.is-*
+     in MeTimePage.tsx — DAS ist die tatsächlich gerenderte Stempeluhr, nicht StampWidget/MeStampBlock) —
      bewusst losgelöst von --green/--red/--amber (die weiterhin für Badges/Status im Rest der App gelten),
-     damit ein Farbwunsch nur für diese drei grossen Aktionsknöpfe nichts anderes mitverändert. */
-  --stamp-start:#22C55E;
-  --stamp-start-dark:#16A34A;
+     damit ein Farbwunsch nur für diese drei grossen Aktionsknöpfe nichts anderes mitverändert. Start
+     bewusst dunkler als Standard-Grün (#15803D), damit der Button klar satt/dunkel statt blass wirkt. */
+  --stamp-start:#16A34A;
+  --stamp-start-dark:#15803D;
   --stamp-stop:#EF4444;
   --stamp-stop-dark:#DC2626;
   --stamp-pause:#F59E0B;
@@ -74,11 +76,27 @@
   --radius:14px;
 }
 *{box-sizing:border-box;}
-/* overscroll-behavior:none unterbindet den elastischen "Rubber-Band"-Überzieheffekt am Rand der Seite
-   (v.a. iOS Safari) — genau dieser Bounce lässt position:sticky/fixed-Elemente (Header, Bottom-Navigation)
-   beim Wischen kurz "wandern"/zittern, obwohl sich am Layout selbst nichts ändert. Wirkt sich auf Desktop
-   nicht sichtbar aus (kein Touch-Overscroll dort), daher bewusst global statt nur mobil gesetzt. */
-html,body{margin:0;padding:0;height:100%;overflow-x:hidden;overscroll-behavior:none;}
+/* WICHTIG — tatsächliche Ursache des "Verrutschens": html,body hatten bisher `height:100%` UND
+   `overflow-x:hidden`, aber KEIN explizites `overflow-y`. Per CSS-Spezifikation wird der Y-Wert dann
+   automatisch auf "auto" hochgestuft, sobald der X-Wert nicht "visible" ist (die Achsen dürfen nicht
+   gemischt "sichtbar"/"nicht sichtbar" sein). Mit einer FESTEN Höhe (`height:100%`) verwandelte das <body>
+   ungewollt in einen EIGENEN, auf die Viewporthöhe begrenzten Scroll-Container — komplett getrennt vom
+   normalen Dokument-Scroll (siehe document.scrollingElement = <html>, das selbst gar keinen Overflow mehr
+   meldet). Genau das ist der "verschachtelte Scrollcontainer": <body> scrollt intern, <html> "denkt", es
+   gäbe nichts zu scrollen. Für `position:fixed`-Elemente (Bottom-Navigation) und `position:sticky` ist das
+   eine bekannte Quelle für Sprünge/Zittern während des Scrollens/Wischens auf iOS. Fix: KEINE feste Höhe
+   mehr auf html/body — dadurch hat "auto" nichts zu begrenzen, <body> bleibt kein eigener Scroll-Container,
+   und ausschliesslich <html>/das Dokument scrollt (Standardverhalten, mit dem position:fixed/sticky
+   zuverlässig zusammenarbeiten). overflow-x:hidden bleibt zur Sicherheit gegen horizontales Scrollen.
+   overscroll-behavior:none unterbindet zusätzlich den elastischen "Rubber-Band"-Effekt am Seitenrand. */
+/* overflow-x:hidden steht bewusst NUR auf <html>, nicht zusätzlich auf <body>: sitzt es auf beiden, gilt
+   <body> laut Spezifikation ebenfalls als eigener "Scroll-Mechanismus" — das reicht bereits aus, damit
+   position:sticky-Elemente (der Header) sich fälschlich an <body> statt an die echte Dokument-/Viewport-
+   Scrollbarkeit binden. Da nicht <body>, sondern <html> die tatsächlich scrollende Ebene ist (siehe
+   document.scrollingElement), "klebt" der Header dann an einem Bezugsrahmen, der selbst unsichtbar
+   mitscrollt statt stehen zu bleiben — daher bleibt <body> bei overflow:visible. */
+html{overflow-x:hidden;}
+html,body{margin:0;padding:0;width:100%;max-width:100%;overscroll-behavior:none;}
 body{
   background:var(--bg);
   color:var(--ink);
@@ -100,8 +118,13 @@ a{color:inherit;}
    "svh" (small viewport height, Leiste immer sichtbar angenommen) bleibt während der ganzen Sitzung
    konstant — der Shell wackelt dadurch nicht mehr mit, es wird höchstens etwas Weissraum sichtbar, sobald
    die Leiste tatsächlich einklappt. */
-#app{display:flex;flex-direction:column;min-height:100vh;min-height:100svh;}
-.app-body{display:flex;flex:1;min-height:0;}
+/* Bewusst OHNE eigenes overflow-x hier (auch nicht "hidden"): jedes overflow-x != visible auf einem
+   Vorfahren von .topbar würde laut Spezifikation automatisch auch overflow-y auf "auto" setzen — und
+   genau das macht diesen Vorfahren zum (näheren, falschen) Scroll-Bezug für position:sticky, noch bevor
+   die Suche <html> erreicht (siehe ausführliche Begründung oben bei html/body). Der Schutz vor
+   horizontalem Scrollen lebt daher ausschliesslich auf <html>. */
+#app{display:flex;flex-direction:column;width:100%;max-width:100%;min-height:100vh;min-height:100svh;}
+.app-body{display:flex;flex:1;min-height:0;width:100%;max-width:100%;}
 
 /* Sidebar — mobile-only ausklappbares Menü für Admin/Manager (siehe Breakpoint unten). Auf Desktop ersetzt durch .topnav. */
 .sidebar{
@@ -211,9 +234,10 @@ a{color:inherit;}
 
 /* Mitarbeiter: bewusst ruhiger Header — nur eine grosse Überschrift, sonst nichts (kein Untertitel,
    kein Benutzer, keine Icons). Eigene Klasse statt Änderungen an .topbar/.topbar h1, damit der
-   Admin-/Manager-Header unangetastet bleibt. */
-.topbar.topbar-staff{justify-content:flex-start;padding-top:max(22px, env(safe-area-inset-top));padding-bottom:18px;}
-.topbar-staff h1{font-size:26px;font-weight:700;letter-spacing:-.015em;}
+   Admin-/Manager-Header unangetastet bleibt. Bewusst kompakter (weniger Padding, kleinere Schrift) als
+   zuvor, damit der Header weniger Platz beansprucht und mehr vom Bildschirm für Stempeluhr/Inhalt bleibt. */
+.topbar.topbar-staff{justify-content:flex-start;padding-top:max(14px, env(safe-area-inset-top));padding-bottom:12px;}
+.topbar-staff h1{font-size:21px;font-weight:700;letter-spacing:-.015em;}
 .geo-pill{
   display:flex;align-items:center;gap:7px;background:var(--primary-tint);color:var(--primary-dark);
   padding:7px 12px;border-radius:999px;font-size:12.5px;font-weight:600;
@@ -487,18 +511,6 @@ a{color:inherit;}
 .btn-danger:hover{background:var(--red);color:#fff;}
 .btn-sm{padding:6px 11px;font-size:12.2px;border-radius:8px;}
 .btn svg{width:14px;height:14px;}
-.btn-stamp{flex:1;justify-content:center;min-width:130px;padding:13px 18px;font-size:14.5px;border-radius:11px;}
-/* Eigene, klar unterscheidbare Farben NUR für die drei grossen Aktionsknöpfe der Mitarbeiter-Stempeluhr
-   (siehe .btn-stamp in StampWidget.tsx/MeStampBlock) — bewusst eigene Klassen statt .btn-accent/.btn-danger
-   zu verändern, die weiterhin unverändert an vielen anderen Stellen der App verwendet werden. */
-.btn-stamp-start{background:var(--stamp-start);color:#fff;box-shadow:0 10px 22px -10px rgba(34,197,94,.5);}
-.btn-stamp-start:hover{background:var(--stamp-start-dark);}
-.btn-stamp-stop{background:var(--stamp-stop);color:#fff;box-shadow:0 10px 22px -10px rgba(239,68,68,.5);}
-.btn-stamp-stop:hover{background:var(--stamp-stop-dark);}
-/* Pause bewusst zurückhaltender/"neutraler" als Start/Stopp (dezenter Amber-Tint statt vollflächigem Amber),
-   damit die zwei Hauptzustände (Start/Stopp) optisch klar führend bleiben. */
-.btn-stamp-pause{background:var(--amber-tint);color:#92600A;box-shadow:none;}
-.btn-stamp-pause:hover{background:#F5E2B8;}
 .icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;}
 .icon-btn:hover{border-color:var(--primary);color:var(--primary);}
 .icon-btn svg{width:15px;height:15px;}
@@ -689,11 +701,17 @@ tbody tr:hover{background:var(--surface-alt);}
 .stampclock-page{
   display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
   gap:16px;padding:6px 12px 10px;
-  min-height:calc(100vh - 190px);min-height:calc(100dvh - 190px);
+  /* svh statt dvh: bleibt während des Scrollens konstant (keine Höhenänderung durch ein-/ausblendende
+     mobile Adressleiste), 150px statt zuvor 190px reserviert nur noch für Header + Bottom-Navigation
+     (beide sind kompakter geworden, siehe .topbar-staff/.mobile-tabbar), damit mehr vom sichtbaren
+     Bereich tatsächlich für Stempeluhr/Start-Button genutzt wird statt als Leerraum zu wirken. */
+  min-height:calc(100vh - 150px);min-height:calc(100svh - 150px);
 }
-/* Zustand "nicht eingestempelt": Inhalt unten verankert statt zentriert — der START-Kreis steht im
-   unteren Bereich der Seite, mit klarem Abstand zur Bottom-Navigation (siehe .content-Padding). */
-.stampclock-page.is-idle{justify-content:flex-end;gap:22px;padding-bottom:28px;}
+/* Zustand "nicht eingestempelt": bewusst zentriert statt unten verankert — vorher entstand durch
+   justify-content:flex-end auf einem fast bildschirmhohen Container ein grosser, ungenutzter Leerraum
+   zwischen Header und Inhalt ("Seite wirkt zu hoch"). Zentriert bringt Objekt-Erkennung + Start-Button
+   direkt in den sichtbaren Bereich, ohne dass gescrollt werden muss. */
+.stampclock-page.is-idle{justify-content:center;gap:20px;}
 .stampclock-card{
   width:100%;max-width:350px;background:var(--surface);border:1px solid var(--line);
   border-radius:32px;padding:26px 22px 24px;box-shadow:var(--shadow-lifted);
@@ -757,20 +775,24 @@ tbody tr:hover{background:var(--surface-alt);}
 }
 .stampclock-round-btn:active{transform:scale(.94);box-shadow:0 8px 18px -8px rgba(0,0,0,.3);}
 .stampclock-round-btn:disabled{background:var(--surface-alt) !important;color:var(--ink-faint);box-shadow:none;cursor:not-allowed;}
+/* Start/Stopp nutzen bewusst --stamp-start/--stamp-stop (siehe :root) statt --green/--red, damit ein
+   Farbwunsch nur für diese beiden grossen Aktionsknöpfe nichts anderes (Badges, Buttons, Status) mitändert.
+   Dies ist der TATSÄCHLICH gerenderte Stempeluhr-Button (MeTimePage.tsx) — StampWidget/MeStampBlock war
+   ungenutzter Code und wurde entfernt. */
 .stampclock-round-btn.is-start{
   width:160px;height:160px;font-size:16px;gap:7px;
-  background:linear-gradient(160deg,#34D399,#16A34A);box-shadow:0 20px 38px -12px rgba(22,163,74,.55);
+  background:linear-gradient(160deg,var(--stamp-start),var(--stamp-start-dark));box-shadow:0 20px 38px -12px rgba(21,128,61,.55);
 }
 .stampclock-round-btn.is-start svg{width:28px;height:28px;}
-.stampclock-round-btn.is-start:hover{background:linear-gradient(160deg,#2FCB90,#128A3E);}
+.stampclock-round-btn.is-start:hover{filter:brightness(.92);}
 .stampclock-round-btn.is-pause,.stampclock-round-btn.is-resume,.stampclock-round-btn.is-stop{width:110px;height:110px;font-size:11.5px;}
 .stampclock-round-btn.is-pause svg,.stampclock-round-btn.is-resume svg,.stampclock-round-btn.is-stop svg{width:22px;height:22px;}
 .stampclock-round-btn.is-pause{background:linear-gradient(160deg,#FBBF24,#D97706);box-shadow:0 14px 26px -10px rgba(217,119,6,.5);}
 .stampclock-round-btn.is-pause:hover{background:linear-gradient(160deg,#F5B319,#C46C05);}
-.stampclock-round-btn.is-resume{background:linear-gradient(160deg,#4C7BC4,var(--primary));box-shadow:0 14px 26px -10px rgba(0,52,141,.5);}
-.stampclock-round-btn.is-resume:hover{background:linear-gradient(160deg,#3D6BB0,var(--primary-dark));}
-.stampclock-round-btn.is-stop{background:linear-gradient(160deg,#F0656A,var(--red));box-shadow:0 14px 26px -10px rgba(216,70,75,.5);}
-.stampclock-round-btn.is-stop:hover{background:linear-gradient(160deg,#E85258,#BE3B40);}
+.stampclock-round-btn.is-resume{background:linear-gradient(160deg,var(--stamp-start),var(--stamp-start-dark));box-shadow:0 14px 26px -10px rgba(21,128,61,.5);}
+.stampclock-round-btn.is-resume:hover{filter:brightness(.92);}
+.stampclock-round-btn.is-stop{background:linear-gradient(160deg,var(--stamp-stop),var(--stamp-stop-dark));box-shadow:0 14px 26px -10px rgba(220,38,38,.5);}
+.stampclock-round-btn.is-stop:hover{filter:brightness(.92);}
 
 /* Hintergrund-Standortprüfung bei START/STOPP: kurzer Ladezustand statt Modal */
 .stampclock-checking{display:flex;align-items:center;gap:7px;justify-content:center;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-top:6px;}
