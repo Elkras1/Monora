@@ -16,7 +16,7 @@ export const DASHBOARD_MODULES: DashboardModuleDef[] = [
   // dieselbe Idee wie beim Tickets/Material-Paar) und zeigt neben der Anzahl auch die kompakte Liste der
   // gerade aktiven Mitarbeiter.
   { id: 'kpi-active-now', label: 'Aktuell im Einsatz', size: 'xl' },
-  { id: 'kpi-pause', label: 'In Pause', size: 'sm' },
+  { id: 'kpi-pause', label: 'In Pause', size: 'half' },
   // Tickets und Materialanfragen sind die wichtigsten Arbeitsbereiche im Dashboard, aber klar getrennte
   // Datenquellen (siehe DashboardPage.tsx) — bewusst gleich gross und nebeneinander (size "half"), damit
   // beide sofort und gleichwertig sichtbar sind, statt eine kleine Kennzahl-Karte zu sein.

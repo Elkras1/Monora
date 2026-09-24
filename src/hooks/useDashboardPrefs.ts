@@ -19,11 +19,16 @@ export interface DashboardPrefs {
   hidden: string[];
 }
 
-// Bewusst schlank auf die vier Kernbereiche reduziert (Einsatzstatus, Tickets, Materialanfragen, Kalender)
-// — ein ruhiges Standard-Dashboard ohne zusätzliche Kennzahl-Karten. "In Pause"/"Offene Zeiteinträge" u.a.
-// bleiben im Modul-Katalog (DASHBOARD_MODULES) weiterhin wählbar und lassen sich über "Dashboard anpassen"
-// jederzeit ergänzen — diese Änderung betrifft nur die Werkseinstellung für neue/zurückgesetzte Profile.
-export const DEFAULT_MAIN_MODULES = ['kpi-active-now', 'kpi-tickets', 'kpi-materials', 'dash-calendar'];
+// Bewusst schlank: Einsatz | Pause (50/50), Tickets | Materialanfragen (50/50), Kalender — ein ruhiges
+// Standard-Dashboard ohne zusätzliche Kennzahl-Karten. Alle weiteren Module bleiben im Katalog
+// (DASHBOARD_MODULES) wählbar und lassen sich über "Dashboard anpassen" ergänzen; die Werkseinstellung
+// betrifft nur neue/zurückgesetzte Profile.
+export const DEFAULT_MAIN_MODULES = ['kpi-active-now', 'kpi-pause', 'kpi-tickets', 'kpi-materials', 'dash-calendar'];
+
+const OLD_DEFAULT_MAINS = [
+  ['kpi-active-now', 'kpi-pause', 'kpi-tickets', 'kpi-materials', 'dash-calendar', 'kpi-open-entries'],
+  ['kpi-active-now', 'kpi-tickets', 'kpi-materials', 'dash-calendar'],
+];
 
 const DEFAULT_PREFS: DashboardPrefs = { main: DEFAULT_MAIN_MODULES, more: [], hidden: [] };
 
@@ -55,6 +60,14 @@ function loadPrefs(userId: string | null): DashboardPrefs {
     if (!raw) return DEFAULT_PREFS;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed?.main) || !Array.isArray(parsed?.more)) return DEFAULT_PREFS;
+    // Wurde exakt die frühere Standardauswahl (inkl. "In Pause"/"Offene Zeiteinträge") gespeichert, ohne dass
+    // der Benutzer etwas Eigenes angepasst hat, gilt für ihn das neue, schlankere Standard-Dashboard. Jede
+    // abweichende, bewusst angepasste Auswahl bleibt unangetastet.
+    const isOldDefault =
+      parsed.more.length === 0 &&
+      (!Array.isArray(parsed.hidden) || parsed.hidden.length === 0) &&
+      OLD_DEFAULT_MAINS.some((old) => parsed.main.length === old.length && parsed.main.every((id: string, i: number) => id === old[i]));
+    if (isOldDefault) return DEFAULT_PREFS;
     const hidden = migrateModuleIds(Array.isArray(parsed.hidden) ? parsed.hidden : []);
     const main = migrateModuleIds(parsed.main).filter((id) => !hidden.includes(id));
     const more = migrateModuleIds(parsed.more).filter((id) => !main.includes(id) && !hidden.includes(id));

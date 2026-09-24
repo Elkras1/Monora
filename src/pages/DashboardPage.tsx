@@ -18,6 +18,7 @@ import { Empty } from '../components/ui/Empty';
 import { Icon } from '../components/icons/Icon';
 import { StampWidget } from '../components/StampWidget';
 import { DashboardCalendar } from '../components/DashboardCalendar';
+import { DashboardActiveNow } from '../components/DashboardActiveNow';
 import { DashboardWorkList, DASH_WORKLIST_MAX_ROWS } from '../components/DashboardWorkList';
 import { DashboardSettingsModal } from '../components/DashboardSettingsModal';
 import { LiveStatusListModal } from '../components/LiveStatusListModal';
@@ -93,7 +94,18 @@ function ModuleGroup({
   const seen = new Set<string>();
   const blocks: React.ReactNode[] = [];
 
-  if (ids.includes('kpi-active-now')) {
+  // Oberste Zeile: "Aktuell im Einsatz" | "In Pause" als festes 2-Spalten-Paar (50/50, siehe
+  // .dash-module-pair-row). Ist "In Pause" nicht sichtbar, steht "Aktuell im Einsatz" allein ganz oben.
+  if (ids.includes('kpi-active-now') && ids.includes('kpi-pause')) {
+    seen.add('kpi-active-now');
+    seen.add('kpi-pause');
+    blocks.push(
+      <div className="dash-module-pair-row" key="pair-live">
+        {renderOne('kpi-active-now')}
+        {renderOne('kpi-pause')}
+      </div>
+    );
+  } else if (ids.includes('kpi-active-now')) {
     seen.add('kpi-active-now');
     blocks.push(renderOne('kpi-active-now'));
   }
@@ -185,19 +197,19 @@ export function DashboardPage() {
   // sich identisch verhalten. type !== 'material' ist hier bewusst: Tickets, die aus einer Materialanfrage
   // erzeugt wurden (convertMaterialRequestToTicket, siehe MaterialRequestPanel), gehören technisch weiterhin
   // zu state.tickets, sollen aber NIE im Ticketbereich auftauchen — nur die Materialanfrage selbst zählt.
-  const openTickets = [...state.tickets]
+  const allOpenTickets = [...state.tickets]
     .filter((t) => t.type !== 'material' && t.status !== 'erledigt')
-    .sort((a, b) => dueRank(a.dueDate, todayIso, tomorrowIso) - dueRank(b.dueDate, todayIso, tomorrowIso) || (a.dueDate ?? '9999-99-99').localeCompare(b.dueDate ?? '9999-99-99'))
-    .slice(0, DASH_WORKLIST_MAX_ROWS);
+    .sort((a, b) => dueRank(a.dueDate, todayIso, tomorrowIso) - dueRank(b.dueDate, todayIso, tomorrowIso) || (a.dueDate ?? '9999-99-99').localeCompare(b.dueDate ?? '9999-99-99'));
+  const openTickets = allOpenTickets.slice(0, DASH_WORKLIST_MAX_ROWS);
 
-  const openMaterialRequests = [...state.materialRequests]
+  const allOpenMaterialRequests = [...state.materialRequests]
     .filter((m) => m.status === 'offen')
     .sort(
       (a, b) =>
         dueRank(a.requestedDate, todayIso, tomorrowIso) - dueRank(b.requestedDate, todayIso, tomorrowIso) ||
         (a.requestedDate ?? '9999-99-99').localeCompare(b.requestedDate ?? '9999-99-99')
-    )
-    .slice(0, DASH_WORKLIST_MAX_ROWS);
+    );
+  const openMaterialRequests = allOpenMaterialRequests.slice(0, DASH_WORKLIST_MAX_ROWS);
 
   const unreadChats = user ? getChatListFor(state, user.id).filter((c) => c.unreadCount > 0) : [];
 
@@ -232,44 +244,9 @@ export function DashboardPage() {
   function renderModule(id: string): React.ReactNode {
     switch (id) {
       case 'kpi-active-now':
-        return (
-          <>
-            <div className="card-head">
-              <h3>Aktuell im Einsatz</h3>
-            </div>
-            <div className="dash-active-now-count">{activeNow.length}</div>
-            {activeNow.length ? (
-              <div className="dash-active-now-list">
-                {activeNow.map((t) => {
-                  const emp = getEmp(state, t.employeeId);
-                  const cust = getCust(state, t.customerId);
-                  return (
-                    <div key={t.id} className="dash-active-now-row" onClick={() => openTimeEntry(t)}>
-                      <span className="name">{emp ? emp.name : 'Unbekannt'}</span>
-                      <span className="meta">
-                        {cust ? cust.name : 'Kein Objekt'} · seit {fmtTime(new Date(t.clockIn))}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <Empty icon="bolt" text="Niemand aktuell im Einsatz." />
-            )}
-          </>
-        );
+        return <DashboardActiveNow entries={activeNow} onOpen={openTimeEntry} onShowAll={() => setLiveListOpen('active')} />;
       case 'kpi-pause':
-        return (
-          <KpiCard
-            icon="pause"
-            label="In Pause"
-            value={onPauseCount}
-            bg="var(--amber-tint)"
-            fg="#93670A"
-            delta={onPauseCount ? 'Pausiert aktuell' : 'Niemand pausiert'}
-            onClick={() => setLiveListOpen('pause')}
-          />
-        );
+        return <DashboardActiveNow variant="pause" entries={pauseNow} onOpen={openTimeEntry} onShowAll={() => setLiveListOpen('pause')} />;
       case 'kpi-open-entries':
         return (
           <KpiCard
@@ -366,6 +343,7 @@ export function DashboardPage() {
             title="Materialanfragen"
             onAdd={canManageMaterial ? () => actions.openModal('materialRequest') : undefined}
             addTooltip="Neue Materialanfrage"
+            totalCount={allOpenMaterialRequests.length}
             items={openMaterialRequests}
             getKey={(m) => m.id}
             rowClassName={(m) => dashboardUrgencyRowClass(materialUrgency(m, todayIso, tomorrowIso))}
@@ -386,6 +364,7 @@ export function DashboardPage() {
             title="Tickets"
             onAdd={canCreateTickets ? () => actions.openModal('ticket') : undefined}
             addTooltip="Neues Ticket"
+            totalCount={allOpenTickets.length}
             items={openTickets}
             getKey={(t) => t.id}
             rowClassName={(t) => dashboardUrgencyRowClass(ticketUrgency(t, todayIso, tomorrowIso))}
@@ -727,10 +706,13 @@ export function DashboardPage() {
   return (
     <>
       <div className="dash-header-row">
-        <div />
-        <div style={{ display: 'flex', gap: 8 }}>
+        <h1 className="dash-page-title">Dashboard</h1>
+        <div className="dash-header-actions">
+          <span className="dash-page-date">
+            Heute, {new Date().toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </span>
           <button
-            className={`btn btn-outline ${editMode ? 'is-active' : ''}`}
+            className={`btn btn-outline btn-sm ${editMode ? 'is-active' : ''}`}
             onClick={() => {
               const next = !editMode;
               setEditMode(next);
@@ -739,7 +721,7 @@ export function DashboardPage() {
           >
             <Icon name={editMode ? 'check' : 'edit'} /> {editMode ? 'Fertig' : 'Dashboard bearbeiten'}
           </button>
-          <button className="btn btn-outline" onClick={() => setSettingsOpen(true)}>
+          <button className="btn btn-outline btn-sm" onClick={() => setSettingsOpen(true)}>
             <Icon name="settings" /> Dashboard anpassen
           </button>
         </div>

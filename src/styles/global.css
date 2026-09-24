@@ -435,27 +435,27 @@ a{color:inherit;}
 /* "+ Neues Ticket" / "+ Neue Materialanfrage" im Dashboard-Kartenkopf — bewusst dieselbe runde, kompakte
    Planico-blaue Form wie der "Erledigt"-Haken (.dash-mat-check-btn), damit Tickets und Materialanfragen
    optisch zusammenpassen (siehe Karten-Header-Zeile in DashboardPage.tsx). */
-.dash-header-add-btn{width:30px;height:30px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;transition:background .12s ease,transform .06s ease;}
-.dash-header-add-btn:hover{background:var(--primary-dark);}
+.dash-header-add-btn{width:26px;height:26px;border-radius:50%;border:none;background:var(--nav-blue);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;transition:background .12s ease,transform .06s ease;}
+.dash-header-add-btn:hover{background:var(--nav-blue-dark);}
 .dash-header-add-btn:active{transform:scale(.92);}
-.dash-header-add-btn svg{width:15px;height:15px;}
+.dash-header-add-btn svg{width:14px;height:14px;}
 .dash-row-overdue{color:var(--red-dark) !important;font-weight:700;}
 
 /* Gemeinsame Dashboard-Arbeitsliste für Tickets UND Materialanfragen (siehe DashboardWorkList.tsx) — EINE
    Zeilenstruktur/-höhe/-schrift für beide Bereiche, damit sie wie zwei Teile derselben Komponente wirken.
    Bewusst getrennt von .dash-mat-row/.dash-tick-row oben (die weiterhin z.B. vom Chat-Modul genutzt werden),
    damit Änderungen an dieser gemeinsamen Liste nicht versehentlich andere Dashboard-Module mitverändern. */
-.dash-worklist-body{display:flex;flex-direction:column;}
-.dash-worklist-row{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:8px;min-height:64px;}
+.dash-worklist-body{display:flex;flex-direction:column;gap:6px;min-height:150px;}
+.dash-worklist-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;min-height:52px;cursor:pointer;}
 .dash-worklist-row:hover{filter:brightness(0.98);}
-.dash-worklist-info{display:flex;flex-direction:column;justify-content:center;gap:2px;flex:1;min-width:0;cursor:pointer;}
-.dash-worklist-name{font-weight:700;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dash-worklist-meta{font-size:11.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dash-worklist-due{font-size:10.8px;font-weight:600;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-worklist-info{display:flex;flex-direction:column;justify-content:center;gap:1px;flex:1;min-width:0;}
+.dash-worklist-name{font-weight:650;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-worklist-meta{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Fälligkeit rechts neben dem Haken, klein aber gut lesbar — Tickets und Materialanfragen identisch. */
+.dash-worklist-due{flex:none;font-size:12px;font-weight:600;color:var(--ink-soft);white-space:nowrap;text-align:right;}
 .dash-worklist-due.is-overdue{color:var(--red-dark);}
-.dash-worklist-actions{display:flex;gap:4px;flex:none;}
-.dash-worklist-check-btn{width:30px;height:30px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;transition:background .12s ease,transform .06s ease;}
-.dash-worklist-check-btn:hover{background:var(--primary-dark);}
+.dash-worklist-check-btn{width:28px;height:28px;border-radius:50%;border:none;background:var(--nav-blue);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;transition:background .12s ease,transform .06s ease;}
+.dash-worklist-check-btn:hover{background:var(--nav-blue-dark);}
 .dash-worklist-check-btn:active{transform:scale(.92);}
 .dash-worklist-check-btn svg{width:14px;height:14px;}
 
@@ -466,7 +466,10 @@ a{color:inherit;}
 .dash-status-row .val{font-weight:600;color:var(--ink);}
 
 /* Dashboard: konfigurierbare Module (Admin/Manager) */
-.dash-header-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.dash-header-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.dash-page-title{font-size:22px;font-weight:700;letter-spacing:-.015em;color:var(--ink);}
+.dash-header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.dash-page-date{font-size:13px;font-weight:600;color:var(--ink-soft);margin-right:6px;}
 .btn-outline.is-active{background:var(--primary-tint);border-color:var(--primary);color:var(--primary-dark);}
 
 .dash-modules{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch;margin-bottom:4px;}
@@ -478,16 +481,17 @@ a{color:inherit;}
 @media (max-width:1100px){
   .dash-module.size-half{flex-basis:100%;min-width:0;}
 }
-/* Tickets und Materialanfragen sitzen NICHT lose als zwei "half"-Module im allgemeinen Flex-Umbruch (dort
-   könnten benachbarte kleinere KPI-Karten die Paarung auf eine Zeile verhindern und eines der beiden zum
-   Alleinstehen mit voller Breite zwingen — genau das ist vorher passiert). Stattdessen rendert DashboardPage
-   sie fest als Paar in einem eigenen Wrapper (.dash-module-pair-row), der selbst immer eine ganze Zeile
-   belegt (wie .size-xl) und intern beide Karten zu exakt gleichen Teilen aufteilt, unabhängig von jedem
-   anderen Modul davor oder danach. Unter 1100px (Tablet/Mobile) untereinander, je volle Breite. */
-.dash-module-pair-row{display:flex;flex:1 1 100%;gap:16px;align-items:stretch;}
-.dash-module-pair-row .dash-module{flex:1 1 0;min-width:0;}
+/* Paar-Zeilen (Einsatz | Pause und Tickets | Materialanfragen) sind ein gemeinsames 2-Spalten-Grid
+   (repeat(2, minmax(0,1fr)) => exakt 50/50, unabhängig vom Inhalt), statt lose "half"-Module im allgemeinen
+   Flex-Umbruch (dort konnten Nachbarkarten die Paarung verhindern und eine Karte auf volle Breite
+   dehnen). DashboardPage rendert die Paare fest in einem eigenen Wrapper (.dash-module-pair-row), der
+   selbst immer eine ganze Zeile belegt (flex-basis 100%); Grid-Items strecken sich auf gleiche Höhe.
+   Unter 1100px (Tablet/Mobile) untereinander, je volle Breite. */
+.dash-module-pair-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));flex:1 1 100%;gap:16px;align-items:stretch;min-width:0;}
+.dash-modules > *{min-width:0;}
+.dash-module-pair-row .dash-module{min-width:0;}
 @media (max-width:1100px){
-  .dash-module-pair-row{flex-direction:column;}
+  .dash-module-pair-row{grid-template-columns:minmax(0,1fr);}
 }
 .dash-module .dash-module-body{flex:1;margin-bottom:0;}
 @media (max-width:700px){.dash-module{flex-basis:100% !important;}}
@@ -495,19 +499,69 @@ a{color:inherit;}
 /* Dashboard-Kartentitel bewusst kräftiger als der app-weite Standard (.card-head h3, font-size:14.5px) —
    NUR innerhalb von .dash-module (Desktop-Dashboard-Karten) überschrieben, damit andere Seiten und die
    mobile Mitarbeiteransicht (dieselbe .card-head-Klasse) unverändert bleiben. */
-.dash-module .card-head h3{font-size:16px;font-weight:700;color:var(--ink);}
+.dash-module .card-head h3{font-size:18px;font-weight:700;color:var(--ink);letter-spacing:-.01em;}
+/* Kompakte Dashboard-Karten: dezente Border (aus .card), kein Schatten, moderates Padding/Kopfabstand. */
+.dash-module .dash-module-body{padding:16px 18px;border-radius:14px;}
+.dash-module .card-head{margin-bottom:12px;}
+.dash-module .card-head{flex-wrap:wrap;gap:8px;}
+.dash-head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;min-width:0;max-width:100%;}
+@media (max-width:700px){
+  .dash-head-right .tabs{flex:1;min-width:0;}
+  .dash-head-right .tab{flex:1;padding:8px 6px;}
+  .user-chip-txt{display:none;}
+}
+@media (max-width:420px){.geo-pill{padding:6px 9px;font-size:11.5px;}}
+.dash-open-count{font-size:12.5px;font-weight:600;color:var(--ink-soft);white-space:nowrap;}
 
-/* "Aktuell im Einsatz" (siehe DashboardPage.tsx) — grosse, kräftige Zahl in der zentralen Menü-/Login-Farbe
-   (--nav-blue, dieselbe wie TopNav/Login), darunter eine kompakte Liste der gerade aktiven Mitarbeiter
-   (Name / Objekt · seit HH:MM). Bewusst ohne Fälligkeits-/Statusfarben pro Zeile — hier zählt nur "wer ist
-   gerade im Einsatz", nicht Dringlichkeit. */
-.dash-active-now-count{font-size:34px;font-weight:800;color:var(--nav-blue);line-height:1;margin:2px 0 14px;}
-.dash-active-now-list{display:flex;flex-direction:column;}
-.dash-active-now-row{display:flex;flex-direction:column;gap:1px;padding:8px 4px;border-bottom:1px solid var(--line);cursor:pointer;}
-.dash-active-now-row:last-child{border-bottom:none;}
-.dash-active-now-row:hover{background:var(--surface-alt);}
-.dash-active-now-row .name{font-weight:700;font-size:13.5px;color:var(--ink);}
-.dash-active-now-row .meta{font-size:11.5px;color:var(--ink-faint);}
+/* "Aktuell im Einsatz" (DashboardActiveNow.tsx) — Zahl rechts im Kartenkopf in der zentralen Menü-/Login-
+   Farbe (--nav-blue), darunter kompakte Live-Zeilen in einem responsiven Raster (mehrere Mitarbeiter pro
+   Zeile statt grosser Einzelkarten). Grüner Live-Punkt (#15803D = --stamp-start-dark) mit dezentem Puls,
+   Amber bei Pause. */
+.dash-live-count{font-size:28px;font-weight:800;color:var(--nav-blue);line-height:1;}
+.dash-live-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:2px 16px;}
+.dash-live-list.is-single{grid-template-columns:minmax(0,1fr);}
+.dash-live-row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer;min-width:0;}
+.dash-live-row:hover{background:var(--surface-alt);}
+.dash-live-dot{width:9px;height:9px;border-radius:50%;flex:none;position:relative;background:var(--stamp-start-dark);}
+.dash-live-dot.is-live::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1.5px solid var(--stamp-start-dark);opacity:0;animation:ping 2.2s ease-out infinite;}
+.dash-live-dot.is-pause{background:var(--amber);}
+.dash-live-text{min-width:0;}
+.dash-live-name{font-weight:650;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-live-meta{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-live-empty{font-size:13px;color:var(--ink-soft);padding:2px 2px 4px;}
+.dash-live-more{margin-top:6px;background:none;border:none;color:var(--nav-blue);font-size:12.5px;font-weight:650;padding:4px 8px;}
+.dash-live-more:hover{color:var(--nav-blue-dark);}
+
+/* Dashboard-Kalender (DashboardCalendar.tsx) — kompakt: links kleine Monatsansicht mit Punkten, rechts
+   "Heute"/gewählter Tag und "Nächste Termine". */
+.dash-cal{display:grid;grid-template-columns:minmax(320px,440px) 1fr;gap:24px;align-items:start;}
+.dash-cal-nav{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.dash-cal-month-label{flex:1;text-align:center;font-weight:650;font-size:14px;}
+.dash-cal-nav .icon-btn{width:28px;height:28px;}
+.dash-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px;}
+.dash-cal-weekdays div{text-align:center;font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;}
+.dash-cal-day{height:40px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:background .12s ease;}
+.dash-cal-day:hover{background:var(--surface-alt);}
+.dash-cal-day.is-blank{cursor:default;pointer-events:none;}
+.dash-cal-day-num{font-size:12.5px;font-weight:600;color:var(--ink);line-height:1;}
+.dash-cal-day.is-today .dash-cal-day-num{background:var(--nav-blue);color:#fff;border-radius:999px;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+.dash-cal-day.is-selected{box-shadow:inset 0 0 0 1.5px var(--nav-blue);}
+.dash-cal-day.is-drop-target{background:var(--nav-blue-tint);}
+.dash-cal-dots{display:flex;gap:3px;height:5px;}
+.dash-cal-dots i{width:5px;height:5px;border-radius:50%;display:block;}
+.dash-cal-agenda{display:flex;flex-direction:column;gap:14px;min-width:0;}
+.dash-cal-section-head{display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.03em;padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:2px;}
+.dash-cal-section-sub{font-size:12px;font-weight:500;color:var(--ink-faint);text-transform:none;letter-spacing:0;}
+.dash-cal-row{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:8px;cursor:pointer;min-width:0;}
+.dash-cal-row:hover{background:var(--surface-alt);}
+.dash-cal-row.is-done{opacity:.55;}
+.dash-cal-dot{width:7px;height:7px;border-radius:50%;flex:none;}
+.dash-cal-time{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--ink-soft);flex:none;min-width:44px;}
+.dash-cal-time.is-date{font-family:inherit;font-weight:650;}
+.dash-cal-label{font-size:13px;color:var(--ink);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-cal-kind{color:var(--ink-soft);font-weight:600;}
+.dash-cal-empty{font-size:12.5px;color:var(--ink-faint);padding:6px 6px;}
+@media (max-width:1000px){.dash-cal{grid-template-columns:1fr;gap:16px;}}
 
 .dash-module.is-editable{border-radius:16px;box-shadow:0 0 0 2px transparent;transition:box-shadow .12s;}
 .dash-module.is-editable:hover{box-shadow:0 0 0 2px var(--primary-tint);}
@@ -1467,38 +1521,6 @@ tbody tr:hover{background:var(--surface-alt);}
   .tick-ov-actions{flex-wrap:wrap;}
 }
 
-/* Dashboard-Kalender (DashboardCalendar.tsx) — ruhige Apple-/iCloud-artige Monatsansicht: viel Weissraum,
-   dünne Trennlinien, keine Schatten/Farbverläufe. Gitter über CSS grid (repeat(7,1fr)) statt einer
-   horizontal scrollenden Zeitleiste wie im Dienstplan — dadurch von Haus aus ohne horizontales Scrollen. */
-.cal-dash-nav{display:flex;align-items:center;justify-content:space-between;margin:2px 0 12px;flex-wrap:wrap;gap:8px;}
-.cal-dash-month-label{font-weight:600;min-width:150px;text-align:center;font-size:14px;}
-.cal-dash-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;}
-.cal-dash-weekdays div{text-align:center;font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;}
-.cal-dash-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;}
-.cal-dash-day{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:92px;padding:6px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:background .12s ease,border-color .12s ease;}
-.cal-dash-day.is-blank{background:transparent;border-color:transparent;cursor:default;}
-.cal-dash-day.is-weekend{background:var(--bg);}
-.cal-dash-day.is-today{border-color:var(--primary);}
-.cal-dash-day.is-today .cal-dash-day-num{color:var(--primary-dark);font-weight:700;}
-.cal-dash-day.is-selected{box-shadow:inset 0 0 0 2px var(--primary);}
-.cal-dash-day.is-drop-target{background:var(--primary-tint);}
-.cal-dash-day-top{display:flex;align-items:center;justify-content:space-between;}
-.cal-dash-day-num{font-size:12.5px;font-weight:600;color:var(--ink-soft);}
-.cal-dash-day-add{width:18px;height:18px;border-radius:5px;border:none;background:none;color:var(--ink-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;opacity:0;transition:opacity .12s ease,background .12s ease,color .12s ease;}
-.cal-dash-day-add svg{width:11px;height:11px;}
-.cal-dash-day:hover .cal-dash-day-add,.cal-dash-day:focus-within .cal-dash-day-add{opacity:1;}
-.cal-dash-day-add:hover{background:var(--primary-tint);color:var(--primary-dark);}
-.cal-dash-day-entries{display:flex;flex-direction:column;gap:3px;min-width:0;}
-.cal-dash-entry{font-size:10.5px;font-weight:600;color:var(--ink);background:var(--primary-tint);border-radius:5px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
-.cal-dash-day-more{font-size:10px;color:var(--ink-faint);font-weight:600;padding-left:2px;}
-
-.cal-dash-agenda{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
-.cal-dash-agenda-head{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);margin-bottom:8px;}
-.cal-dash-agenda-row{display:flex;align-items:baseline;gap:10px;padding:7px 4px;border-bottom:1px solid var(--line);cursor:pointer;}
-.cal-dash-agenda-row:last-child{border-bottom:none;}
-.cal-dash-agenda-row:hover{background:var(--surface-alt);}
-.cal-dash-agenda-time{font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:700;color:var(--ink-soft);flex:none;width:38px;}
-.cal-dash-agenda-lbl{font-size:12.8px;color:var(--ink);}
 
 .mobile-toggle{display:none;}
 @media (max-width:880px){
@@ -1518,10 +1540,6 @@ tbody tr:hover{background:var(--surface-alt);}
   .dash-mat-check-btn svg{width:17px;height:17px;}
   .dash-header-add-btn{width:40px;height:40px;}
   .dash-header-add-btn svg{width:18px;height:18px;}
-  .cal-dash-day{min-height:60px;padding:4px;border-radius:8px;}
-  .cal-dash-day-add{opacity:1;width:20px;height:20px;}
-  .cal-dash-entry{font-size:9.5px;padding:2px 4px;}
-  .cal-dash-month-label{min-width:0;font-size:13px;}
   .field input,.field select,.field textarea{padding:12px 12px;font-size:15px;min-height:44px;}
   .field-row{grid-template-columns:1fr;}
   .tab{padding:10px 14px;font-size:13px;}
